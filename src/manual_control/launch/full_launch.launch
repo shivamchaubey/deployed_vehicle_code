@@ -1,0 +1,36 @@
+<launch>
+
+  <!-- ############ Keyboard control ############ -->
+  <node pkg="rosserial_python" type="serial_node.py" name="serial_node">
+    <param name="port" value="/dev/ttyArduino"/>
+    <param name="baud" value="500000"/>
+  </node>
+
+  <node name="keyboard_control" pkg="manual_control" type="keyboard.py" output="screen">
+  <param name="record_data"    type="bool"   value="false" />
+  </node>
+
+
+
+
+  <!-- ############ Vehicle Model Simulator ############ -->
+    <node name="simulator" pkg="vehicle_model" type="vehicle_sim.py" output="screen">
+  <param name="record_sim_data"    type="bool"   value="false" />
+  </node>
+
+
+  <!-- ############ Plotter Real vs Vehcile Model ############ -->
+  <node name="real_vs_simulated" pkg="plotter" type="real_vs_sim.py" output="screen">
+  <param name="record_sim_data"    type="bool"   value="false" />
+  </node>
+
+  <arg name="record_data" default="false"/>
+    <arg name="bags_directory" value="/home/auto/Desktop/autonomus_vehicle_project/project/development/proto/vehicle_model/workspace/src/vehicle_model/data/data_record"/>
+
+
+    <!-- Record bag -->
+    <node name="bag_record" pkg="rosbag" type="record"
+        args="record -o $(arg bags_directory)"
+        if="$(eval record_data)"/>
+
+</launch>

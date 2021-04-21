@@ -1,0 +1,478 @@
+#!/usr/bin/env python
+
+## License: Apache 2.0. See LICENSE file in root directory.
+## Copyright(c) 2015-2017 Intel Corporation. All Rights Reserved.
+
+###############################################
+##      Open CV and Numpy integration        ##
+###############################################
+
+import rospy
+import numpy as np
+import cv2
+import time
+import datetime
+import os
+import cv2.aruco as aruco
+from sensor_msgs.msg import CompressedImage
+from math import cos, sin, atan2, atan, pi
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+from numpy.linalg import inv, norm, det
+from geometry_msgs.msg import Pose
+
+# fs = cv2.FileStorage("/home/auto/Desktop/autonomus_vehicle_project/project/development/proto/camera_development/kinect/first.yaml", cv2.FILE_STORAGE_READ)
+# matrix_coefficients  = fs.getNode("K").mat()
+# distortion_coefficients  = fs.getNode("D").mat()
+
+
+
+# print('distortion_coefficients',distortion_coefficients)
+# print('matrix_coefficients',matrix_coefficients)
+
+#matrix_coefficients
+mtx =  np.array([[245.58486295,   0.        , 328.57055189],
+       [  0.        , 245.24846233, 229.01671809],
+       [  0.        ,   0.        ,   1.        ]])   
+
+#distortion_coefficients
+dist =  np.array([[-0.32748962,  0.1208519 , -0.00152458,  0.00164202, -0.02107851]])
+
+
+
+class ImuClass(object):
+    """ Object collecting IMU + Encoder data
+        The encoder measures the angular velocity at the DC motor output. Then
+        it is transformed to wheel linear velocity and put over the message:
+        /twist.linear.x
+    """
+
+    def __init__(self,t0):
+
+        rospy.Subscriber('pose', Pose, self.Pose_callback, queue_size=1)
+
+        self.transform = True
+
+        self.roll    = 0.0
+        self.pitch   = 0.0
+        self.yaw     = 0.0  
+
+        # self.yaw_offset = 3.080500841140747
+        self.yaw_offset = 0
+
+        self.co_yaw     = 0.0
+
+        # time stamp
+        self.t0     = t0
+
+        # Time for yawDot integration
+        self.curr_time = rospy.get_rostime().to_sec() - self.t0
+        self.prev_time = self.curr_time
+
+        #         #history
+        # self.twist_hist = {"timestamp_ms":[],"vx":[],"vy":[],"psiDot":[],"ax":[],"ay":[],"az":[]}
+        # self.pose_hist = {"timestamp_ms":[],"roll":[],"pitch":[],"yaw":[]}
+        # self.wheel_rpm_hist = {"timestamp_ms":[],"wheel_rpm":[]}
+
+    def Pose_callback(self, data):
+        self.curr_time = rospy.get_rostime().to_sec() - self.t0
+
+        self.roll   = data.orientation.x
+        self.pitch  = data.orientation.y
+        self.yaw    = data.orientation.z + self.yaw_offset
+
+        # self.qx   = data.orientation.x
+        # self.qy   = data.orientation.y
+        # self.qz   = data.orientation.z
+        # self.qw   = data.orientation.w
+        # self.yaw    = wrap(data.orientation.z) - self.yaw_offset  # from IMU
+
+
+        # if (len(self.pose_hist["yaw"])>self.ax_window):
+        #     self.yaw     = np.mean(np.array(self.pose_hist["yaw"][-1*self.ax_window:])) 
+            
+
+
+        # self.pose_hist["timestamp_ms"].append(self.curr_time)
+        # self.pose_hist["roll"].append(self.roll)
+        # self.pose_hist["pitch"].append(self.pitch)
+        # self.pose_hist["yaw"].append(self.yaw)
+        # self.prev_time = self.curr_time
+
+
+def wrap(angle):
+    if angle < -np.pi:
+        w_angle = 2 * np.pi + angle
+    elif angle > np.pi:
+        w_angle = angle - 2 * np.pi
+    else:
+        w_angle = angle
+
+    return w_angle
+
+
+
+
+class image_stream():
+    def __init__(self):
+
+        # subscribed Topic
+        self.subscriber = rospy.Subscriber("/usb_cam/image_raw/compressed",
+            CompressedImage, self.callback,  queue_size = 1)
+        self.image_np = np.zeros((1080, 1920, 3))
+
+    def callback(self, ros_data):
+        
+        #### direct conversion to CV2 ####
+        np_arr = np.fromstring(ros_data.data, np.uint8)
+        # print ("np_arr",np_arr)
+        # self.image_np = cv2.imdecode(np_arr, cv2.CV_LOAD_IMAGE_COLOR)
+        self.image_np = cv2.imdecode(np_arr, cv2.IMREAD_COLOR) # OpenCV >= 3.0:
+        # print ("self.image_np shape",self.image_np.shape)
+        # seg_img = clustering(image_np)
+        # cv2.imshow('clustering image', self.image_np)
+        # cv2.waitKey(2)
+
+
+
+def _initializeFigure_xy(x_lim,y_lim):
+    xdata = []; ydata = []
+    fig = plt.figure(figsize=(10,8))
+    plt.ion()
+    plt.xlim([-1*x_lim,x_lim])
+    plt.ylim([-1*y_lim,y_lim])
+
+    axtr = plt.axes()
+    # Points = int(np.floor(10 * (map.PointAndTangent[-1, 3] + map.PointAndTangent[-1, 4])))
+    # # Points1 = np.zeros((Points, 2))
+    # # Points2 = np.zeros((Points, 2))
+    # # Points0 = np.zeros((Points, 2))
+    # Points1 = np.zeros((Points, 3))
+    # Points2 = np.zeros((Points, 3))
+    # Points0 = np.zeros((Points, 3))
+
+    # for i in range(0, int(Points)):
+    #     Points1[i, :] = map.getGlobalPosition(i * 0.1, map.halfWidth)
+    #     Points2[i, :] = map.getGlobalPosition(i * 0.1, -map.halfWidth)
+    #     Points0[i, :] = map.getGlobalPosition(i * 0.1, 0)
+
+    # plt.plot(map.PointAndTangent[:, 0], map.PointAndTangent[:, 1], 'o')
+    # plt.plot(Points0[:, 0], Points0[:, 1], '--')
+    # plt.plot(Points1[:, 0], Points1[:, 1], '-b')
+    # plt.plot(Points2[:, 0], Points2[:, 1], '-b')
+
+    # These lines plot the planned offline trajectory in the main figure:
+    # plt.plot(X_Planner_Pts[0, 0:290], Y_Planner_Pts[0, 0:290], '--r')
+    # plt.plot(X_Planner_Pts[0, 290:460], Y_Planner_Pts[0, 290:460], '--r')
+    # plt.plot(X_Planner_Pts[0, :], Y_Planner_Pts[0, :], '--r')
+
+
+    line_sim,       = axtr.plot(xdata, ydata, '-k')
+    line_rl,        = axtr.plot(xdata, ydata, '-b')  # Plots the traveled positions
+    point_simc,     = axtr.plot(xdata, ydata, '-or')       # Plots the current positions
+    line_SS,        = axtr.plot(xdata, ydata, 'og')
+    point_rlc,      = axtr.plot(xdata, ydata, '-or')
+    line_planning,  = axtr.plot(xdata, ydata, '-ok')
+    line_0,        = axtr.plot(xdata, ydata, '-r')  # Plots the traveled positions
+    line_2,        = axtr.plot(xdata, ydata, '-g')  # Plots the traveled positions
+    line_3,        = axtr.plot(xdata, ydata, '-b')  # Plots the traveled positions
+    line_4,        = axtr.plot(xdata, ydata, '-y')  # Plots the traveled positions
+    line_fusion,        = axtr.plot(xdata, ydata, '-m')  # Plots the traveled positions
+    
+
+
+    v = np.array([[ 1.,  1.],
+                  [ 1., -1.],
+                  [-1., -1.],
+                  [-1.,  1.]])
+
+    marker_0 = patches.Polygon(v, alpha=0.7, closed=True, fc='r', ec='k', zorder=10,label='ID0')
+    axtr.add_patch(marker_0)
+    # # Vehicle:
+    marker_2 = patches.Polygon(v, alpha=0.7, closed=True, fc='G', ec='k', zorder=10,label='ID2')
+    axtr.add_patch(marker_2)
+
+    marker_3 = patches.Polygon(v, alpha=0.7, closed=True, fc='b', ec='k', zorder=10,label='ID3')
+    # axtr.add_patch(marker_3)
+    # # Vehicle:
+    marker_4 = patches.Polygon(v, alpha=0.7, closed=True, fc='y', ec='k', zorder=10,label='ID4')
+    # axtr.add_patch(marker_4)
+
+
+    fusion = patches.Polygon(v, alpha=0.7, closed=True, fc='m', ec='k', zorder=10,label='fusion')
+    # axtr.add_patch(fusion)
+    
+
+    plt.legend()
+    # # Planner vehicle:
+    rec_planning = patches.Polygon(v, alpha=0.7, closed=True, fc='k', ec='k', zorder=10)
+    # axtr.add_patch(rec_planning)
+
+
+
+    plt.show()
+
+    return plt, fig, axtr, line_planning, point_simc, point_rlc, line_SS, line_sim, line_rl, line_0, line_2, line_3, line_4, line_fusion,\
+     marker_0, marker_2, marker_3, marker_4, fusion ,rec_planning
+
+def getCarPosition(x, y, psi, w, l):
+    car_x = [ x + l * np.cos(psi) - w * np.sin(psi), x + l * np.cos(psi) + w * np.sin(psi),
+              x - l * np.cos(psi) + w * np.sin(psi), x - l * np.cos(psi) - w * np.sin(psi)]
+    car_y = [ y + l * np.sin(psi) + w * np.cos(psi), y + l * np.sin(psi) - w * np.cos(psi),
+              y - l * np.sin(psi) - w * np.cos(psi), y - l * np.sin(psi) + w * np.cos(psi)]
+    return car_x, car_y
+
+
+
+
+
+def main():
+
+
+
+
+    rospy.init_node('fishcam_pose', anonymous=True)
+    loop_rate       = 30
+    rate            = rospy.Rate(loop_rate)
+
+
+
+    ####### ORIGIN w.r.t world
+    # Gx = 0.50 - (1.1 + 27.0 + 2.7/2)*10**-2
+    # Gy = 1.50 - (27.0 + 4.4/2)*10**-2
+    # Gz = 3.50 #from the camera focal point
+
+    ###### ORIGIN NEAR ID2 ####################
+    '''
+    Prepare the world map for markers
+    '''
+    Gx = 0
+    Gy = 0
+    Gz = 0 
+
+    G_coor = np.array([Gx,Gy,Gz])
+    cid2 = np.array([[0.0,1.1+27.0,0.0],[27.0,1.1+27.0,0.0],[27.0,1.1,0.0],[0.0,1.1,0.0]])*10**-2 + G_coor
+    cid3 = cid2 + np.array([0.0,2.7+27.0,0.0])*10**-2 
+    cid4 = cid2 + np.array([27.0+4.4,-1.1,0.0])*10**-2
+    cid0 = cid4 + np.array([0.0,27.0+2.7,0.0])*10**-2 
+
+    ncid2 = np.array([cid2[2],cid2[1],cid2[0],cid2[3]])
+
+    ncid0 = np.array([cid0[0],cid0[3],cid0[2],cid0[1]])
+
+    ncid3 = np.array([cid3[2],cid3[1],cid3[0],cid3[3]])
+
+    ncid4 = np.array([cid4[0],cid4[3],cid4[2],cid4[1]])
+
+    aruco_world_corners = {'0':ncid0,'2':ncid2,'3':ncid3,'4':ncid4}
+
+    #############################################
+
+
+
+    counter = 0
+
+    # ##### plot ####
+    # lim = 2
+    # plim = 0.2
+    # ( plt, fig, axtr, line_planning, point_simc, point_rlc, line_SS, line_sim, line_rl, line_0, line_2, line_3, line_4, line_fusion,\
+    #      marker_0, marker_2, marker_3, marker_4, fusion ,rec_planning) = _initializeFigure_xy(lim,lim)
+    # real0_x_his = []
+    # real0_y_his = []
+    # real2_x_his = []
+    # real2_y_his = []
+
+    # plt.plot(aruco_world_corners[str(0)][:,0],aruco_world_corners[str(0)][:,1],'r')
+    # plt.plot(aruco_world_corners[str(4)][:,0],aruco_world_corners[str(4)][:,1],'g')
+    # plt.plot(aruco_world_corners[str(2)][:,0],aruco_world_corners[str(2)][:,1],'b')
+    # plt.plot(aruco_world_corners[str(3)][:,0],aruco_world_corners[str(3)][:,1],'y')
+    # plt.gca().set_aspect('equal', adjustable='box')
+
+
+
+    time0 = rospy.get_time()
+
+
+    # k_cam = image_stream()
+    # frame = k_cam.image_np
+
+
+    cap = cv2.VideoCapture(0)
+
+
+    imu = ImuClass(time0)
+    
+    
+    # pub = rospy.Publisher('pose', Pose, queue_size=1)
+    pure_cam_pose  = rospy.Publisher('pure_cam_pose', Pose, queue_size=1)
+    fused_cam_pose  = rospy.Publisher('fused_cam_pose', Pose, queue_size=1)
+
+    pose_cam_pure  = Pose()
+    pose_cam_fused = Pose()
+    
+    pose_cam_pure_hist = {'timestamp_ms':[],'pos_x':[],'pos_y':[],'yaw':[]}
+    pose_cam_fused_hist = {'timestamp_ms':[],'pos_x':[],'pos_y':[],'yaw':[]}
+
+    dtheta = [] 
+
+    calibrate = False
+    rot_mat = np.identity(3) 
+
+    cal_count = 0
+
+
+
+    while not (rospy.is_shutdown()):
+        # frame = k_cam.image_np
+        
+        # frame=frame.astype(np.uint8)
+        
+        ret, frame = cap.read()
+
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+        aruco_dict = aruco.Dictionary_get(aruco.DICT_4X4_50)
+
+        # detector parameters can be set here (List of detection parameters[3])
+        parameters = aruco.DetectorParameters_create()
+        # parameters.adaptiveThreshConstant = true
+
+        parameters.cornerRefinementMethod = aruco.CORNER_REFINE_CONTOUR
+
+
+        # lists of ids and the corners belonging to each id
+        corners, ids, rejectedImgPoints = aruco.detectMarkers(gray, aruco_dict, parameters=parameters)
+
+        # font for displaying text (below)
+        font = cv2.FONT_HERSHEY_SIMPLEX
+
+        # check if the ids list is not empty
+        # if no check is added the code will crash
+        # print ("np.all(ids",np.all(ids),np.all(ids != None))
+        if np.all(ids != None):
+            if len(ids) > 1:
+                # print ("ids",ids)
+                filter_ids = []
+                filer_corners = []
+                for i,corner in zip(ids,corners):
+                    if i in [0,4,3,2]:
+                        filter_ids.append(i)
+                        filer_corners.append(corner)
+
+                ids = np.array(filter_ids)
+                corners = np.array(filer_corners)
+
+                world_map = []
+                for i in np.squeeze(ids,axis = 1):
+                    world_map.append(aruco_world_corners[str(i)])
+                world_map = np.array(world_map)
+
+                world_map.astype(np.float32)
+                corners = np.array(corners)
+                new_world_map = world_map.reshape(world_map.shape[-3]*world_map.shape[-2],world_map.shape[-1])
+                new_corners = corners.reshape((len(ids)*corners.shape[-2],corners.shape[-1])) 
+
+            
+            # if len(corners) > 0:
+                # estimate pose of each marker and return the values
+                # rvet and tvec-different from camera coefficients
+                arvec, atvec ,_ = aruco.estimatePoseSingleMarkers(corners, 0.27, mtx, dist)
+                # (success, rvec, tvec) = cv2.solvePnP(new_world_map, new_corners, mtx, dist, flags=cv2.SOLVEPNP_ITERATIVE)
+                param = cv2.SOLVEPNP_ITERATIVE
+                # param = cv2.SOLVEPNP_EPNP
+                # param = cv2.SOLVEPNP_UPNP
+                # param = cv2.SOLVEPNP_SQPNP
+                retval, rvec, tvec, inliers = cv2.solvePnPRansac(new_world_map, new_corners, mtx, dist,flags= param)
+                # https://github.com/opencv/opencv/issues/8813
+                # https://www.gitmemory.com/issue/opencv/opencv/8813/496945286
+                # https://github.com/chili-epfl/chilitags/issues/19
+                # val = cv2.solvePnPRansac(new_world_map, new_corners, mtx, dist)
+                # print ("val",val)
+                # (success, rvec, tvec) = cv2.solvePnP(model_points, corners, mtx, dist, flags=cv2.SOLVEPNP_ITERATIVE)
+
+                (rvec-tvec).any() # get rid of that nasty numpy value array error
+
+
+
+                for i in range(0, ids.size):
+                    # draw axis for the aruco markers
+                    aruco.drawAxis(frame, mtx, dist, arvec[i], atvec[i], 1)
+
+
+                # draw a square around the markers
+                # aruco.drawDetectedMarkers(frame, corners)
+
+
+                # code to show ids of the marker found
+                strg = ''
+                for i in range(0, ids.size):
+                    strg += str(ids[i][0])+', '
+
+                cv2.putText(frame, "Id: " + strg, (0,64), font, 1, (0,255,0),2,cv2.LINE_AA)
+
+
+                # else:
+                #     # code to show 'No Ids' when no markers are found
+                #     cv2.putText(frame, "No Ids", (0,64), font, 1, (0,255,0),2,cv2.LINE_AA)
+
+                s = 1
+                # flatten the ArUco IDs list
+                ids = ids.flatten()
+                # loop over the detected ArUCo corners
+
+                ###### aruco frame to camera frame ######
+                
+                # print ('rvec',rvec,'tvec',tvec)
+
+                c_T_a = np.zeros(shape=(4,4))
+                c_T_a[3,3] = 1
+                rot = np.zeros(shape=(3,3))
+                cv2.Rodrigues(rvec, rot)
+                c_T_a[:3,:3] = rot
+                c_T_a[:3,3]  = np.squeeze(tvec)
+
+
+                # pos_x = c_T_a[:3,3][0]
+                # pos_y = c_T_a[:3,3][1]
+                # ypr  = cv2.RQDecomp3x3(c_T_a[:3,:3])
+
+
+                # print (c_T_a,"c_T_a")
+
+                a_T_c = np.zeros(shape=(4,4))
+
+                a_T_c[:3,:3] = rot.T
+                a_T_c[:3,3]  = np.squeeze(np.dot(-rot.T,tvec))
+                        
+                # print (c_T_a,"c_T_a")
+
+                pos_x = a_T_c[:3,3][0]
+                pos_y = a_T_c[:3,3][1]
+                ypr  = cv2.RQDecomp3x3(a_T_c[:3,:3])
+
+                print ("cam yaw",ypr[0][0]*180/pi,"cam pitch",ypr[0][1]*180/pi,"cam roll",ypr[0][2]*180/pi)
+
+
+                x_real = pos_x
+                y_real = pos_y
+                psi_real = ypr[0][0]
+
+                yaw = imu.yaw 
+                print ("yaw",yaw,"yaw deg",yaw*180/pi,"imu.yaw_offset",imu.yaw_offset)
+                Rz = np.array([[cos(yaw),-sin(yaw),0],[sin(yaw),cos(yaw),0],[0.0,0.0,1.0]])
+                # Rz = np.dot(Rz,rot_mat)
+                # print ("Rz",Rz)
+
+
+                loc = np.array([np.squeeze(tvec)[0],np.squeeze(tvec)[1],1.0]).T
+                
+                # calibrated_rot = np.dot(rot_mat,-Rz)
+
+                # yaw = np.arccos(calibrated_rot[0,0])
+
+                pose_imu = np.dot(-Rz,loc)
+                
+                # print ("rot_mat",rot_mat,"corrected yaw",yaw,yaw*180/pi)
+                x_imu = -pose_imu[1]
+                y_imu = pose_imu[0]
+                ps

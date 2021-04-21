@@ -1,0 +1,22 @@
+<launch>
+
+ 
+  <node pkg="rosserial_python" type="serial_node.py" name="serial_node">
+    <param name="port" value="/dev/ttyArduino"/>
+    <param name="baud" value="500000"/>
+  </node>
+
+  <node name="keyboard_control" pkg="manual_control" type="keyboard_accel.py" output="screen">
+  <param name="record_data"    type="bool"   value="True" />
+  </node>
+
+
+	<arg name="record_data" default="true"/>
+    <arg name="bags_directory" value="/root/my_pkg/workspace/src/manual_control/data/data_record"/>
+
+
+    <!-- Record bag -->
+    <node name="bag_record" pkg="rosbag" type="record"
+        args="record -o $(arg bags_directory)"
+        if="$(eval record_data)"/>
+</launch>

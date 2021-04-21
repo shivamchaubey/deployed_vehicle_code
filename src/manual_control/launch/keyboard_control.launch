@@ -1,0 +1,16 @@
+<launch>
+
+  <node name="keyboard_control" pkg="manual_control" type="manual_input.py" output="screen">
+  <param name="record_data"    type="bool"   value="false" />
+  </node>
+
+
+	<arg name="record_data" default="false"/>
+    <arg name="bags_directory" value="/root/my_pkg/workspace/src/manual_control/data/data_record"/>
+
+
+    <!-- Record bag -->
+    <node name="bag_record" pkg="rosbag" type="record"
+        args="record -o $(arg bags_directory)"
+        if="$(eval record_data)"/>
+</launch>
