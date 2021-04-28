@@ -85,6 +85,9 @@ class PathFollowingLPV_MPC:
         self.feasible = 1
 
 
+# Controller.solve(LPV_States_Prediction[0,:], LPV_States_Prediction, Controller.uPred, vel_ref, curv_ref, A_L, B_L, C_L, first_it)
+
+
     def solve(self, x0, Last_xPredicted, uPred, vel_ref, curv_ref, A_L, B_L ,C_L, first_it):
         """Computes control action
         Arguments:
@@ -112,14 +115,14 @@ class PathFollowingLPV_MPC:
         deltaTimer              = endTimer - startTimer
         self.linearizationTime  = deltaTimer
 
-        M = self.M
-        q = self.q
-        G = self.G
-        E = self.E
+        M = self.M   #P
+        q = self.q   #q
+        G = self.G   #A,  A * x == b
+        E = self.E   #b, A * x == b
         L = self.L
         Eu= self.Eu
-        F = self.F
-        b = self.b
+        F = self.F   #G, G * x <= h
+        b = self.b   #h, G * x <= h
         n = self.n
         N = self.N
         d = self.d
@@ -158,7 +161,7 @@ class PathFollowingLPV_MPC:
 
 
 
-    def MPC_solve(self, A_vec, B_vec, u, x0, xr):
+    def MPC_solve(self, A_vec, B_vec, u, x0, vel_ref):
     
         ## x0:: should be the inital state at i=0 horizon
         ## xr:: = should be the reference, set Q = 0 weight for states which is not
@@ -178,25 +181,76 @@ class PathFollowingLPV_MPC:
         
         ## States and control input limits ##
         
-        ## Dutycyle, Steering
-        umin = np.array([-1., -0.25]) 
-        umax = np.array([1., 0.25])
+        # Objective function
+
+        
+        # #maximum values
+        # v_max               = rospy.get_param("max_vel")
+        # v_min               = rospy.get_param("min_vel")
+        # ac_max              = rospy.get_param("dutycycle_max")
+        # ac_min              = rospy.get_param("dutycycle_min")
+        # str_max             = rospy.get_param("steer_max")
+        # str_min             = rospy.get_param("steer_min")
+        # ey_max              = rospy.get_param("lat_e_max")
+        # etheta_max          = rospy.get_param("orient_e_max")
+
+        v_max               = 5.
+        v_min               = -5.
+        ac_max              = 1.
+        ac_min              = -1.
+        str_max             = 0.25
+        str_min             = -0.25
+        ey_max              = 0.4
+        etheta_max          = 0.4   
+
+        dstr_max            = str_max*0.1
+        dstr_min            = str_min*0.1
+        dac_max             = ac_max*0.1
+        dac_min             = ac_min*0.1
+
+        vx_scale            = 1/((v_max-v_min)**2)
+        acc_scale           = 1/((ac_max-ac_min)**2)
+        str_scale           = 1/((str_max-str_min)**2)
+        ey_scale            = 1/((ey_max+ey_max)**2)
+        etheta_scale        = 1/((etheta_max+etheta_max)**2)
+        dstr_scale          = 1/((dstr_max-dstr_min)**2)
+        dacc_scale          = 1/((dac_max-dac_min)**2)
+
+
+
+        ## Steering, Dutycyle
+        umin = np.array([str_min, ac_min]) 
+        umax = np.array([str_max, ac_max])
+
+        # umin = np.array([-0.25, -1.]) 
+        # umax = np.array([0.25, 1.])
                         
         ## vx,vy,omega,theta deviation 15deg , distance,lateral error from the track:: no constraint on s
-        xmin = np.array([-5, -3, -3, -0.5, -np.inf, -0.4])
-        xmax = np.array([5, 3, 3, 0.5, np.inf, 0.4])
+        # xmin = np.array([-v_min, -10000, -30, -1000, -10000, -ey_max])
+        # xmax = np.array([v_max, 10000, 30, 1000, 10000, ey_max])
         
-        
-        # Objective function
-        Q = [5., 0., 0., 5., 0., 5.]
+
+        # xmin = np.array([v_min, -3., -3., -etheta_max, -10000., -ey_max])
+        # xmax = np.array([v_max, 3., 3., etheta_max, 10000., ey_max])
+
+        xmin = np.array([v_min, -3., -3., -100, -10000., -ey_max])
+        xmax = np.array([v_max, 3., 3., 100, 10000., ey_max])
+
+        Q  = 0.9 * np.array([0.6*vx_scale, 0.0, 0.00, 0.2*etheta_scale, 0.0, 0.6*ey_scale])
+        R  = 0.05 * np.array([0.0005*str_scale,0.1*acc_scale])     # delta, a
+
+
+
+
+        # Q = [5., 0., 0., 15., 0., 5.]
+        # R = [1., 5.]
         Q = sparse.diags(Q)
         QN = Q
-        R = [5., 5.]
         R = sparse.diags(R)
 
         # Initial and reference states
     #     x0 = np.zeros(12)
-        xr = np.array([1.0,0.,0.,0.,0.,0.])
+        xr = np.array([vel_ref,0.,0.,0.,0.,0.])
 
         # Prediction horizon
     #     N = 10
@@ -262,18 +316,30 @@ class PathFollowingLPV_MPC:
         endTimer = datetime.datetime.now(); deltaTimer = endTimer - startTimer
         self.solverTime = deltaTimer
         
-        self.xPred = Solution[:(N+1)*nx]
-        self.xPred = self.xPred.reshape(nx,N+1) 
+        print "control to be applied",Solution[-N*nu:-(N-1)*nu]
+
+
+        self.xPred = np.squeeze(np.transpose(np.reshape((Solution[np.arange(nx * (N + 1))]), (N + 1, nx))))
+        self.uPred = np.squeeze(np.transpose(np.reshape((Solution[nx * (N + 1) + np.arange(nu * N)]), (N, nu))))
+
+        # self.LinPoints = np.concatenate( (self.xPred.T[1:,:], np.array([self.xPred.T[-1,:]])), axis=0 )
+        self.xPred = self.xPred.T
+        self.uPred = self.uPred.T
+
+
+
+        # self.xPred = Solution[:(N+1)*nx]
+        # self.xPred = self.xPred.reshape(nx,N+1) 
         print "xppredshape", self.xPred.shape
-        self.uPred = Solution[(N+1)*nx:]
-        self.uPred = self.uPred.reshape(nu,N)
+        # self.uPred = Solution[(N+1)*nx:]
+        # self.uPred = self.uPred.reshape(nu,N)
         print "uppredshape", self.uPred.shape
         # self.xPred = np.squeeze(np.transpose(np.reshape((Solution[np.arange(n * (N + 1))]), (N + 1, n))))
         # self.uPred = np.squeeze(np.transpose(np.reshape((Solution[n * (N + 1) + np.arange(d * N)]), (N, d))))
 
         # self.LinPoints = np.concatenate( (self.xPred.T[1:,:], np.array([self.xPred.T[-1,:]])), axis=0 )
-        self.xPred = self.xPred.T
-        self.uPred = self.uPred.T
+        # self.xPred = self.xPred.T
+        # self.uPred = self.uPred.T
 
         print "\n self.uPred", self.uPred
 
@@ -334,6 +400,7 @@ class PathFollowingLPV_MPC:
             if i==0:
                 states  = np.reshape(x, (6,1))
 
+            # vx      = float(states[0])
             vy      = float(states[1])
             omega   = float(states[2])
             epsi    = float(states[3])
@@ -344,14 +411,17 @@ class PathFollowingLPV_MPC:
                 s = 0
 
             if planning_mode == 2:
+
                 PointAndTangent = self.map.PointAndTangent
                 cur     = Curvature(s, PointAndTangent) # From map
+                # print "PointAndTangent",PointAndTangent,"s", s 
 
             else:
                 cur     = float(curv_ref[i,0]) # From planner
 
             vx      = float(vel_ref[i,0])
-            
+
+            print "vx",vx
             print "delta", u[i,0] 
 
             # small fix for none value
@@ -360,7 +430,7 @@ class PathFollowingLPV_MPC:
             if u[i,1] is None:
                 u[i,1] = 0
 
-            delta = u[i,0]
+            delta = float(u[i,0])
 
             F_flat = 0;
             Fry = 0;
@@ -370,37 +440,39 @@ class PathFollowingLPV_MPC:
             A11 = 0;
 
 
-            if abs(vx)> 0:
-                F_flat = 2*Caf*(delta- atan((vy+lf*omega)/vx));        
-                Fry = -2*Car*atan((vy - lr*omega)/vx) ;
-                A11 = -(1/m)*(C0 + C1/vx + Cd_A*rho*vx/2);
-                A31 = -Fry*lr/(vx*Iz);
+            eps = 0.000001
+            # if abs(vx)> 0.0:
+
+            F_flat = 2*Caf*(delta- atan((vy+lf*omega)/(vx+eps)));        
+            Fry = -2*Car*atan((vy - lr*omega)/(vx+eps)) ;
+            A11 = -(1/m)*(C0 + C1/(vx+eps) + Cd_A*rho*vx/2);
+            A31 = -Fry*lr/((vx+eps)*Iz);
                 
             A12 = omega;
             A21 = -omega;
             A22 = 0;
             
-            if abs(vy) > 0.0:
-                A22 = Fry/(m*vy);
+            # if abs(vy) > 0.0:
+            A22 = Fry/(m*(vy+eps));
 
             B11 = 0;
             B31 = 0;
             B21 = 0;
             
-            if abs(delta) > 0:
-                B11 = -F_flat*sin(delta)/(m*delta);
-                B21 = F_flat*cos(delta)/(m*delta);    
-                B31 = F_flat*cos(delta)*lf/(Iz*delta);
+            # if abs(delta) > 0:
+            B11 = -F_flat*sin(delta)/(m*(delta+eps));
+            B21 = F_flat*cos(delta)/(m*(delta+eps));    
+            B31 = F_flat*cos(delta)*lf/(Iz*(delta+eps));
 
 
             B12 = (1/m)*(Cm0 - Cm1*vx);
 
-            A51 = (1/(1-ey*cur)) * ( -np.cos(epsi) * cur )
-            A52 = (1/(1-ey*cur)) * ( +np.sin(epsi)* cur )
-            A61 = np.cos(epsi) / (1-ey*cur)
-            A62 = np.sin(epsi) / (1-ey*cur)
-            A7  = np.sin(epsi)
-            A8  = np.cos(epsi)
+            A51 = (1/(1-ey*cur)) * ( -cos(epsi) * cur )
+            A52 = (1/(1-ey*cur)) * ( +sin(epsi)* cur )
+            A61 = cos(epsi) / (1-ey*cur)
+            A62 = sin(epsi) / (1-ey*cur) #should be mulitplied by -1
+            A7  = sin(epsi) 
+            A8  = cos(epsi)
 
 
             Ai = np.array([ [A11    ,  A12 ,   0. ,  0., 0., 0.],  # [vx]
@@ -429,6 +501,7 @@ class PathFollowingLPV_MPC:
             Bi = self.dt * Bi
             Ci = self.dt * Ci
 
+            print "np.transpose(np.reshape(u[i,:],(1,2)))",np.transpose(np.reshape(u[i,:],(1,2)))
             states_new = np.dot(Ai, states) + np.dot(Bi, np.transpose(np.reshape(u[i,:],(1,2))))
 
             STATES_vec[i] = np.reshape(states_new, (6,))
@@ -584,6 +657,7 @@ def _buildMatCost(Controller, uOld, vel_ref):
     n  = Q.shape[0]
     R  = Controller.R
     dR = Controller.dR
+
     # P  = Controller.Q
     N  = Controller.N
 
@@ -712,8 +786,8 @@ def _buildMatEqConst(Controller):
 
 def _EstimateABC(Controller, Last_xPredicted, uPredicted, curv_ref):
 
-    # N   = Controller.N
-    # dt  = Controller.dt
+    N   = Controller.N
+    dt  = Controller.dt
     # lf  = Controller.lf
     # lr  = Controller.lr
     # m   = Controller.m
@@ -745,7 +819,7 @@ def _EstimateABC(Controller, Last_xPredicted, uPredicted, curv_ref):
         PointAndTangent = Controller.map.PointAndTangent
 
         vy      = Last_xPredicted[i,1]
-        omega      = Last_xPredicted[i,2]
+        omega   = Last_xPredicted[i,2]
         epsi    = Last_xPredicted[i,3]
         s       = Last_xPredicted[i,4]
         if s < 0:
@@ -766,38 +840,39 @@ def _EstimateABC(Controller, Last_xPredicted, uPredicted, curv_ref):
         A11 = 0;
 
 
-        if abs(vx)> 0:
-            F_flat = 2*Caf*(delta- atan((vy+lf*omega)/vx));        
-            Fry = -2*Car*atan((vy - lr*omega)/vx) ;
-            A11 = -(1/m)*(C0 + C1/vx + Cd_A*rho*vx/2);
-            A31 = -Fry*lr/(vx*Iz);
+        eps = 0.000001
+        # if abs(vx)> 0.0:
+
+        F_flat = 2*Caf*(delta- atan((vy+lf*omega)/(vx+eps)));        
+        Fry = -2*Car*atan((vy - lr*omega)/(vx+eps)) ;
+        A11 = -(1/m)*(C0 + C1/(vx+eps) + Cd_A*rho*vx/2);
+        A31 = -Fry*lr/((vx+eps)*Iz);
             
         A12 = omega;
         A21 = -omega;
         A22 = 0;
         
-        if abs(vy) > 0.0:
-            A22 = Fry/(m*vy);
-
+        # if abs(vy) > 0.0:
+        A22 = Fry/(m*(vy+eps));
 
         B11 = 0;
         B31 = 0;
         B21 = 0;
         
-        if abs(delta) > 0:
-            B11 = -F_flat*sin(delta)/(m*delta);
-            B21 = F_flat*cos(delta)/(m*delta);    
-            B31 = F_flat*cos(delta)*lf/(Iz*delta);
+        # if abs(delta) > 0:
+        B11 = -F_flat*sin(delta)/(m*(delta+eps));
+        B21 = F_flat*cos(delta)/(m*(delta+eps));    
+        B31 = F_flat*cos(delta)*lf/(Iz*(delta+eps));
 
 
         B12 = (1/m)*(Cm0 - Cm1*vx);
 
-        A51 = (1/(1-ey*cur)) * ( -np.cos(epsi) * cur )
-        A52 = (1/(1-ey*cur)) * ( +np.sin(epsi)* cur )
-        A61 = np.cos(epsi) / (1-ey*cur)
-        A62 = np.sin(epsi) / (1-ey*cur)
-        A7  = np.sin(epsi)
-        A8  = np.cos(epsi)
+        A51 = (1/(1-ey*cur)) * ( -cos(epsi) * cur )
+        A52 = (1/(1-ey*cur)) * ( +sin(epsi)* cur )
+        A61 = cos(epsi) / (1-ey*cur)
+        A62 = sin(epsi) / (1-ey*cur) #should be mulitplied by -1
+        A7  = sin(epsi) 
+        A8  = cos(epsi)
 
 
         Ai = np.array([ [A11    ,  A12 ,   0. ,  0., 0., 0.],  # [vx]
@@ -820,6 +895,9 @@ def _EstimateABC(Controller, Last_xPredicted, uPredicted, curv_ref):
                         [ 0 ],
                         [ 0 ],
                         [ 0 ]])
+
+
+
 
         Ai = np.eye(len(Ai)) + dt * Ai
         Bi = dt * Bi

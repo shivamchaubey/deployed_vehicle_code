@@ -8,10 +8,8 @@ import rospy
 class Map():
     """map object
     Attributes:
-        getGlobalPosition: convert position from (s, ey) to (x, y)
-        getLocalPosition : convert position from (x, y, psi) to (s, epsi, ey) 
+        getGlobalPosition: convert position from (s, ey) to (X,Y)
     """
-
     def __init__(self, flagTrackShape = 0):
 
         """ Nos interesa que el planner tenga una pista algo mas reducida de la real
@@ -53,19 +51,9 @@ class Map():
 
         elif selectedTrack == "oval_iri":
             spec = 1.0*np.array([[1.75, 0],
-                             [3, 3 / np.pi],
+                             [3.5, 3.5 / np.pi],
                              [1.75, 0],
-                             [3.1, 3.1 / np.pi]])
-
-        # elif selectedTrack == "oval_iri":
-        #     self.halfWidth  = 0.5
-        #     self.slack      = 0.15
-        #     spec = 0.55*np.array([[2.0, 0],
-        #                      [3.5, 3.5 / np.pi],
-        #                      [2.0, 0],
-        #                      [3.78, 3.5 / np.pi]])
-
-
+                             [3.5, 3.5 / np.pi]])
 
 
 
@@ -189,8 +177,6 @@ class Map():
         self.TrackLength = PointAndTangent[-1, 3] + PointAndTangent[-1, 4]
 
 
-
-
     def getGlobalPosition(self, s, ey):
         """coordinate transformation from curvilinear reference frame (e, ey) to inertial reference frame (X, Y)
         (s, ey): position in the curvilinear reference frame
@@ -276,6 +262,8 @@ class Map():
         PointAndTangent = self.PointAndTangent
         CompletedFlag = 0
 
+
+
         for i in range(0, PointAndTangent.shape[0]):
             if CompletedFlag == 1:
                 break
@@ -356,12 +344,15 @@ class Map():
                         if np.abs(ey) <= self.halfWidth + self.slack: # OUT OF TRACK!!
                             CompletedFlag = 1
 
+        # if epsi>1.0:
+        #     print "epsi Greater then 1.0"
+        #     pdb.set_trace()
 
-        #if CompletedFlag == 0:
-        #    s    = 10000
-        #    ey   = 10000
-        #    epsi = 10000
-        #    print("Error!! POINT OUT OF THE TRACK !!!!")
+        if CompletedFlag == 0:
+            s    = 10000
+            ey   = 10000
+            epsi = 10000
+            #print "Error!! POINT OUT OF THE TRACK!!!! <=================="
             # pdb.set_trace()
 
         return s, ey, epsi, CompletedFlag
@@ -414,31 +405,31 @@ def sign(a):
     return res
 
 
-# def unityTestChangeOfCoordinates(map, ClosedLoopData):
-#     """For each point in ClosedLoopData change (X, Y) into (s, ey) and back to (X, Y) to check accurancy
-#     """
-#     TestResult = 1
-#     for i in range(0, ClosedLoopData.x.shape[0]):
-#         xdat = ClosedLoopData.x
-#         xglobdat = ClosedLoopData.x_glob
+def unityTestChangeOfCoordinates(map, ClosedLoopData):
+    """For each point in ClosedLoopData change (X, Y) into (s, ey) and back to (X, Y) to check accurancy
+    """
+    TestResult = 1
+    for i in range(0, ClosedLoopData.x.shape[0]):
+        xdat = ClosedLoopData.x
+        xglobdat = ClosedLoopData.x_glob
 
-#         s, ey, _, _ = map.getLocalPosition(xglobdat[i, 4], xglobdat[i, 5], xglobdat[i, 3])
-#         v1 = np.array([s, ey])
-#         v2 = np.array(xdat[i, 4:6])
-#         v3 = np.array(map.getGlobalPosition(v1[0], v1[1]))
-#         v4 = np.array([xglobdat[i, 4], xglobdat[i, 5]])
-#         # print v1, v2, np.dot(v1 - v2, v1 - v2), np.dot(v3 - v4, v3 - v4)
+        s, ey, _, _ = map.getLocalPosition(xglobdat[i, 4], xglobdat[i, 5], xglobdat[i, 3])
+        v1 = np.array([s, ey])
+        v2 = np.array(xdat[i, 4:6])
+        v3 = np.array(map.getGlobalPosition(v1[0], v1[1]))
+        v4 = np.array([xglobdat[i, 4], xglobdat[i, 5]])
+        # print v1, v2, np.dot(v1 - v2, v1 - v2), np.dot(v3 - v4, v3 - v4)
 
-#         if np.dot(v3 - v4, v3 - v4) > 0.00000001:
-#             TestResult = 0
-#             print "ERROR", v1, v2, v3, v4
-#             pdb.set_trace()
-#             v1 = np.array(map.getLocalPosition(xglobdat[i, 4], xglobdat[i, 5]))
-#             v2 = np.array(xdat[i, 4:6])
-#             v3 = np.array(map.getGlobalPosition(v1[0], v1[1]))
-#             v4 = np.array([xglobdat[i, 4], xglobdat[i, 5]])
-#             print np.dot(v3 - v4, v3 - v4)
-#             pdb.set_trace()
+        if np.dot(v3 - v4, v3 - v4) > 0.00000001:
+            TestResult = 0
+            print "ERROR", v1, v2, v3, v4
+            pdb.set_trace()
+            v1 = np.array(map.getLocalPosition(xglobdat[i, 4], xglobdat[i, 5]))
+            v2 = np.array(xdat[i, 4:6])
+            v3 = np.array(map.getGlobalPosition(v1[0], v1[1]))
+            v4 = np.array([xglobdat[i, 4], xglobdat[i, 5]])
+            print np.dot(v3 - v4, v3 - v4)
+            pdb.set_trace()
 
-#     if TestResult == 1:
-#         print "Change of coordinates test passed!"
+    if TestResult == 1:
+        print "Change of coordinates test passed!"
