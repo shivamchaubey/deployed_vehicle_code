@@ -1,0 +1,137 @@
+<launch>
+    
+    <!-- SYSTEM MODEL -->
+    <param name="m"             type="double"   value="2.424" />
+    <param name="rho"             type="double"   value="1.225" />    
+    <param name="lr"            type="double"   value="0.1203" />
+    <param name="lf"            type="double"   value="0.1377" />
+    <param name="Cm0"            type="double"   value="10.1305" />
+    <param name="Cm1"            type="double"   value="1.05294" />
+    <param name="C0"            type="double"   value="3.68918" />
+    <param name="C1"            type="double"   value="0.0306803" />
+    <param name="Cd_A"            type="double"   value="-0.657645" />
+    <param name="Caf"            type="double"   value="1.3958" />
+    <param name="Car"            type="double"   value="1.6775" />
+    <param name="Iz"            type="double"   value="0.02" />
+    
+
+    <param name="max_vel"       type="double" value="5.0" />
+    <param name="min_vel"       type="double" value="-5.0" />
+    <!-- should be > 1.0 -->
+    <param name="init_vx"     type="double" value="0.1"/>
+    <param name="halfWidth"     type="double"   value="0.4" />
+    <param name="trackShape"  type="str"    value="oval_iri"/>
+
+    <?ignore
+    <node pkg="lpv_mpc" type="plotCarTrajectory.py" name="visualization" output="screen">
+        <param name="plotGPS"     type="bool" value="true" />
+    </node>
+    ?>
+
+
+    <!-- SIMULATOR -->
+    <!--<node pkg="simulator" type="vehicleSimulator.py" name="simulator" output="screen">-->
+    <node pkg="simulator" type="vehicleSimulator_comparison.py" name="simulator" output="screen">
+
+        <param name="publish_frequency" type="double" value="100.0" />
+        <param name="dt"          type="double" value="0.005" />
+        
+        <!-- sensor freq update -->
+        <!-- Generally 1 per second or 1 Hz not more than 10Hz in case of advanced gps made for UAV/AGV?? -->         
+        <param name="gps_freq_update" type="double" value="1000.0" />
+        <param name="fcam_freq_update" type="double" value="45" />
+        <param name="imu_freq_update" type="double" value="100.0" />
+        <param name="enc_freq_update" type="double" value="100.0" />
+
+
+        <!-- delay in the simulator -->
+        <!-- why delay in simulator is needed?? -->
+        <param name="lowLevelDyn" type="bool" value="false" />
+        <param name="delay_df"    type="double" value="0.0" />
+        <param name="delay_a"     type="double" value="0.0" />
+
+        <!-- simulator sensor noise -->
+        <param name="n_bound_pr"     type="double" value="2.0" />
+        <param name="x_std_pr"       type="double" value="0.0034" />
+        <param name="y_std_pr"       type="double" value="0.0034" />
+        <param name="psi_std_pr"     type="double" value="0.005" />
+
+        !--<param name="vx_std_pr"       type="double" value="0.005" />
+        <param name="vy_std_pr"       type="double" value="0.0045" />
+        <param name="psiDot_std_pr"  type="double" value="0.0035" /> -->
+
+        <param name="vx_std_pr"       type="double" value="0.0" />
+        <param name="vy_std_pr"       type="double" value="0.0" />
+        <param name="psiDot_std_pr"  type="double" value="0.0" />
+
+
+
+        <param name="n_bound"     type="double" value="2.0" />
+        <param name="x_std"       type="double" value="0.035" />
+        <param name="y_std"       type="double" value="0.035" />
+        <param name="yaw_std"     type="double" value="0.087" />
+        <param name="vx_std"       type="double" value="0.008" />
+        <param name="vy_std"       type="double" value="0.08" />
+        <param name="omega_std"  type="double" value="0.03" />
+        <param name="du_0"        type="double" value="0.1" />
+        <param name="du_1"        type="double" value="0.05" />
+        <param name="u_bound"     type="double" value="1.0" />
+
+        <!-- simulator disturbance parameters -->
+
+        <!-- drag force parameters -->
+        
+        <param name="dist_mode"  type="bool"     value="0" />
+        <param name="mu_sf"      type="double"   value="0.1"/>
+        <param name="Cd"         type="double"   value="0.020"/>
+        <param name="A_car"      type="double"   value="0.03"/>  
+
+        <param name="init_x"    type="double" value="0.15" />
+        <param name="init_y"    type="double" value="0.005" />
+        <param name="init_yaw"  type="double" value="0.01" />
+
+    </node>
+
+    <!--node pkg="simulator" type="2Dplot.py" name="visualization" output="screen">
+    </node>-->
+
+    <?ignore
+    <!-- TRAJECTORY PLANNER -->
+    <node pkg="lpv_mpc" type="plannerMain.py" name="TrajectoryPlanner" output="screen">
+        <!--No change in planning track if value is changed-->
+        <param name="Planning_Track"   type="int"      value="3" />
+        <param name="max_vel"          type="double"   value="5.0" />
+        <param name="min_vel"          type="double"   value="0.0" />
+        <param name="N"                type="int"      value="20" />
+        <param name="Frecuency"        type="int"      value="20" />
+        <param name="halfWidth"        type="double"   value="0.8" />
+        <param name="Visualization"    type="int"      value="0" />
+        <param name="Testing"          type="int"      value="0" />
+    </node>
+
+
+    <!--DYNAMIC OBSERVER (STATE ESTIMATOR)-->
+    <node pkg="lpv_mpc"              type="stateEstimator.py" name="state_estimator" output="screen">
+        <!-- delay in state estimator -->
+         <param name="delay_df"   type="double" value="0.0" />
+         <param name="delay_a"    type="double" value="0.0" />
+         <param name="estimatorON" type="bool"  value="true"/>
+         <!-- ekf properties -->
+          <param name="thReset"   type="double" value="0.5" />
+          <param name="vSwitch"   type="double" value="1.3" />
+          <param name="psiSwitch" type="double" value="1.2" />
+          <param name="loopRate"  type="double" value="200" />
+    </node>
+
+    <!-- CONTROL -->
+    <node pkg="lpv_mpc" type="controllerMain.py" name="control" output="log">
+        <param name="mode"        type="str"     value="simulations" />
+        <param name="saveData"    type="bool"    value="true" />
+        <param name="N"           type="int"     value="20" />
+        <param name="Hz"          type="double"  value="30" />
+        <param name="vel_ref"     type="double"  value="2.5"/>
+        <param name="vel_th"      type="double"  value="0.8" />
+    </node>
+    ?>
+
+</launch>
