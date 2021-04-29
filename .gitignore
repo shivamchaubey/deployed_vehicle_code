@@ -1,0 +1,11 @@
+*.npy
+*.bag
+*.pdf
+*.odt
+build
+logs
+devel
+ssty.arduino
+.catkin_tools/
+.catkin_workspace
+
