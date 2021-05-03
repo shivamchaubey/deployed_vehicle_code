@@ -282,10 +282,10 @@ def main():
         ###################################################################################################
         ###################################################################################################
 
-        if first_it < 2:
+        if first_it < 15:
 
-            accel_rate  = 0.0
-            delta = 0.001
+            accel_rate  = 0.15
+            delta = 0.01
             # xx, uu      = predicted_vectors_generation(N, LocalState, accel_rate, dt)
             xx, uu      = predicted_vectors_generation_new(N, LocalState, accel_rate, delta, dt)
             
@@ -296,11 +296,14 @@ def main():
 
             print ("Controller.uPred shape", Controller.uPred.shape)
             LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction(LocalState[0:6], Controller.uPred, vel_ref, curv_ref, test_gen)
-            # Controller.solve(LPV_States_Prediction[0,:], LPV_States_Prediction, Controller.uPred, vel_ref, curv_ref, A_L, B_L, C_L, first_it)
+            #Controller.solve(LPV_States_Prediction[0,:], LPV_States_Prediction, Controller.uPred, vel_ref, curv_ref, A_L, B_L, C_L, first_it)
 
             print "LPV_States_Prediction",LPV_States_Prediction.shape 
+            print "LocalState[0:6]",LocalState[0:6]
             # print (B_L.shape)
             Controller.MPC_solve(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref)
+            #Controller.MPC_solve_integral(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref)
+
 
             if Controller.feasible == 0:
                 controller_Flag_msg.data = True
