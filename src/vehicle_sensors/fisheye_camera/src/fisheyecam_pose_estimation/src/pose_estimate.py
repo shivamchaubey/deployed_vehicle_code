@@ -1,11 +1,20 @@
 #!/usr/bin/env python
 
-## License: Apache 2.0. See LICENSE file in root directory.
-## Copyright(c) 2015-2017 Intel Corporation. All Rights Reserved.
+###############################################
+##      IRI 1:10 Autonomous Car               ##
+##      Supervisor: Puig Cayuela Vicenc      ##
+##      Author: Shivam Chaubey               ##
+##      Date: 20/03/2021                     ##
+###############################################
 
-###############################################
-##      Open CV and Numpy integration        ##
-###############################################
+''' The code is written for tracking position of vehicle using top camera and
+aruco marker on the ceiling.  As the orientation directly from camera is very
+noisy IMU information is used for the orientation.  Getting all the
+information in the camera frame of reference the homogeneous transformation is
+done to  estimate the position with respect to the aruco map on the ceiling
+which can be further transformed for any world frame of reference in the
+observer code. Camera stream is read directly by opencv library so  no need to
+launch another node for publishing camera stream. '''
 
 import rospy
 import numpy as np
@@ -14,22 +23,20 @@ import time
 import datetime
 import os
 import cv2.aruco as aruco
-from sensor_msgs.msg import CompressedImage
-from math import cos, sin, atan2, atan, pi
+# from sensor_msgs.msg import CompressedImage ## This is added in case camera stream needs to be read from another node.
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+from math import cos, sin, atan2, atan, pi, acos
 from numpy.linalg import inv, norm, det
 from geometry_msgs.msg import Pose
+
 
 # fs = cv2.FileStorage("/home/auto/Desktop/autonomus_vehicle_project/project/development/proto/camera_development/kinect/first.yaml", cv2.FILE_STORAGE_READ)
 # matrix_coefficients  = fs.getNode("K").mat()
 # distortion_coefficients  = fs.getNode("D").mat()
 
 
-
-# print('distortion_coefficients',distortion_coefficients)
-# print('matrix_coefficients',matrix_coefficients)
-
+# These matrices is obtained using camera calibration
 #matrix_coefficients
 mtx =  np.array([[245.58486295,   0.        , 328.57055189],
        [  0.        , 245.24846233, 229.01671809],
@@ -41,63 +48,27 @@ dist =  np.array([[-0.32748962,  0.1208519 , -0.00152458,  0.00164202, -0.021078
 
 
 class ImuClass(object):
-    """ Object collecting IMU + Encoder data
-        The encoder measures the angular velocity at the DC motor output. Then
-        it is transformed to wheel linear velocity and put over the message:
-        /twist.linear.x
-    """
+    """ Object collecting IMU data The orientation information is needed The
+vehicle doesn't have absolute orientation so an offset needs to be added for
+initializing otherwise at the same location at different time the orientation
+reading will be different. """
 
     def __init__(self,t0):
 
         rospy.Subscriber('pose', Pose, self.Pose_callback, queue_size=1)
 
-        self.transform = True
-
-        self.roll    = 0.0
-        self.pitch   = 0.0
         self.yaw     = 0.0  
-
-        # self.yaw_offset = 3.080500841140747
-        self.yaw_offset = 0
-
-        self.co_yaw     = 0.0
-
-        # time stamp
+        self.yaw_offset = 0 
         self.t0     = t0
-
-        # Time for yawDot integration
-        self.curr_time = rospy.get_rostime().to_sec() - self.t0
-        self.prev_time = self.curr_time
-
-        #         #history
-        # self.twist_hist = {"timestamp_ms":[],"vx":[],"vy":[],"psiDot":[],"ax":[],"ay":[],"az":[]}
-        # self.pose_hist = {"timestamp_ms":[],"roll":[],"pitch":[],"yaw":[]}
-        # self.wheel_rpm_hist = {"timestamp_ms":[],"wheel_rpm":[]}
+        # self.curr_time = rospy.get_rostime().to_sec() - self.t0
+        # self.prev_time = self.curr_time
 
     def Pose_callback(self, data):
-        self.curr_time = rospy.get_rostime().to_sec() - self.t0
+        # self.curr_time = rospy.get_rostime().to_sec() - self.t0
 
         self.roll   = data.orientation.x
         self.pitch  = data.orientation.y
-        self.yaw    = data.orientation.z + self.yaw_offset
-
-        # self.qx   = data.orientation.x
-        # self.qy   = data.orientation.y
-        # self.qz   = data.orientation.z
-        # self.qw   = data.orientation.w
-        # self.yaw    = wrap(data.orientation.z) - self.yaw_offset  # from IMU
-
-
-        # if (len(self.pose_hist["yaw"])>self.ax_window):
-        #     self.yaw     = np.mean(np.array(self.pose_hist["yaw"][-1*self.ax_window:])) 
-            
-
-
-        # self.pose_hist["timestamp_ms"].append(self.curr_time)
-        # self.pose_hist["roll"].append(self.roll)
-        # self.pose_hist["pitch"].append(self.pitch)
-        # self.pose_hist["yaw"].append(self.yaw)
-        # self.prev_time = self.curr_time
+        self.yaw    = wrap(data.orientation.z + self.yaw_offset)
 
 
 def wrap(angle):
@@ -114,6 +85,8 @@ def wrap(angle):
 
 
 class image_stream():
+    ''' Class to subscribe the camera stream if different node is used for
+        streaming the camera information. '''
     def __init__(self):
 
         # subscribed Topic
@@ -125,17 +98,17 @@ class image_stream():
         
         #### direct conversion to CV2 ####
         np_arr = np.fromstring(ros_data.data, np.uint8)
-        # print ("np_arr",np_arr)
-        # self.image_np = cv2.imdecode(np_arr, cv2.CV_LOAD_IMAGE_COLOR)
         self.image_np = cv2.imdecode(np_arr, cv2.IMREAD_COLOR) # OpenCV >= 3.0:
-        # print ("self.image_np shape",self.image_np.shape)
-        # seg_img = clustering(image_np)
-        # cv2.imshow('clustering image', self.image_np)
-        # cv2.waitKey(2)
 
 
 
 def _initializeFigure_xy(x_lim,y_lim):
+    '''
+    For visualizing the tracking performance. This piece of code is only for
+    debugging purpose on the development computer. This can't be used in the
+    vehicle CPU  as the is no GUI in the vehicle.
+    '''
+
     xdata = []; ydata = []
     fig = plt.figure(figsize=(10,8))
     plt.ion()
@@ -143,43 +116,18 @@ def _initializeFigure_xy(x_lim,y_lim):
     plt.ylim([-1*y_lim,y_lim])
 
     axtr = plt.axes()
-    # Points = int(np.floor(10 * (map.PointAndTangent[-1, 3] + map.PointAndTangent[-1, 4])))
-    # # Points1 = np.zeros((Points, 2))
-    # # Points2 = np.zeros((Points, 2))
-    # # Points0 = np.zeros((Points, 2))
-    # Points1 = np.zeros((Points, 3))
-    # Points2 = np.zeros((Points, 3))
-    # Points0 = np.zeros((Points, 3))
-
-    # for i in range(0, int(Points)):
-    #     Points1[i, :] = map.getGlobalPosition(i * 0.1, map.halfWidth)
-    #     Points2[i, :] = map.getGlobalPosition(i * 0.1, -map.halfWidth)
-    #     Points0[i, :] = map.getGlobalPosition(i * 0.1, 0)
-
-    # plt.plot(map.PointAndTangent[:, 0], map.PointAndTangent[:, 1], 'o')
-    # plt.plot(Points0[:, 0], Points0[:, 1], '--')
-    # plt.plot(Points1[:, 0], Points1[:, 1], '-b')
-    # plt.plot(Points2[:, 0], Points2[:, 1], '-b')
-
-    # These lines plot the planned offline trajectory in the main figure:
-    # plt.plot(X_Planner_Pts[0, 0:290], Y_Planner_Pts[0, 0:290], '--r')
-    # plt.plot(X_Planner_Pts[0, 290:460], Y_Planner_Pts[0, 290:460], '--r')
-    # plt.plot(X_Planner_Pts[0, :], Y_Planner_Pts[0, :], '--r')
-
-
     line_sim,       = axtr.plot(xdata, ydata, '-k')
-    line_rl,        = axtr.plot(xdata, ydata, '-b')  # Plots the traveled positions
-    point_simc,     = axtr.plot(xdata, ydata, '-or')       # Plots the current positions
+    line_rl,        = axtr.plot(xdata, ydata, '-b')  
+    point_simc,     = axtr.plot(xdata, ydata, '-or')       
     line_SS,        = axtr.plot(xdata, ydata, 'og')
     point_rlc,      = axtr.plot(xdata, ydata, '-or')
     line_planning,  = axtr.plot(xdata, ydata, '-ok')
-    line_0,        = axtr.plot(xdata, ydata, '-r')  # Plots the traveled positions
-    line_2,        = axtr.plot(xdata, ydata, '-g')  # Plots the traveled positions
-    line_3,        = axtr.plot(xdata, ydata, '-b')  # Plots the traveled positions
-    line_4,        = axtr.plot(xdata, ydata, '-y')  # Plots the traveled positions
-    line_fusion,        = axtr.plot(xdata, ydata, '-m')  # Plots the traveled positions
+    line_0,        = axtr.plot(xdata, ydata, '-r')  
+    line_2,        = axtr.plot(xdata, ydata, '-g')  
+    line_3,        = axtr.plot(xdata, ydata, '-b')  
+    line_4,        = axtr.plot(xdata, ydata, '-y')  
+    line_fusion,        = axtr.plot(xdata, ydata, '-m')  
     
-
 
     v = np.array([[ 1.,  1.],
                   [ 1., -1.],
@@ -193,29 +141,24 @@ def _initializeFigure_xy(x_lim,y_lim):
     axtr.add_patch(marker_2)
 
     marker_3 = patches.Polygon(v, alpha=0.7, closed=True, fc='b', ec='k', zorder=10,label='ID3')
-    # axtr.add_patch(marker_3)
     # # Vehicle:
     marker_4 = patches.Polygon(v, alpha=0.7, closed=True, fc='y', ec='k', zorder=10,label='ID4')
-    # axtr.add_patch(marker_4)
-
-
-    fusion = patches.Polygon(v, alpha=0.7, closed=True, fc='m', ec='k', zorder=10,label='fusion')
-    # axtr.add_patch(fusion)
     
+    fusion = patches.Polygon(v, alpha=0.7, closed=True, fc='m', ec='k', zorder=10,label='fusion')    
 
     plt.legend()
     # # Planner vehicle:
     rec_planning = patches.Polygon(v, alpha=0.7, closed=True, fc='k', ec='k', zorder=10)
-    # axtr.add_patch(rec_planning)
-
-
 
     plt.show()
 
     return plt, fig, axtr, line_planning, point_simc, point_rlc, line_SS, line_sim, line_rl, line_0, line_2, line_3, line_4, line_fusion,\
      marker_0, marker_2, marker_3, marker_4, fusion ,rec_planning
 
+
 def getCarPosition(x, y, psi, w, l):
+    ''' Mapping the car coordinate from world frame of reference to the plot
+        for the visualization '''
     car_x = [ x + l * np.cos(psi) - w * np.sin(psi), x + l * np.cos(psi) + w * np.sin(psi),
               x - l * np.cos(psi) + w * np.sin(psi), x - l * np.cos(psi) - w * np.sin(psi)]
     car_y = [ y + l * np.sin(psi) + w * np.cos(psi), y + l * np.sin(psi) - w * np.cos(psi),
@@ -223,32 +166,46 @@ def getCarPosition(x, y, psi, w, l):
     return car_x, car_y
 
 
-
-
-
 def main():
-
-
-
 
     rospy.init_node('fishcam_pose', anonymous=True)
     loop_rate       = 30
     rate            = rospy.Rate(loop_rate)
 
 
+    ## Parameter setting
+    visual_mode     = rospy.get_param("/fisheye_tracker/visualization")
+    yaw_offset      = rospy.get_param("/fisheye_tracker/yaw_offset")
+    camera_stream   = rospy.get_param("/fisheye_tracker/camera_stream")
+    USB_port        = rospy.get_param("/fisheye_tracker/USB_port")
+    Calibrate_imu   = rospy.get_param("/fisheye_tracker/Calibrate_imu")
+    record_data     = rospy.get_param("/fisheye_tracker/record_data")
+
+
 
     ####### ORIGIN w.r.t world
+    '''
+    Set according to the reference needed also remember if a orientation is different it's better to do a homogeneous 
+    transformation.
+    '''
     # Gx = 0.50 - (1.1 + 27.0 + 2.7/2)*10**-2
     # Gy = 1.50 - (27.0 + 4.4/2)*10**-2
     # Gz = 3.50 #from the camera focal point
 
     ###### ORIGIN NEAR ID2 ####################
-    '''
-    Prepare the world map for markers
-    '''
+    ## Reference set w.r.t ARUCO ID2 and later transformed in the observer part of code.
     Gx = 0
     Gy = 0
     Gz = 0 
+
+
+    ###### ARUCO location setting ########
+
+    ''' Prepare the world map for markers. This is very important part for
+    robust matching of aruco. The distance between each marker needs  to be
+    calculated manually and set accordingly. If the aruco location is changed
+    update this information. 4 markers are used in this case placed next to each
+    other with some offset. '''
 
     G_coor = np.array([Gx,Gy,Gz])
     cid2 = np.array([[0.0,1.1+27.0,0.0],[27.0,1.1+27.0,0.0],[27.0,1.1,0.0],[0.0,1.1,0.0]])*10**-2 + G_coor
@@ -272,39 +229,44 @@ def main():
 
     counter = 0
 
-    # ##### plot ####
-    # lim = 2
-    # plim = 0.2
-    # ( plt, fig, axtr, line_planning, point_simc, point_rlc, line_SS, line_sim, line_rl, line_0, line_2, line_3, line_4, line_fusion,\
-    #      marker_0, marker_2, marker_3, marker_4, fusion ,rec_planning) = _initializeFigure_xy(lim,lim)
-    # real0_x_his = []
-    # real0_y_his = []
-    # real2_x_his = []
-    # real2_y_his = []
+    # ##### Use for plot ####
+    if visual_mode == True:
+        lim = 2
+        plim = 0.2
+        ( plt, fig, axtr, line_planning, point_simc, point_rlc, line_SS, line_sim, line_rl, line_0, line_2, line_3, line_4, line_fusion,\
+             marker_0, marker_2, marker_3, marker_4, fusion ,rec_planning) = _initializeFigure_xy(lim,lim)
+        real0_x_his = []
+        real0_y_his = []
+        real2_x_his = []
+        real2_y_his = []
 
-    # plt.plot(aruco_world_corners[str(0)][:,0],aruco_world_corners[str(0)][:,1],'r')
-    # plt.plot(aruco_world_corners[str(4)][:,0],aruco_world_corners[str(4)][:,1],'g')
-    # plt.plot(aruco_world_corners[str(2)][:,0],aruco_world_corners[str(2)][:,1],'b')
-    # plt.plot(aruco_world_corners[str(3)][:,0],aruco_world_corners[str(3)][:,1],'y')
-    # plt.gca().set_aspect('equal', adjustable='box')
+        plt.plot(aruco_world_corners[str(0)][:,0],aruco_world_corners[str(0)][:,1],'r')
+        plt.plot(aruco_world_corners[str(4)][:,0],aruco_world_corners[str(4)][:,1],'g')
+        plt.plot(aruco_world_corners[str(2)][:,0],aruco_world_corners[str(2)][:,1],'b')
+        plt.plot(aruco_world_corners[str(3)][:,0],aruco_world_corners[str(3)][:,1],'y')
+        plt.gca().set_aspect('equal', adjustable='box')
 
 
 
     time0 = rospy.get_time()
 
 
-    # k_cam = image_stream()
-    # frame = k_cam.image_np
+    ## If subscriber is used for camera stream ##
+    if camera_stream == 'Node':
+        k_cam = image_stream()
+        frame = k_cam.image_np
 
+    ## if OpenCV 
+    else:
+        cap = cv2.VideoCapture(USB_port)
 
-    cap = cv2.VideoCapture(0)
-
-
+    ## IMU subscriber class
     imu = ImuClass(time0)
     
-    
-    # pub = rospy.Publisher('pose', Pose, queue_size=1)
+    ## Pure pose obtained from camera ##
     pure_cam_pose  = rospy.Publisher('pure_cam_pose', Pose, queue_size=1)
+    
+    ## Fused pose obtained using IMU + Camera
     fused_cam_pose  = rospy.Publisher('fused_cam_pose', Pose, queue_size=1)
 
     pose_cam_pure  = Pose()
@@ -318,13 +280,20 @@ def main():
     calibrate = True
     rot_mat = np.identity(3) 
 
+    x_offset = 0.0 
+    x_cal = []
+    y_offset = 0.0
+    y_cal = []
+
     cal_count = 0
+    pure_yaw_hist = []
 
     record_data = False
 
     while not (rospy.is_shutdown()):
+
+        ## Uncomment this for streaming camera from another node. if else is not done to avoid extra time loss
         # frame = k_cam.image_np
-        
         # frame=frame.astype(np.uint8)
         
         ret, frame = cap.read()
@@ -334,24 +303,20 @@ def main():
         aruco_dict = aruco.Dictionary_get(aruco.DICT_4X4_50)
 
         # detector parameters can be set here (List of detection parameters[3])
+        # Best parameter is selected by experimenting on the track
         parameters = aruco.DetectorParameters_create()
         # parameters.adaptiveThreshConstant = true
 
         parameters.cornerRefinementMethod = aruco.CORNER_REFINE_CONTOUR
 
-
         # lists of ids and the corners belonging to each id
         corners, ids, rejectedImgPoints = aruco.detectMarkers(gray, aruco_dict, parameters=parameters)
 
-        # font for displaying text (below)
-        font = cv2.FONT_HERSHEY_SIMPLEX
 
         # check if the ids list is not empty
         # if no check is added the code will crash
-        # print ("np.all(ids",np.all(ids),np.all(ids != None))
         if np.all(ids != None):
             if len(ids) > 1:
-                # print ("ids",ids)
                 filter_ids = []
                 filer_corners = []
                 for i,corner in zip(ids,corners):
@@ -377,54 +342,29 @@ def main():
                 # estimate pose of each marker and return the values
                 # rvet and tvec-different from camera coefficients
                 arvec, atvec ,_ = aruco.estimatePoseSingleMarkers(corners, 0.27, mtx, dist)
-                print "arvec shape, atvec shape", arvec.shape, atvec.shape
-		# (success, rvec, tvec) = cv2.solvePnP(new_world_map, new_corners, mtx, dist, flags=cv2.SOLVEPNP_ITERATIVE)
+            
+        # (success, rvec, tvec) = cv2.solvePnP(new_world_map, new_corners, mtx, dist, flags=cv2.SOLVEPNP_ITERATIVE)
                 param = cv2.SOLVEPNP_ITERATIVE
                 # param = cv2.SOLVEPNP_EPNP
                 # param = cv2.SOLVEPNP_UPNP
                 # param = cv2.SOLVEPNP_SQPNP
 
-                print "len(corners)",len(corners)
+            
+                retval, rvec, tvec, inliers = cv2.solvePnPRansac(new_world_map, new_corners, mtx, dist,flags= param)
+                # (success, rvec, tvec) = cv2.solvePnP(model_points, corners, mtx, dist, flags=cv2.SOLVEPNP_ITERATIVE)
+                (rvec-tvec).any() # get rid of that nasty numpy value array error
+                # val = cv2.solvePnPRansac(new_world_map, new_corners, mtx, dist)
+                # print ("val",val)
 
-		retval, rvec, tvec, inliers = cv2.solvePnPRansac(new_world_map, new_corners, mtx, dist,flags= param)
+
+                ####### Some reference for countered bug and fixed #########
                 # https://github.com/opencv/opencv/issues/8813
                 # https://www.gitmemory.com/issue/opencv/opencv/8813/496945286
                 # https://github.com/chili-epfl/chilitags/issues/19
-                # val = cv2.solvePnPRansac(new_world_map, new_corners, mtx, dist)
-                # print ("val",val)
-                # (success, rvec, tvec) = cv2.solvePnP(model_points, corners, mtx, dist, flags=cv2.SOLVEPNP_ITERATIVE)
-
-                (rvec-tvec).any() # get rid of that nasty numpy value array error
 
 
 
-                for i in range(0, ids.size):
-                    # draw axis for the aruco markers
-                    aruco.drawAxis(frame, mtx, dist, arvec[i], atvec[i], 1)
-
-
-                # draw a square around the markers
-                # aruco.drawDetectedMarkers(frame, corners)
-
-
-                # code to show ids of the marker found
-                strg = ''
-                for i in range(0, ids.size):
-                    strg += str(ids[i][0])+', '
-
-                cv2.putText(frame, "Id: " + strg, (0,64), font, 1, (0,255,0),2,cv2.LINE_AA)
-
-
-                # else:
-                #     # code to show 'No Ids' when no markers are found
-                #     cv2.putText(frame, "No Ids", (0,64), font, 1, (0,255,0),2,cv2.LINE_AA)
-
-                s = 1
-                # flatten the ArUco IDs list
-                ids = ids.flatten()
-                # loop over the detected ArUCo corners
-
-                ###### aruco frame to camera frame ######
+                ###### Camera frame to Aruco frame transformation######
                 
                 # print ('rvec',rvec,'tvec',tvec)
 
@@ -435,27 +375,16 @@ def main():
                 c_T_a[:3,:3] = rot
                 c_T_a[:3,3]  = np.squeeze(tvec)
 
-
-                # pos_x = c_T_a[:3,3][0]
-                # pos_y = c_T_a[:3,3][1]
-                # ypr  = cv2.RQDecomp3x3(c_T_a[:3,:3])
-
-
-                # print (c_T_a,"c_T_a")
-
                 a_T_c = np.zeros(shape=(4,4))
 
                 a_T_c[:3,:3] = rot.T
                 a_T_c[:3,3]  = np.squeeze(np.dot(-rot.T,tvec))
                         
-                # print (c_T_a,"c_T_a")
-
                 pos_x = a_T_c[:3,3][0]
                 pos_y = a_T_c[:3,3][1]
                 ypr  = cv2.RQDecomp3x3(a_T_c[:3,:3])
 
                 # print ("cam yaw",ypr[0][0]*180/pi,"cam pitch",ypr[0][1]*180/pi,"cam roll",ypr[0][2]*180/pi)
-
 
                 x_real = pos_x
                 y_real = pos_y
@@ -466,7 +395,6 @@ def main():
                 Rz = np.array([[cos(yaw),-sin(yaw),0],[sin(yaw),cos(yaw),0],[0.0,0.0,1.0]])
                 # Rz = np.dot(Rz,rot_mat)
                 # print ("Rz",Rz)
-
 
                 loc = np.array([np.squeeze(tvec)[0],np.squeeze(tvec)[1],1.0]).T
                 
@@ -492,6 +420,65 @@ def main():
                 # pose_cam_fused_hist['yaw'].append(psi_imu)
 
 
+                # #### only camera used for estimation #####
+                # pose_cam_pure.position.x = pos_x
+                # xp = pos_x
+                # pose_cam_pure.position.y = pos_y
+                # yp = pos_y
+                # pose_cam_pure.orientation.z = ypr[0][0]
+
+
+
+                # pure_cam_pose.publish(pose_cam_pure)
+
+
+                # #### IMU orientation used ######
+                # pose_cam_fused.position.x = -pose_imu[1]
+                # xf = -pose_imu[1]
+                # pose_cam_fused.position.y = pose_imu[0]
+                # yf = pose_imu[0]
+                # pose_cam_fused.orientation.z = yaw
+                # fused_cam_pose.publish(pose_cam_fused)
+
+
+
+                # pure_cam_vec  = np.array([pos_x,pos_y]) 
+                # fused_cam_vec = np.array([-pose_imu[1],pose_imu[0]])
+
+                # theta = np.arccos(pure_cam_vec.dot(fused_cam_vec)/(norm(pure_cam_vec)*norm(fused_cam_vec)))
+                # print "theta arccos", theta*180/pi
+                # print ("difference between degree",psi_real-psi_imu)
+                
+                cal_count += 1
+                if Calibrate_imu == True:
+
+                    dtheta.append(psi_imu)   
+                    pure_yaw_hist.append(ypr[0][0]) 
+                    # print "psi_imu",psi_imu                    
+                    
+                    # calibrate = False
+                    if cal_count > 20:
+                        Calibrate_imu = False
+                        Calibrate_pose = True
+                        imu.yaw_offset = -(np.mean(psi_imu) - np.mean(pure_yaw_hist))
+                        print ">>>>> Yaw Calibration Done"
+
+                if ((Calibrate_imu == False) and (Calibrate_pose == True)) and cal_count>25:
+                    
+                    x_cal.append(pos_x - x_imu)
+                    y_cal.append(pos_y - y_imu)
+                    if cal_count > 50:
+                        Calibrate_pose = False
+                        Calibrate_imu = False
+                        x_offset =  np.mean(x_cal)
+                        y_offset =  np.mean(y_cal)
+
+                        print "offset",x_offset,y_offset
+                        print " >>>>> Pose Calibration Done"
+                        # break
+                    
+
+
                 #### only camera used for estimation #####
                 pose_cam_pure.position.x = pos_x
                 pose_cam_pure.position.y = pos_y
@@ -499,95 +486,102 @@ def main():
                 pure_cam_pose.publish(pose_cam_pure)
 
 
+                print "offset",x_offset,y_offset
+                print "x_imu",x_imu, "y_imu",y_imu
+                x_fused = x_imu + x_offset
+                y_fused = y_imu  + y_offset
+                print "x_fused",x_fused, "y_fused",y_fused
+                
+
                 #### IMU orientation used ######
-                pose_cam_fused.position.x = -pose_imu[1]
-                pose_cam_fused.position.y = pose_imu[0]
+                pose_cam_fused.position.x = x_fused
+                pose_cam_fused.position.y = y_fused
                 pose_cam_fused.orientation.z = yaw
                 fused_cam_pose.publish(pose_cam_fused)
 
+                print ("\n[PURE CAM POSE ::]","X ={}, Y = {}, Yaw = {}".format(pos_x,pos_y,ypr[0][0]*180/pi))
+
+                print ("\n[FUSED CAM POSE ::]","X ={}, Y = {}, Yaw = {}".format(x_fused,y_fused,yaw*180/pi))
 
 
-                pure_cam_vec  = np.array([pos_x,pos_y]) 
-                fused_cam_vec = np.array([-pose_imu[1],pose_imu[0]])
+        ################### PLOTTING #############################
+        
+                #### Visualize detected aruco #######
+        
 
-                theta = np.arccos(pure_cam_vec.dot(fused_cam_vec)/(norm(pure_cam_vec)*norm(fused_cam_vec)))
-                # print ("difference between degree",psi_real-psi_imu)
-                
-                if calibrate == True:
-
-                    # dtheta.append(psi_real-psi_imu) 
-                    dtheta.append(psi_imu)                        
-                    cal_count += 1
-                    # calibrate = False
-                    if cal_count > 100:
-                        calibrate = False
-                        imu.yaw_offset = -(np.mean(psi_imu) - pi/2) 
-                else:
-                    #### only camera used for estimation #####
-                    pose_cam_pure.position.x = pos_x
-                    pose_cam_pure.position.y = pos_y
-                    pose_cam_pure.orientation.z = ypr[0][0]
-                    pure_cam_pose.publish(pose_cam_pure)
+                if visual_mode == True:
+                     # font for displaying text (below)
+                    font = cv2.FONT_HERSHEY_SIMPLEX
+                    for i in range(0, ids.size):
+                        # draw axis for the aruco markers
+                        aruco.drawAxis(frame, mtx, dist, arvec[i], atvec[i], 1)
 
 
-                    #### IMU orientation used ######
-                    pose_cam_fused.position.x = -pose_imu[1]
-                    pose_cam_fused.position.y = pose_imu[0]
-                    pose_cam_fused.orientation.z = yaw
-                    fused_cam_pose.publish(pose_cam_fused)
+                    #draw a square around the markers
+                    aruco.drawDetectedMarkers(frame, corners)
 
-                    print ("\n[PURE CAM POSE ::]","X ={}, Y = {}, Yaw = {}".format(pos_x,pos_y,ypr[0][0]*180/pi))
+                    #code to show ids of the marker found
+                    strg = ''
+                    for i in range(0, ids.size):
+                        strg += str(ids[i][0])+', '
 
-                    print ("\n[FUSED CAM POSE ::]","X ={}, Y = {}, Yaw = {}".format(-pose_imu[1],pose_imu[0],yaw*180/pi))
+                    cv2.putText(frame, "Id: " + strg, (0,64), font, 1, (0,255,0),2,cv2.LINE_AA)
+                    cv2.namedWindow('frame', cv2.WINDOW_NORMAL)
+                    cv2.imshow('frame',np.hstack((frame,np.dstack((gray,gray,gray)))))
+                    cv2.waitKey(1)
 
+                ####################################################
 
-        #         # plot dimension update
-        #         x_p = max([abs(x_real)])
-        #         y_p = max([abs(y_real)])
-        #         # print ('x_p',x_p,'lim',lim)
-        #         if (lim < abs(x_p)):
-        #             lim = abs(x_p)
-        #             lim = int((1.0+plim)*lim)
-        #             plt.xlim([-lim,lim])
-        #             plt.ylim([-lim,lim])
-        #         if (lim < abs(y_p)):
-        #             lim = abs(y_p)
-        #             plt.xlim([-lim,lim])
-        #             plt.ylim([-lim,lim])
-                
-        #         l = 0.42; w = 0.19
-
-
-        #         # arucoId0_pose_wrt_cam = c_T_a[0:3,3]
-        #         # arucoId0_yaw_wrt_cam = psi_real
-                
-
-        #         real0_x_his.append(x_real)
-        #         real0_y_his.append(y_real)
-
-        #         car_real_x, car_real_y = getCarPosition(x_real, y_real, psi_real, w, l)
-        #         marker_0.set_xy(np.array([car_real_x, car_real_y]).T)
-        #         # point_rlc.set_data(x_real, y_real)
-        #         line_0.set_data(real0_x_his, real0_y_his)
+                ############## For plotting the vehicle tracking ###############
+            
+                    # plot dimension update
+                    x_p = max([abs(x_real)])
+                    y_p = max([abs(y_real)])
+                    # print ('x_p',x_p,'lim',lim)
+                    if (lim < abs(x_p)):
+                        lim = abs(x_p)
+                        lim = int((1.0+plim)*lim)
+                        plt.xlim([-lim,lim])
+                        plt.ylim([-lim,lim])
+                    if (lim < abs(y_p)):
+                        lim = abs(y_p)
+                        plt.xlim([-lim,lim])
+                        plt.ylim([-lim,lim])
+                    
+                    l = 0.42; w = 0.19
 
 
-        #         real2_x_his.append(x_imu)
-        #         real2_y_his.append(y_imu)
+                    # arucoId0_pose_wrt_cam = c_T_a[0:3,3]
+                    # arucoId0_yaw_wrt_cam = psi_real
+                    
 
-        #         car_real_x, car_real_y = getCarPosition(x_imu, y_imu, psi_imu, w, l)
-        #         marker_2.set_xy(np.array([car_real_x, car_real_y]).T)
-        #         # point_rlc.set_data(x_real, y_real)
-        #         line_2.set_data(real2_x_his, real2_y_his)
+                    real0_x_his.append(x_real)
+                    real0_y_his.append(y_real)
+
+                    car_real_x, car_real_y = getCarPosition(x_real, y_real, psi_real, w, l)
+                    marker_0.set_xy(np.array([car_real_x, car_real_y]).T)
+                    # point_rlc.set_data(x_real, y_real)
+                    line_0.set_data(real0_x_his, real0_y_his)
 
 
-        #         cv2.putText(frame, 'cam_pos x={} cm, y={} cm'.format(str(round(pos_x*10**2,2)),str(round(pos_y*10**2,2))), (50, frame.shape[0] - 70), cv2.FONT_HERSHEY_SIMPLEX,
-        #             0.5, (0, 255, 0), 1)
+                    real2_x_his.append(x_fused)
+                    real2_y_his.append(y_fused)
 
-        #         fig.canvas.draw()
+                    car_real_x, car_real_y = getCarPosition(x_fused, y_fused, psi_imu, w, l)
+                    marker_2.set_xy(np.array([car_real_x, car_real_y]).T)
+                    # point_rlc.set_data(x_real, y_real)
+                    line_2.set_data(real2_x_his, real2_y_his)
 
-        # cv2.namedWindow('frame', cv2.WINDOW_NORMAL)
-        # cv2.imshow('frame',np.hstack((frame,np.dstack((gray,gray,gray)))))
-        # cv2.waitKey(1)
+
+                    cv2.putText(frame, 'cam_pos x={} cm, y={} cm'.format(str(round(pos_x*10**2,2)),str(round(pos_y*10**2,2))), (50, frame.shape[0] - 70), cv2.FONT_HERSHEY_SIMPLEX,
+                        0.5, (0, 255, 0), 1)
+
+                    fig.canvas.draw()
+
+
+        #####################################################################
+
+
         rate.sleep()
 
     if record_data == True:
