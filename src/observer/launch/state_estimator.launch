@@ -1,0 +1,48 @@
+<launch>
+    
+    <!-- SYSTEM MODEL -->
+    <param name="m"             type="double"   value="2.424" />
+    <param name="rho"             type="double"   value="1.225" />    
+    <param name="lr"            type="double"   value="0.1203" />
+    <param name="lf"            type="double"   value="0.1377" />
+    <param name="Cm0"            type="double"   value="10.1305" />
+    <param name="Cm1"            type="double"   value="1.05294" />
+    <param name="C0"            type="double"   value="3.68918" />
+    <param name="C1"            type="double"   value="0.0306803" />
+    <param name="Cd_A"            type="double"   value="-0.657645" />
+    <param name="Caf"            type="double"   value="1.3958" />
+    <param name="Car"            type="double"   value="1.6775" />
+    <param name="Iz"            type="double"   value="0.02" />
+    
+    <node pkg="observer" type="lqr_state_estimator.py" name="lqr_observer" output="screen">
+
+        <param name="publish_frequency" type="double" value="100.0" />
+        
+        <!-- sensor Moving average -->
+        <param name="MA_status"      type="bool" value="True" />
+        <param name="fcam_MA_window" type="int" value="50" />
+        <param name="imu_MA_window"  type="int" value="50" />
+        <param name="enc_MA_window"  type="int" value="50" />
+
+        <!-- deadzone for the motor where it is stalled (-0.8 to 0.8)-->
+        <param name="deadzone"    type="double" value="0.8" />
+        
+        <!-- Pure translation and rotation don't confuse with refence transformation -->
+        <param name="init_x"    type="double" value="0.15" />
+        <param name="init_y"    type="double" value="0.005" />
+        <param name="init_yaw"  type="double" value="0.01" />
+
+        <!-- If transformation needed from estamed frame of reference to another -->
+        <param name="x_tf"    type="double" value="0.0" />
+        <param name="y_tf"    type="double" value="0.0" />
+        <param name="yaw_tf"  type="double" value="0.0" />
+
+        <param name="Visualization"    type="bool"      value="True" />
+        <param name="Testing"          type="bool"      value="True" />
+
+    </node>
+
+    <!--node pkg="simulator" type="2Dplot.py" name="visualization" output="screen">
+    </node>-->
+
+</launch>

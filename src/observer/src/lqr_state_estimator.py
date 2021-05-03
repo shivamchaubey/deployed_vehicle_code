@@ -143,291 +143,6 @@ class motor_encoder():
         return msg
 
 
-class marvelmind():
-
-
-    def __init__(self,t0,N):
-
-        rospy.Subscriber('hedge_imu_fusion', hedge_imu_fusion, self.fusion_callback, queue_size=1)
-        rospy.Subscriber('hedge_imu_raw', hedge_imu_raw, self.raw_callback, queue_size=1)
-        
-
-        ## Define Origin ##
-        self.x_m_offset = 0
-        self.y_m_offset = 0 
-
-        # GPS measurement
-        self.x_m    = 0.0
-        self.y_m    = 0.0
-        self.z_m    = 0.0
-        self.qw     = 0.0
-        self.qx     = 0.0
-        self.qy     = 0.0
-        self.qz     = 0.0
-        self.vx     = 0.0
-        self.vy     = 0.0
-        self.vz     = 0.0
-        self.ax     = 0.0
-        self.ay     = 0.0
-        self.az     = 0.0
-        self.roll   = 0.0
-        self.yaw    = 0.0
-        self.pitch  = 0.0 
-
-        self.yaw_rate =0.0
-
-        ####### MOVING AVERAGE #######
-
-        self.x_m_MA             = 0.0           
-        self.x_m_MA_window      = [0.0]*N
-        self.y_m_MA             = 0.0           
-        self.y_m_MA_window      = [0.0]*N
-        self.z_m_MA             = 0.0           
-        self.z_m_MA_window      = [0.0]*N
-        self.qw_MA              = 0.0           
-        self.qw_MA_window       = [0.0]*N
-        self.qx_MA              = 0.0           
-        self.qx_MA_window       = [0.0]*N
-        self.qy_MA              = 0.0           
-        self.qy_MA_window       = [0.0]*N
-        self.qz_MA              = 0.0           
-        self.qz_MA_window       = [0.0]*N
-        self.vx_MA              = 0.0           
-        self.vx_MA_window       = [0.0]*N
-        self.vy_MA              = 0.0           
-        self.vy_MA_window       = [0.0]*N
-        self.vz_MA              = 0.0           
-        self.vz_MA_window       = [0.0]*N
-        self.ax_MA              = 0.0           
-        self.ax_MA_window       = [0.0]*N
-        self.ay_MA              = 0.0           
-        self.ay_MA_window       = [0.0]*N
-        self.az_MA              = 0.0           
-        self.az_MA_window       = [0.0]*N
-        self.roll_MA            = 0.0           
-        self.roll_MA_window = [0.0]*N
-        self.yaw_MA             = 0.0           
-        self.yaw_MA_window      = [0.0]*N
-        self.pitch_MA           = 0.0           
-        self.pitch_MA_window    = [0.0]*N
-
-        self.yaw_rate_MA =0.0
-        self.yaw_rate_MA_window = [0.0]*N
-
-        self.imu = IMU(t0,10)
-        self.encoder = motor_encoder(t0)
-        self.s       = 0.0
-
-        self.N      = N
-        # self.x_his  = 0.0
-        # self.y_his  = 0.0
-
-        # time stamp
-        self.t0             = t0
-        self.curr_time      = rospy.get_rostime().to_sec() - self.t0
-
-    def raw_callback(self,data):
-        
-        self.yaw_rate = data.gyro_z
-
-        self.yaw_rate_MA_window.pop(0)
-        self.yaw_rate_MA_window.append(self.yaw_rate)
-        self.yaw_rate_MA = np.squeeze(np.convolve(self.yaw_rate_MA_window, np.ones(self.N)/self.N, mode='valid'))
-
-
-    def fusion_callback(self, data):
-        """Unpack message from sensor, GPS"""
-        self.curr_time  = rospy.get_rostime().to_sec() - self.t0
-#        dist = np.sqrt((data.x_m - self.x_his) ** 2 + (data.y_m - self.y_his) ** 2)
-
-
-        self.x_m = data.x_m - self.x_m_offset
-        self.y_m = data.y_m - self.y_m_offset
-        self.z_m = data.z_m
-        
-        ## Global frame to vehicle body frame velocity transformation
-        Vx = -data.vx
-        Vy = -data.vy
-
-        self.vx = Vx*cos(self.imu.yaw) + Vy*sin(self.imu.yaw)
-        self.vy = -Vx*sin(self.imu.yaw) + Vy*cos(self.imu.yaw)
-
-        self.vz = data.vz
-        self.ax = data.ax
-        self.ay = data.ay
-        self.az = data.az
-
-        self.qw = data.qw
-        self.qx = data.qx
-        self.qy = data.qy
-        self.qz = data.qz
-        euler = tf.transformations.euler_from_quaternion([self.qx, self.qy, self.qz, self.qw]) 
-        # euler = tf.transformations.euler_from_quaternion([0, 0, self.qz, self.qw])   
-        
-        self.roll  = euler[0] 
-        self.pitch = euler[1]
-        self.yaw   = euler[2]
-        
-
-
-        ###### MOVING AVERAGE #####
-
-        self.x_m_MA_window.pop(0)
-        self.x_m_MA_window.append(self.x_m)
-        self.x_m_MA = np.squeeze(np.convolve(self.x_m_MA_window, np.ones(self.N)/self.N, mode='valid'))
-
-        self.y_m_MA_window.pop(0)
-        self.y_m_MA_window.append(self.y_m)
-        self.y_m_MA = np.squeeze(np.convolve(self.y_m_MA_window, np.ones(self.N)/self.N, mode='valid'))
-
-        self.z_m_MA_window.pop(0)
-        self.z_m_MA_window.append(self.z_m)
-        self.z_m_MA = np.squeeze(np.convolve(self.z_m_MA_window, np.ones(self.N)/self.N, mode='valid'))
-
-        self.vx_MA_window.pop(0)
-        self.vx_MA_window.append(self.vx)
-        self.vx_MA = np.squeeze(np.convolve(self.vx_MA_window, np.ones(self.N)/self.N, mode='valid'))
-
-        self.vy_MA_window.pop(0)
-        self.vy_MA_window.append(self.vy)
-        self.vy_MA = np.squeeze(np.convolve(self.vy_MA_window, np.ones(self.N)/self.N, mode='valid'))
-
-        self.vz_MA_window.pop(0)
-        self.vz_MA_window.append(self.vz)
-        self.vz_MA = np.squeeze(np.convolve(self.vz_MA_window, np.ones(self.N)/self.N, mode='valid'))
-
-        self.ax_MA_window.pop(0)
-        self.ax_MA_window.append(self.ax)
-        self.ax_MA = np.squeeze(np.convolve(self.ax_MA_window, np.ones(self.N)/self.N, mode='valid'))
-
-        self.ay_MA_window.pop(0)
-        self.ay_MA_window.append(self.ay)
-        self.ay_MA = np.squeeze(np.convolve(self.ay_MA_window, np.ones(self.N)/self.N, mode='valid'))
-
-        self.az_MA_window.pop(0)
-        self.az_MA_window.append(self.az)
-        self.az_MA = np.squeeze(np.convolve(self.az_MA_window, np.ones(self.N)/self.N, mode='valid'))
-
-        self.qw_MA_window.pop(0)
-        self.qw_MA_window.append(self.qw)
-        self.qw_MA = np.squeeze(np.convolve(self.qw_MA_window, np.ones(self.N)/self.N, mode='valid'))
-
-        self.qx_MA_window.pop(0)
-        self.qx_MA_window.append(self.qx)
-        self.qx_MA = np.squeeze(np.convolve(self.qx_MA_window, np.ones(self.N)/self.N, mode='valid'))
-
-        self.qy_MA_window.pop(0)
-        self.qy_MA_window.append(self.qy)
-        self.qy_MA = np.squeeze(np.convolve(self.qy_MA_window, np.ones(self.N)/self.N, mode='valid'))
-
-        self.qz_MA_window.pop(0)
-        self.qz_MA_window.append(self.qz)
-        self.qz_MA = np.squeeze(np.convolve(self.qz_MA_window, np.ones(self.N)/self.N, mode='valid'))
-        
-        quaternion = np.squeeze(np.array([self.qx_MA, self.qy_MA, self.qz_MA, self.qw_MA]))
-        # print ("self.qx_MA, self.qy_MA, self.qz_MA, self.qw_MA", quaternion)
-        euler = tf.transformations.euler_from_quaternion(quaternion)   
-
-        self.roll_MA  = euler[0] 
-        self.yaw_MA   = euler[2]
-        self.pitch_MA = euler[1]
-
-
-        dist =  LA.norm(np.array([self.x_m_MA_window[-1],self.y_m_MA_window[-1]])-np.array([self.x_m_MA_window[-2], self.y_m_MA_window[-2]]))
-
-        if self.encoder.vx == 0.0:
-            dist = 0.0
-
-        self.s += dist
-
-
-        self.prev_time = self.curr_time
-
-    def calibrate_marvel(self,delay,offset):
-
-        x_m_info = []
-        y_m_info = []
-        yaw_rate_info = []
-        ax_info = []
-        ay_info = []
-        az_info = []
-        vx_info = []
-        vy_info = []
-        yaw_info = []
-
-        # t1 = rospy.get_rostime().to_sec()
-        # while   t1 - self.t0 < delay: ### time for 5sec
-        for i in range(50):
-            # t1 = rospy.get_rostime().to_sec()
-            yaw_rate_info.append(self.yaw_rate)
-            ax_info.append(self.ax)
-            ay_info.append(self.ay)
-            az_info.append(self.az)
-            
-            vx_info.append(self.vx)
-            vy_info.append(self.vy)
-            yaw_info.append(self.yaw)
-            x_m_info.append(self.x_m)
-            y_m_info.append(self.y_m)
-            # print ('time', t1 - self.t0)        
-
-
-        self.x_m_offset = np.mean(x_m_info)
-        self.y_m_offset = np.mean(y_m_info)
-
-        # self.yaw_rate_offset  = np.mean(yaw_rate_info)
-        # self.ax_offset      = np.mean(ax_info)
-        # self.ay_offset      = np.mean(ay_info)
-        # self.az_offset      = np.mean(az_info)
-        # self.vx_offset      = np.mean(vx_info)
-        # self.vy_offset      = np.mean(vy_info)
-        # self.yaw_offset     = np.mean(yaw_info)  - offset
-
-        # self.co_yaw     = np.var(yaw_info)
-        # self.co_psiDot  = np.var(yaw_rate_info)
-        # self.co_ax      = np.var(ax_info)
-        # self.co_ay      = np.var(ay_info)
-        # self.co_vx      = np.var(vx_info)
-        # self.co_vy      = np.var(vy_info)
-
-    def data_retrive(self, msg):
-
-        msg.timestamp_ms = self.curr_time
-        msg.X  = self.x_m
-        msg.Y  = self.y_m
-        msg.roll  = self.roll
-        msg.yaw  = self.yaw
-        msg.pitch  = self.pitch
-        msg.vx  = self.vx
-        msg.vy  = self.vy
-        msg.yaw_rate  = self.yaw_rate
-        msg.ax  = self.ax
-        msg.ay  = self.ay
-        msg.s  = self.s
-        msg.x  = 0
-        msg.y  = 0
-
-        return msg
-
-    def data_retrive_MA(self, msg):
-
-        msg.timestamp_ms = self.curr_time
-        msg.X  = self.x_m_MA
-        msg.Y  = self.y_m_MA
-        msg.roll  = self.roll_MA
-        msg.yaw  = self.yaw_MA
-        msg.pitch  = self.pitch_MA
-        msg.vx  = self.vx_MA
-        msg.vy  = self.vy_MA
-        msg.yaw_rate  = self.yaw_rate_MA
-        msg.ax  = self.ax_MA
-        msg.ay  = self.ay_MA
-        msg.s  = self.s
-        msg.x  = 0
-        msg.y  = 0
-        
-        return msg
-
 
 class IMU():
 
@@ -1365,7 +1080,6 @@ def main():
     fcam   = fiseye_cam(time0, 5)
     imu    = IMU(time0, 100)
 
-    marvel = marvelmind(time0, 300)
     control_input = vehicle_control(time0)
 
     delay = 5
@@ -1373,7 +1087,6 @@ def main():
     print ("<<<< Initializing IMU orientation >>>>")
     imu.calibrate_imu(delay,offset)    
     fcam.calibrate_fcam(delay,offset)
-    marvel.calibrate_marvel(delay,offset)
     print ("<<<< ORIGIN SET AND CALIBRATION DONE >>>>")
 
 
@@ -1416,10 +1129,6 @@ def main():
     control_data = control()
     control_hist = {'timestamp_ms_dutycycle':[],'timestamp_ms_steer':[],'steering':[], 'duty_cycle':[]}
 
-    marvel_pub  = rospy.Publisher('marvel_fused', sensorReading, queue_size=1)
-    marvel_data = sensorReading()
-    marvel_hist = {'timestamp_ms':[], 'X':[], 'Y':[], 'roll':[], 'yaw':[], 'pitch':[], 'vx':[], 'vy':[], 'yaw_rate':[], 'ax':[], 'ay':[], 's':[], 'x':[], 'y':[]}
-
     enc_pub  = rospy.Publisher('encoder_fused', sensorReading, queue_size=1)
     enc_data = sensorReading()
     enc_hist = {'timestamp_ms':[], 'X':[], 'Y':[], 'roll':[], 'yaw':[], 'pitch':[], 'vx':[], 'vy':[], 'yaw_rate':[], 'ax':[], 'ay':[], 's':[], 'x':[], 'y':[]}
@@ -1433,9 +1142,6 @@ def main():
     fcam_hist = {'timestamp_ms':[], 'X':[], 'Y':[], 'roll':[], 'yaw':[], 'pitch':[], 'vx':[], 'vy':[], 'yaw_rate':[], 'ax':[], 'ay':[], 's':[], 'x':[], 'y':[]}
         
 
-    marvel_MA_pub  = rospy.Publisher('marvel_MA_fused', sensorReading, queue_size=1)
-    marvel_MA_data = sensorReading()
-    marvel_MA_hist = {'timestamp_ms':[], 'X':[], 'Y':[], 'roll':[], 'yaw':[], 'pitch':[], 'vx':[], 'vy':[], 'yaw_rate':[], 'ax':[], 'ay':[], 's':[], 'x':[], 'y':[]}
         
     enc_MA_pub  = rospy.Publisher('encoder_MA_fused', sensorReading, queue_size=1)
     enc_MA_data = sensorReading()
@@ -1518,14 +1224,6 @@ def main():
 
         control_msg = control_input.data_retrive(control_data)        
         append_control_data(control_hist, control_msg)
-
-        marvel_msg = marvel.data_retrive(marvel_data)
-        marvel_pub.publish(marvel_msg)
-        append_sensor_data(marvel_hist, marvel_msg)
-
-        marvel_MA_msg = marvel.data_retrive_MA(marvel_MA_data)
-        marvel_MA_pub.publish(marvel_MA_msg)
-        append_sensor_data(marvel_MA_hist, marvel_MA_msg)
 
 
         enc_msg = enc.data_retrive(enc_data)
