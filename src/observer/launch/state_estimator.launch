@@ -18,6 +18,8 @@
 
         <param name="publish_frequency" type="double" value="100.0" />
         
+        <param name="lqr_gain_path"   type="string"  value="/root/my_pkg/workspace/src/observer/data/LQR_16_04_2021/LQR_gain.mat" />
+
         <!-- sensor Moving average -->
         <param name="MA_status"      type="bool" value="True" />
         <param name="fcam_MA_window" type="int" value="50" />
@@ -33,12 +35,15 @@
         <param name="init_yaw"  type="double" value="0.01" />
 
         <!-- If transformation needed from estamed frame of reference to another -->
-        <param name="x_tf"    type="double" value="0.0" />
-        <param name="y_tf"    type="double" value="0.0" />
-        <param name="yaw_tf"  type="double" value="0.0" />
+        <param name="x_tf"      type="double" value="0.0" />
+        <param name="y_tf"      type="double" value="0.0" />
+        <!-- Map rotation -->
+        <param name="theta_tf"  type="double" value="-90" />
+        <!-- Vehicle orientation-->
+        <param name="yaw_tf"    type="double" value="-90" />
 
         <param name="Visualization"    type="bool"      value="True" />
-        <param name="Testing"          type="bool"      value="True" />
+        <param name="record_data"      type="bool"      value="False" />
 
     </node>
 

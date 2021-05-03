@@ -464,6 +464,15 @@ class fiseye_cam():
         # rospy.Subscriber('pure_cam_pose', Pose, self.pure_cam_pose_callback, queue_size=1)
         rospy.Subscriber('fused_cam_pose', Pose, self.fused_cam_pose_callback, queue_size=1)
 
+
+        #### Homogeneous transformation for reference change####
+        x_tf     = rospy.get_param("lqr_observer/x_tf")
+        y_tf     = rospy.get_param("lqr_observer/y_tf")
+        theta_tf = rospy.get_param("lqr_observer/theta_tf")
+        self.R_tf = np.array([[cos(theta_tf), -sin(theta_tf)],
+                         [sin(theta_tf),  cos(theta_tf)]])
+        self.yaw_tf   = rospy.get_param("lqr_observer/yaw_tf")
+
         # self.pure_x   = 0.0
 
         # self.pure_y   = 0.0
@@ -545,10 +554,12 @@ class fiseye_cam():
     def fused_cam_pose_callback(self, data):
         self.curr_time = rospy.get_rostime().to_sec() - self.t0
 
-        self.X   = data.position.x - self.x_m_offset
-        self.Y   = data.position.y - self.y_m_offset
+        # self.X   = data.position.x - self.x_m_offset
+        # self.Y   = data.position.y - self.y_m_offset
 
-        self.yaw = data.orientation.z
+        [self.X, self.Y] = np.dot(self.R_tf, np.array([data.position.x,data.position.y]).T)
+
+        self.yaw = data.orientation.z + self.yaw_tf
 
         self.X_MA_window.pop(0)
         self.X_MA_window.append(self.X)
@@ -832,58 +843,38 @@ def append_control_data(data,msg):
 
 def Continuous_AB_Comp(vx, vy, omega, theta, delta):
 
-    # m = rospy.get_param("m")
-    # rho = rospy.get_param("rho")
-    # lr = rospy.get_param("lr")
-    # lf = rospy.get_param("lf")
-    # Cm0 = rospy.get_param("Cm0")
-    # Cm1 = rospy.get_param("Cm1")
-    # C0 = rospy.get_param("C0")
-    # C1 = rospy.get_param("C1")
-    # Cd_A = rospy.get_param("Cd_A")
-    # Caf = rospy.get_param("Caf")
-    # Car = rospy.get_param("Car")
-    # Iz = rospy.get_param("Iz")
+    m = rospy.get_param("m")
+    rho = rospy.get_param("rho")
+    lr = rospy.get_param("lr")
+    lf = rospy.get_param("lf")
+    Cm0 = rospy.get_param("Cm0")
+    Cm1 = rospy.get_param("Cm1")
+    C0 = rospy.get_param("C0")
+    C1 = rospy.get_param("C1")
+    Cd_A = rospy.get_param("Cd_A")
+    Caf = rospy.get_param("Caf")
+    Car = rospy.get_param("Car")
+    Iz = rospy.get_param("Iz")
 
-    m = 2.424;
-    rho = 1.225;
-    lr = 0.1203;
-    lf = 0.1377;
-    Cm0 = 10.1305;
-    Cm1 = 1.05294;
-    C0 = 3.68918;
-    C1 = 0.0306803;
-    Cd_A = -0.657645;
-    Caf = 1.3958;
-    Car = 1.6775;
-    Iz = 0.02;
-
-
+    
     F_flat = 0;
     Fry = 0;
     Frx = 0;
     
-    A31 = 0;
-    A11 = 0;
     
-    eps = 0.00000001 ## avoiding reaching to infinity
-    eps = 0
-    if abs(vx)> 0:
-        F_flat = 2*Caf*(delta- atan((vy+lf*omega)/(vx+eps)));
+    eps = 0.000001
+    F_flat = 2*Caf*(delta- atan((vy+lf*omega)/(vx+eps)));
     
     
-    if abs(vx)> 0:
     
-        Fry = -2*Car*atan((vy - lr*omega)/(vx+eps)) ;
-        A11 = -(1/m)*(C0 + C1/(vx+eps) + Cd_A*rho*vx/2);
-        A31 = -Fry*lr/((vx+eps)*Iz);
+    Fry = -2*Car*atan((vy - lr*omega)/(vx+eps)) ;
+    A11 = -(1/m)*(C0 + C1/(vx+eps) + Cd_A*rho*vx/2);
+    A31 = -Fry*lr/((vx+eps)*Iz);
         
     A12 = omega;
     A21 = -omega;
-    A22 = 0;
     
-    if abs(vy) > 0.0:
-        A22 = Fry/(m*(vy+eps));
+    A22 = Fry/(m*(vy+eps));
 
     A41 = cos(theta);
     A42 = -sin(theta);
@@ -891,14 +882,9 @@ def Continuous_AB_Comp(vx, vy, omega, theta, delta):
     A52 = cos(theta);
 
 
-    B12 = 0;
-    B32 = 0;
-    B22 = 0;
-    
-    if abs(delta) > 0:
-        B12 = -F_flat*sin(delta)/(m*(delta+eps));
-        B22 = F_flat*cos(delta)/(m*(delta+eps));    
-        B32 = F_flat*cos(delta)*lf/(Iz*(delta+eps));
+    B12 = -F_flat*sin(delta)/(m*(delta+eps));
+    B22 = F_flat*cos(delta)/(m*(delta+eps));    
+    B32 = F_flat*cos(delta)*lf/(Iz*(delta+eps));
 
 
 
@@ -918,8 +904,8 @@ def Continuous_AB_Comp(vx, vy, omega, theta, delta):
                     [ 0 ,  0 ],\
                     [ 0 ,  0 ]])
 
+    
     # print ('self.A_obs',self.A_obs,'self.B_obs',self.B_obs)
-    # print ("observer ::")
     
     return A_obs, B_obs
 
@@ -957,8 +943,6 @@ def L_Computation(vx,vy,w,theta,delta,LQR_gain,sched_var,seq):
         print( '[ESTIMATOR/L_Gain_Comp]: Vy is out of the polytope ...' )
     elif delta > sched_delta[1] or delta < sched_delta[0]:
         print( '[ESTIMATOR/L_Gain_Comp]: Steering is out of the polytope ... = ',delta)
-#         elif theta > sched_theta[1] or theta < sched_theta[0]:
-#             print( '[ESTIMATOR/L_Gain_Comp]: Theta is out of the polytope ...', theta )
 
 
     mu = np.zeros((seq.shape[0],1))
@@ -1010,32 +994,20 @@ def data_retrive_est(msg, est_msg, yaw_measured):
 
     return msg
 
+def load_LQRgain():
 
-def load_gain():
-
-    gain_path = '/root/my_pkg/workspace/src/observer/data/LQR_16_04_2021'
-
-    LQR_gain = np.array(sio.loadmat(gain_path+'/LQR_gain.mat')['data']['Lmi'].item())
-
-    seq = sio.loadmat(gain_path+'/LQR_gain.mat')['data']['sequence'].item()
-    ##sched_vx, sched_vy, sched_w, sched_theta, sched_delta
+    gain_path = rospy.get_param("lqr_observer/lqr_gain_path")
+    LQR_gain = np.array(sio.loadmat(gain_path)['data']['Lmi'].item())
+    seq = sio.loadmat(gain_path)['data']['sequence'].item()
     seq = seq - 1 ##matlab index to python index
-
-    sched_var = sio.loadmat(gain_path+'/LQR_gain.mat',matlab_compatible = 'True')['data']['sched_var'].item()
-    sched_vx    = sched_var[0,:]
-    sched_vy    = sched_var[1,:]
-    sched_w     = sched_var[2,:]
-    sched_theta = sched_var[3,:]
-    sched_delta = sched_var[4,:]
-
+    sched_var = sio.loadmat(gain_path,matlab_compatible = 'True')['data']['sched_var'].item()
+    
     return LQR_gain, seq, sched_var
 
 def yaw_correction(angle):
     if angle < 0:
         angle = 2*pi - abs(angle)
     return angle
-
-
 
 def wrap(angle):
     if angle < -np.pi:
@@ -1066,58 +1038,79 @@ def yaw_smooth(angle_cur, angle_past):
 def main():
     rospy.init_node('state_estimation', anonymous=True)
 
-    loop_rate       = 100 #HZ
-    rate            = rospy.Rate(loop_rate)
-    time0 = rospy.get_rostime().to_sec()
-    # print ("time0",time.time())
+    loop_rate   = rospy.get_param("lqr_observer/publish_frequency")
+    rate        = rospy.Rate(loop_rate)
+    time0       = rospy.get_rostime().to_sec()
+    
+    counter     = 0
+    record_data =    rospy.get_param("lqr_observer/record_data")
 
-    counter = 0
+    N_enc  = rospy.get_param("lqr_observer/enc_MA_window")
+    N_fcam = rospy.get_param("lqr_observer/fcam_MA_window")
+    N_imu  = rospy.get_param("lqr_observer/imu_MA_window")
 
-    record_data = False
-
-    N = 10
-    enc    = motor_encoder(time0, 10)
-    fcam   = fiseye_cam(time0, 5)
-    imu    = IMU(time0, 100)
+    enc    = motor_encoder(time0, N_enc)
+    fcam   = fiseye_cam(time0, N_fcam)
+    imu    = IMU(time0, N_imu)
 
     control_input = vehicle_control(time0)
 
-    delay = 5
-    offset = pi/2
+
+
+
+# class EstimatorData(object):
+#     """Data from estimator"""
+#     def __init__(self):
+#         """Subscriber to estimator"""
+#         rospy.Subscriber("est_state_info", sensorReading, self.estimator_callback)
+#         self.offset_x = 0.46822099
+#         self.offset_y = -1.09683919
+#         self.offset_yaw = -pi/2
+#         self.R = np.array([[cos(self.offset_yaw),-sin(self.offset_yaw)],[sin(self.offset_yaw), cos(self.offset_yaw)]])
+#         self.CurrentState = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]).T
+    
+#     def estimator_callback(self, msg):
+#         """
+#         Unpack the messages from the estimator
+#         """
+#         self.CurrentState = np.array([msg.vx, msg.vy, msg.yaw_rate, msg.X, msg.Y, msg.yaw + self.offset_yaw]).T
+#         self.CurrentState[3:5] = np.dot(self.R,self.CurrentState[3:5])
+#         self.CurrentState[3:5] = self.CurrentState[3:5] - np.array([self.offset_x, self.offset_y]).T
+
+    delay  = 5
+    # offset = pi/2
     print ("<<<< Initializing IMU orientation >>>>")
-    imu.calibrate_imu(delay,offset)    
-    fcam.calibrate_fcam(delay,offset)
+    # imu.calibrate_imu(delay,offset)    
+    # fcam.calibrate_fcam(delay,R_tf)
     print ("<<<< ORIGIN SET AND CALIBRATION DONE >>>>")
 
 
-    ###### Estimator Initialize ######
-
-
+    ###### observation matrix ######
     C       =  np.array([[1, 0, 0, 0, 0, 0], 
-                     [0, 0, 1, 0, 0, 0],
-                     [0, 0, 0, 1, 0, 0],
-                     [0, 0, 0, 0, 1, 0],
-                     [0, 0, 0, 0, 0, 1]]) 
+                         [0, 0, 1, 0, 0, 0],
+                         [0, 0, 0, 1, 0, 0],
+                         [0, 0, 0, 0, 1, 0],
+                         [0, 0, 0, 0, 0, 1]]) 
 
     time.sleep(5)
     
-    lr = 0.1203;
-    lf = 0.1377;
+    lr = rospy.get_param("lr")
+    lf = rospy.get_param("lf")
     beta = lr*tan(control_input.steer)/(lr+lf); ## slip angle
     vy = enc.vx*beta;
 
-    print "imu.yaw",imu.yaw
+    # est_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, fcam.yaw ]).T
     est_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, yaw_correction(fcam.yaw) ]).T
     est_state_hist = [] 
     est_state_hist.append(est_state)
     
     est_state_msg = sensorReading()
-    ### Assign the path inside this function
-    LQR_gain, seq, sched_var = load_gain()
+    LQR_gain, seq, sched_var = load_LQRgain()
     est_state_pub  = rospy.Publisher('est_state_info', sensorReading, queue_size=1)
 
 
     #### Open loop simulation ###
+    # ol_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, fcam.yaw ]).T
     ol_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, yaw_correction(fcam.yaw) ]).T
     ol_state_hist = [] 
     ol_state_hist.append(ol_state)
@@ -1168,8 +1161,6 @@ def main():
     direction = 1.0
     angle_past = yaw_correction(fcam.yaw)
 
-
-
     while not (rospy.is_shutdown()):
 
         curr_time = rospy.get_rostime().to_sec() - time0
@@ -1213,7 +1204,7 @@ def main():
             # yaw_check += wrap(fcam.yaw)
 
         # print ("est_state",est_state)
-        est_state_pub.publish(data_retrive_est(est_state_msg, est_state,angle_acc))
+        est_state_pub.publish(data_retrive_est(est_state_msg, est_state, angle_acc))
         est_state_hist.append(est_state)  ## remember we want to check the transformed yaw angle for debugging that's why 
                                                     ##publishing this information in the topic of "s" which is not used for any purpose. 
 
