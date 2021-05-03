@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 import rospy
 from numpy.random import randn,rand
 import rosbag
-import pandas as pd
 from geometry_msgs.msg import Twist, Pose
 from std_msgs.msg import Bool, Float32
 from sensor_fusion.msg import sensorReading, control, hedge_imu_fusion, hedge_imu_raw
@@ -772,6 +771,8 @@ class fiseye_cam():
         self.vx_prev            = 0.0
         self.vx_MA_window       = [0.0]*self.N_v
         self.vx_MA              = 0.0
+
+        self.yaw = 0.0
         # self.vx_MA_window    = [0.0]*N
         # self.vx_MA               = 0.0
 
@@ -832,6 +833,7 @@ class fiseye_cam():
         self.X   = data.position.x - self.x_m_offset
         self.Y   = data.position.y - self.y_m_offset
 
+        self.yaw = data.orientation.z
 
         self.X_MA_window.pop(0)
         self.X_MA_window.append(self.X)
@@ -1113,7 +1115,7 @@ def append_control_data(data,msg):
 
 
 
-def Continuous_AB_Comp(self, vx, vy, omega, theta, delta):
+def Continuous_AB_Comp(vx, vy, omega, theta, delta):
 
     # m = rospy.get_param("m")
     # rho = rospy.get_param("rho")
@@ -1195,11 +1197,11 @@ def Continuous_AB_Comp(self, vx, vy, omega, theta, delta):
                   [ 0 ,  0 , 1,  0,   0,  0]])
     
     B_obs = np.array([[B11, B12],\
-                  [ 0,  B22],\
-                  [ 0,  B32],\
-                  [ 0 ,  0 ],\
-                  [ 0 ,  0 ],\
-                  [ 0 ,  0 ]])
+                    [ 0,  B22],\
+                    [ 0,  B32],\
+                    [ 0 ,  0 ],\
+                    [ 0 ,  0 ],\
+                    [ 0 ,  0 ]])
 
     # print ('self.A_obs',self.A_obs,'self.B_obs',self.B_obs)
     # print ("observer ::")
@@ -1274,10 +1276,29 @@ def data_retrive(msg, est_msg):
 
     return msg
 
+def data_retrive_est(msg, est_msg, yaw_measured):
 
-def load_LQRgain():
+    msg.timestamp_ms = 0
+    msg.X  = est_msg[3]
+    msg.Y  = est_msg[4]
+    msg.roll  = 0
+    msg.yaw  = est_msg[5]
+    msg.pitch  = 0
+    msg.vx  = est_msg[0]
+    msg.vy  = est_msg[1]
+    msg.yaw_rate  = est_msg[2]
+    msg.ax  = 0
+    msg.ay  = 0
+    msg.s  = yaw_measured
+    msg.x  = 0
+    msg.y  = 0
 
-    gain_path = '/home/auto/Desktop/autonomus_vehicle_project/project/development/proto/estimator/observer_gain_saved/LQR_17_04_2021'
+    return msg
+
+
+def load_gain():
+
+    gain_path = '/root/my_pkg/workspace/src/observer/data/LQR_16_04_2021'
 
     LQR_gain = np.array(sio.loadmat(gain_path+'/LQR_gain.mat')['data']['Lmi'].item())
 
@@ -1294,12 +1315,43 @@ def load_LQRgain():
 
     return LQR_gain, seq, sched_var
 
+def yaw_correction(angle):
+    if angle < 0:
+        angle = 2*pi - abs(angle)
+    return angle
 
+
+
+def wrap(angle):
+    if angle < -np.pi:
+        w_angle = 2 * np.pi + angle
+    elif angle > np.pi:
+        w_angle = angle - 2 * np.pi
+    else:
+        w_angle = angle
+
+    return w_angle
+
+def yaw_smooth(angle_cur, angle_past):
+    
+    eps = 0.05 ### Boundary near 0 and 2pi for considering the crossing of axis.
+    
+    CC = False
+    AC = False
+    # print round(angle_cur,2),round(angle_past,2)
+    if (round(2*pi,2) - eps) <= round(angle_cur,2) <= round(2*pi,2) and (round(angle_past,2) <= eps) and (round(angle_past,2) >= 0.0):
+        # print "clockwise changes"
+        CC = True
+        
+    if ((round(2*pi,2) -eps) <= round(angle_past,2) <= round(2*pi,2)) and (eps >= round(angle_cur,2) >= 0.0):
+#         print "anticlockwise changes"
+        AC = True
+    return CC, AC
 
 def main():
     rospy.init_node('state_estimation', anonymous=True)
 
-    loop_rate       = 30
+    loop_rate       = 100 #HZ
     rate            = rospy.Rate(loop_rate)
     time0 = rospy.get_rostime().to_sec()
     # print ("time0",time.time())
@@ -1334,20 +1386,31 @@ def main():
                      [0, 0, 0, 0, 1, 0],
                      [0, 0, 0, 0, 0, 1]]) 
 
+    time.sleep(5)
+    
     lr = 0.1203;
     lf = 0.1377;
-    beta = lr*tan(deltap)/(lr+lf);
+    beta = lr*tan(control_input.steer)/(lr+lf); ## slip angle
     vy = enc.vx*beta;
 
-    est_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, imu.yaw ]).T
+    print "imu.yaw",imu.yaw
+    est_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, yaw_correction(fcam.yaw) ]).T
     est_state_hist = [] 
     est_state_hist.append(est_state)
     
     est_state_msg = sensorReading()
     ### Assign the path inside this function
-    LQR_gain, seq, sched_var = load_LQRgain()
+    LQR_gain, seq, sched_var = load_gain()
     est_state_pub  = rospy.Publisher('est_state_info', sensorReading, queue_size=1)
 
+
+    #### Open loop simulation ###
+    ol_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, yaw_correction(fcam.yaw) ]).T
+    ol_state_hist = [] 
+    ol_state_hist.append(ol_state)
+    
+    ol_state_msg = sensorReading()
+    ol_state_pub  = rospy.Publisher('ol_state_info', sensorReading, queue_size=1)
 
 
     control_data = control()
@@ -1387,31 +1450,71 @@ def main():
     fcam_MA_hist = {'timestamp_ms':[], 'X':[], 'Y':[], 'roll':[], 'yaw':[], 'pitch':[], 'vx':[], 'vy':[], 'yaw_rate':[], 'ax':[], 'ay':[], 's':[], 'x':[], 'y':[]}
 
     
-    
-    curr_time = rospy.get_rostime().to_sec() -t0
+    yaw_check = wrap(fcam.yaw)
+    curr_time = rospy.get_rostime().to_sec() - time0
      
     prev_time = curr_time 
     
 
+    #### YAW CORRECTION ####
+    angle_temp = 0
+    angle_acc  = 0
+    direction = 1.0
+    angle_past = yaw_correction(fcam.yaw)
+
+
+
     while not (rospy.is_shutdown()):
-        
-        curr_time = rospy.get_rostime().to_sec() -t0
+
+        curr_time = rospy.get_rostime().to_sec() - time0
     
-        if control_input.dutycyle > 0.1:
+        ######### YAW CALCULATION ########
+        angle_cur = yaw_correction(fcam.yaw)
+
+        CC, AC = yaw_smooth(angle_cur, angle_past)
+
+        if AC == True:
+            angle_temp += angle_past
+            direction = 1.0
+            # print ("anticlockwise crossed")
+
+        if CC == True:
+            angle_temp += angle_cur
+            direction = -1.0
+            # print ("clockwise crossed")
+
+        angle_acc = angle_cur + direction*angle_temp  
+
+        if abs(control_input.duty_cycle) > 0.08:
             dt = curr_time - prev_time 
-            u = np.array([control_input.dutycyle, control_input.steer]).T
-            A_obs, B_obs = Continuous_AB_Comp(est_state[0], est_state[0], est_state[0], est_state[0], u[1])
-            L_gain = L_Computation(est_state[0], est_state[0], est_state[0], est_state[0], u[1], LQR_gain, sched_var, seq)
-            y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, imu.yaw ]).T 
+            u = np.array([control_input.duty_cycle, control_input.steer]).T
+            # print ("u",u)
+            y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, angle_acc]).T 
+            
+            ####### LQR ESTIMATION ########
+            A_obs, B_obs = Continuous_AB_Comp(est_state[0], est_state[1], est_state[2], est_state[5], u[1])
+            L_gain = L_Computation(est_state[0], est_state[1], est_state[2], est_state[5], u[1], LQR_gain, sched_var, seq)
             
             est_state  = est_state + ( dt * np.dot( ( A_obs - np.dot(L_gain, C) ), est_state )
                             +    dt * np.dot(B_obs, u)
                             +    dt * np.dot(L_gain, y_meas) )
+            # print ("time taken for estimation ={}".format(rospy.get_rostime().to_sec() - time0 - curr_time))
+            
+            ##### OPEN LOOP SIMULATION ####
+            A_sim, B_sim = Continuous_AB_Comp(ol_state[0], ol_state[1], ol_state[2], ol_state[5], u[1])
+            ol_state = ol_state + dt*(np.dot(A_sim,ol_state) + np.dot(B_sim,u)) 
 
-        
-        est_state_pub.publish(data_retrive(est_state_msg, est_msg))
-        est_state_hist.append(est_state)
+            # yaw_check += wrap(fcam.yaw)
 
+        # print ("est_state",est_state)
+        est_state_pub.publish(data_retrive_est(est_state_msg, est_state,angle_acc))
+        est_state_hist.append(est_state)  ## remember we want to check the transformed yaw angle for debugging that's why 
+                                                    ##publishing this information in the topic of "s" which is not used for any purpose. 
+
+        ol_state_pub.publish(data_retrive(ol_state_msg, ol_state))
+        ol_state_hist.append(ol_state)
+
+        angle_past = angle_cur
 
         control_msg = control_input.data_retrive(control_data)        
         append_control_data(control_hist, control_msg)
