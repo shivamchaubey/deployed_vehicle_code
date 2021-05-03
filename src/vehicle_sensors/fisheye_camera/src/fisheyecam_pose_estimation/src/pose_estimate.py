@@ -460,22 +460,22 @@ def main():
                     if cal_count > 20:
                         Calibrate_imu = False
                         Calibrate_pose = True
-                        imu.yaw_offset = -(np.mean(psi_imu) - np.mean(pure_yaw_hist))
+                        imu.yaw_offset = -(np.mean(psi_imu) - yaw_offset) #np.mean(pure_yaw_hist))
                         print ">>>>> Yaw Calibration Done"
 
-                if ((Calibrate_imu == False) and (Calibrate_pose == True)) and cal_count>25:
+                # if ((Calibrate_imu == False) and (Calibrate_pose == True)) and cal_count>25:
                     
-                    x_cal.append(pos_x - x_imu)
-                    y_cal.append(pos_y - y_imu)
-                    if cal_count > 50:
-                        Calibrate_pose = False
-                        Calibrate_imu = False
-                        x_offset =  np.mean(x_cal)
-                        y_offset =  np.mean(y_cal)
+                    # x_cal.append(pos_x - x_imu)
+                    # y_cal.append(pos_y - y_imu)
+                    # if cal_count > 50:
+                    #     Calibrate_pose = False
+                    #     Calibrate_imu = False
+                    #     x_offset =  np.mean(x_cal)
+                    #     y_offset =  np.mean(y_cal)
 
-                        print "offset",x_offset,y_offset
-                        print " >>>>> Pose Calibration Done"
-                        # break
+                    #     print "offset",x_offset,y_offset
+                    #     print " >>>>> Pose Calibration Done"
+                    #     # break
                     
 
 

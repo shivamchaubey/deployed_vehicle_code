@@ -239,8 +239,8 @@ class PathFollowingLPV_MPC:
         xmin = np.array([v_min, -3., -3., -100, -10000., -ey_max])
         xmax = np.array([v_max, 3., 3., 100, 10000., ey_max])
 
-        Q  = 0.9 * np.array([0.8*vx_scale, 0.0, 0.00, 0.2*etheta_scale, 0.0, 0.6*ey_scale])
-        R  = 0.05 * np.array([0.05*str_scale,0.1*acc_scale])     # delta, a
+        Q  = 0.9 * np.array([0.6*vx_scale, 0.0, 0.00, 0.2*etheta_scale, 0.0, 0.6*ey_scale])
+        R  = 0.05 * np.array([0.1*str_scale,0.1*acc_scale])     # delta, a
 
 
 
