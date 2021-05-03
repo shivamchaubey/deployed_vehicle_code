@@ -1403,7 +1403,7 @@ def main():
             u = np.array([control_input.dutycyle, control_input.steer]).T
             A_obs, B_obs = Continuous_AB_Comp(est_state[0], est_state[0], est_state[0], est_state[0], u[1])
             L_gain = L_Computation(est_state[0], est_state[0], est_state[0], est_state[0], u[1], LQR_gain, sched_var, seq)
-            y_mess = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, imu.yaw ]).T 
+            y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, imu.yaw ]).T 
             
             est_state  = est_state + ( dt * np.dot( ( A_obs - np.dot(L_gain, C) ), est_state )
                             +    dt * np.dot(B_obs, u)

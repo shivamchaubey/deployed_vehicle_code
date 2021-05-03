@@ -1275,7 +1275,7 @@ def data_retrive(msg, est_msg):
     return msg
 
 
-def load_gain():
+def load_LQRgain():
 
     gain_path = '/home/auto/Desktop/autonomus_vehicle_project/project/development/proto/estimator/observer_gain_saved/LQR_17_04_2021'
 
@@ -1293,7 +1293,6 @@ def load_gain():
     sched_delta = sched_var[4,:]
 
     return LQR_gain, seq, sched_var
-
 
 
 
@@ -1346,7 +1345,7 @@ def main():
     
     est_state_msg = sensorReading()
     ### Assign the path inside this function
-    LQR_gain, seq, sched_var = load_gain()
+    LQR_gain, seq, sched_var = load_LQRgain()
     est_state_pub  = rospy.Publisher('est_state_info', sensorReading, queue_size=1)
 
 
@@ -1403,7 +1402,7 @@ def main():
             u = np.array([control_input.dutycyle, control_input.steer]).T
             A_obs, B_obs = Continuous_AB_Comp(est_state[0], est_state[0], est_state[0], est_state[0], u[1])
             L_gain = L_Computation(est_state[0], est_state[0], est_state[0], est_state[0], u[1], LQR_gain, sched_var, seq)
-            y_mess = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, imu.yaw ]).T 
+            y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, imu.yaw ]).T 
             
             est_state  = est_state + ( dt * np.dot( ( A_obs - np.dot(L_gain, C) ), est_state )
                             +    dt * np.dot(B_obs, u)
