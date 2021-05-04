@@ -2,8 +2,8 @@
 
 from math import tan, atan, cos, sin, pi, atan2
 import numpy as np
-import matplotlib
 import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 import rospy
 from numpy.random import randn,rand
 import rosbag
@@ -231,6 +231,7 @@ class IMU():
         # self.t0     = time.time()
         self.t0     = t0
 
+        print  "yaw_offset", self.yaw_offset
 
 
         # Time for yawDot integration
@@ -362,7 +363,10 @@ class IMU():
 
         self.roll   = data.orientation.x 
         self.pitch  = data.orientation.y 
-        self.yaw    = data.orientation.z - (self.yaw_offset)
+
+        print "data.orientation.z", data.orientation.z, "yaw_offset", self.yaw_offset
+
+        self.yaw    = wrap(data.orientation.z - (self.yaw_offset))
 
         self.roll_MA_window.pop(0)
         self.roll_MA_window.append(self.roll)
@@ -735,6 +739,7 @@ class fiseye_cam():
 
 
 def _initializeFigure_xy(x_lim,y_lim):
+
     xdata = []; ydata = []
     fig = plt.figure(figsize=(10,8))
     plt.ion()
@@ -742,77 +747,39 @@ def _initializeFigure_xy(x_lim,y_lim):
     plt.ylim([-1*y_lim,y_lim])
 
     axtr = plt.axes()
-    # Points = int(np.floor(10 * (map.PointAndTangent[-1, 3] + map.PointAndTangent[-1, 4])))
-    # # Points1 = np.zeros((Points, 2))
-    # # Points2 = np.zeros((Points, 2))
-    # # Points0 = np.zeros((Points, 2))
-    # Points1 = np.zeros((Points, 3))
-    # Points2 = np.zeros((Points, 3))
-    # Points0 = np.zeros((Points, 3))
 
-    # for i in range(0, int(Points)):
-    #     Points1[i, :] = map.getGlobalPosition(i * 0.1, map.halfWidth)
-    #     Points2[i, :] = map.getGlobalPosition(i * 0.1, -map.halfWidth)
-    #     Points0[i, :] = map.getGlobalPosition(i * 0.1, 0)
-
-    # plt.plot(map.PointAndTangent[:, 0], map.PointAndTangent[:, 1], 'o')
-    # plt.plot(Points0[:, 0], Points0[:, 1], '--')
-    # plt.plot(Points1[:, 0], Points1[:, 1], '-b')
-    # plt.plot(Points2[:, 0], Points2[:, 1], '-b')
-
-    # These lines plot the planned offline trajectory in the main figure:
-    # plt.plot(X_Planner_Pts[0, 0:290], Y_Planner_Pts[0, 0:290], '--r')
-    # plt.plot(X_Planner_Pts[0, 290:460], Y_Planner_Pts[0, 290:460], '--r')
-    # plt.plot(X_Planner_Pts[0, :], Y_Planner_Pts[0, :], '--r')
-
-
-    line_sim,       = axtr.plot(xdata, ydata, '-k')
-    line_rl,        = axtr.plot(xdata, ydata, '-b')  # Plots the traveled positions
-    point_simc,     = axtr.plot(xdata, ydata, '-or')       # Plots the current positions
-    line_SS,        = axtr.plot(xdata, ydata, 'og')
-    point_rlc,      = axtr.plot(xdata, ydata, '-or')
-    line_planning,  = axtr.plot(xdata, ydata, '-ok')
-    line_0,        = axtr.plot(xdata, ydata, '-r')  # Plots the traveled positions
-    line_2,        = axtr.plot(xdata, ydata, '-g')  # Plots the traveled positions
-    line_3,        = axtr.plot(xdata, ydata, '-b')  # Plots the traveled positions
-    line_4,        = axtr.plot(xdata, ydata, '-y')  # Plots the traveled positions
-    line_fusion,        = axtr.plot(xdata, ydata, '-m')  # Plots the traveled positions
+    line_ol,        = axtr.plot(xdata, ydata, '-k', label = 'Open loop simulation')
+    line_est,    = axtr.plot(xdata, ydata, '-r', label = 'Estimated states')  # Plots the traveled positions
+    line_meas,    = axtr.plot(xdata, ydata, '-b', label = 'Measured position camera')  # Plots the traveled positions
+    # line_tr,        = axtr.plot(xdata, ydata, '-r', linewidth = 6, alpha = 0.5)       # Plots the current positions
+    # line_SS,        = axtr.plot(xdata, ydata, '-g', , linewidth = 10, alpha = 0.5)
+    # line_pred,      = axtr.plot(xdata, ydata, '-or')
+    # line_planning,  = axtr.plot(xdata, ydata, '-ok')
     
+    l = 0.4; w = 0.2 #legth and width of the car
 
+    v = np.array([[ 1,  1],
+                  [ 1, -1],
+                  [-1, -1],
+                  [-1,  1]])
 
-    v = np.array([[ 1.,  1.],
-                  [ 1., -1.],
-                  [-1., -1.],
-                  [-1.,  1.]])
+    # Estimated states:
+    rec_est = patches.Polygon(v, alpha=0.7, closed=True, fc='r', ec='k', zorder=10)
+    axtr.add_patch(rec_est)
 
-    marker_0 = patches.Polygon(v, alpha=0.7, closed=True, fc='r', ec='k', zorder=10,label='ID0')
-    axtr.add_patch(marker_0)
-    # # Vehicle:
-    marker_2 = patches.Polygon(v, alpha=0.7, closed=True, fc='G', ec='k', zorder=10,label='ID2')
-    axtr.add_patch(marker_2)
+    # Open loop simulation:
+    rec_ol = patches.Polygon(v, alpha=0.7, closed=True, fc='G', ec='k', zorder=10)
+    axtr.add_patch(rec_ol)
 
-    marker_3 = patches.Polygon(v, alpha=0.7, closed=True, fc='b', ec='k', zorder=10,label='ID3')
-    # axtr.add_patch(marker_3)
-    # # Vehicle:
-    marker_4 = patches.Polygon(v, alpha=0.7, closed=True, fc='y', ec='k', zorder=10,label='ID4')
-    # axtr.add_patch(marker_4)
+    # Open loop simulation:
+    rec_meas = patches.Polygon(v, alpha=0.7, closed=True, fc='G', ec='k', zorder=10)
+    axtr.add_patch(rec_meas)
 
-
-    fusion = patches.Polygon(v, alpha=0.7, closed=True, fc='m', ec='k', zorder=10,label='fusion')
-    # axtr.add_patch(fusion)
-    
 
     plt.legend()
-    # # Planner vehicle:
-    rec_planning = patches.Polygon(v, alpha=0.7, closed=True, fc='k', ec='k', zorder=10)
-    # axtr.add_patch(rec_planning)
+    return fig, axtr, line_est, line_ol, line_meas, rec_est, rec_ol, rec_meas
 
 
-
-    plt.show()
-
-    return plt, fig, axtr, line_planning, point_simc, point_rlc, line_SS, line_sim, line_rl, line_0, line_2, line_3, line_4, line_fusion,\
-     marker_0, marker_2, marker_3, marker_4, fusion ,rec_planning
 
 
 def getCarPosition(x, y, psi, w, l):
@@ -1049,6 +1016,7 @@ def main():
     
     counter     = 0
     record_data =    rospy.get_param("lqr_observer/record_data")
+    visualization  = rospy.get_param("lqr_observer/visualization")
 
     N_enc  = rospy.get_param("lqr_observer/enc_MA_window")
     N_fcam = rospy.get_param("lqr_observer/fcam_MA_window")
@@ -1058,10 +1026,24 @@ def main():
     fcam   = fiseye_cam(time0, N_fcam)
     imu    = IMU(time0, N_imu)
 
+    time.sleep(2)
+    print  "yaw_offset", fcam.yaw
+    imu.yaw_offset = imu.yaw - fcam.yaw
     control_input = vehicle_control(time0)
 
     print "fcam.yaw",fcam.yaw
+    
+    if visualization == True:
+        x_lim = 10
+        y_lim = 10
+        (fig, axtr, line_est, line_ol, line_meas, rec_est, rec_ol, rec_meas) = _initializeFigure_xy(x_lim,y_lim)
 
+        ol_x_his     = []
+        est_x_his    = []
+        meas_x_his   = []
+        ol_y_his     = []
+        est_y_his    = []
+        meas_y_his   = []
 
 # class EstimatorData(object):
 #     """Data from estimator"""
@@ -1167,7 +1149,9 @@ def main():
     angle_past = yaw_correction(fcam.yaw)
 
     while not (rospy.is_shutdown()):
-
+        
+        # y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, angle_acc]).T 
+        y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, fcam.yaw]).T 
         print "fcam.yaw",fcam.yaw
 
         curr_time = rospy.get_rostime().to_sec() - time0
@@ -1193,8 +1177,6 @@ def main():
             dt = curr_time - prev_time 
             u = np.array([control_input.duty_cycle, control_input.steer]).T
             # print ("u",u)
-            # y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, angle_acc]).T 
-            y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, fcam.yaw]).T 
             
             ####### LQR ESTIMATION ########
             A_obs, B_obs = Continuous_AB_Comp(est_state[0], est_state[1], est_state[2], est_state[5], u[1])
@@ -1257,6 +1239,48 @@ def main():
         append_sensor_data(fcam_MA_hist, fcam_MA_msg)
 
         prev_time = curr_time 
+
+
+
+
+
+
+
+        if visualization == True:
+
+            l = 0.42; w = 0.19
+
+            (x_est , y_est , yaw_est )  = est_state[-3:]
+            (x_ol  , y_ol  , yaw_ol  )  = ol_state[-3:]
+            (x_meas, y_meas, yaw_meas)  = y_meas[-3:]
+
+            est_x_his.append(x_est)
+            est_y_his.append(y_est)
+
+            ol_x_his.append(x_ol)
+            ol_y_his.append(y_ol)
+                        
+            meas_x_his.append(x_meas)
+            meas_y_his.append(y_meas)
+
+            car_est_x, car_est_y = getCarPosition(x_est, y_est, yaw_est, w, l)
+            rec_est.set_xy(np.array([car_est_x, car_est_y]).T)
+
+            car_ol_x, car_ol_y = getCarPosition(x_ol, y_ol, yaw_ol, w, l)
+            rec_ol.set_xy(np.array([car_ol_x, car_ol_y]).T)
+
+            meas_x, car_meas_y = getCarPosition(x_meas, y_meas, yaw_meas, w, l)
+            rec_meas.set_xy(np.array([meas_x, car_meas_y]).T)
+
+            line_est.set_data(est_x_his, est_y_his)
+            line_ol.set_data(ol_x_his, ol_y_his)
+            line_meas.set_data(meas_x_his, meas_y_his)
+
+            fig.canvas.draw()
+            plt.show()
+            plt.pause(1.0/300)
+
+
         rate.sleep()
 
 
