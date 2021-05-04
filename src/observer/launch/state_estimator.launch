@@ -20,6 +20,8 @@
         
         <param name="lqr_gain_path"   type="string"  value="/data/LQR_16_04_2021/LQR_gain.mat" /> <!-- contained in observer/data/-->
 
+        <param name="visualization"      type="bool" value="False" />
+
         <!-- sensor Moving average -->
         <param name="MA_status"      type="bool" value="True" />
         <param name="fcam_MA_window" type="int" value="50" />

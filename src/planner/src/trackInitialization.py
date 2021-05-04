@@ -15,13 +15,9 @@ class Map():
         """ Nos interesa que el planner tenga una pista algo mas reducida de la real
         para conservar algo de robustez y no salirnos de la pista en el primer segundo. """
 
-
-        # self.halfWidth  = rospy.get_param("halfWidth")
-
-        self.halfWidth  = 0.4
+        self.halfWidth  = rospy.get_param("halfWidth")
         self.slack      = 0.15
-        # selectedTrack   = rospy.get_param("trackShape")
-        selectedTrack   =  'oval_iri'
+        selectedTrack   = rospy.get_param("trackShape")
 
         if selectedTrack == "3110":
             spec = np.array([[60 * 0.03, 0],
