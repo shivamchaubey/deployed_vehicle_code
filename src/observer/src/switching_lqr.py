@@ -768,11 +768,11 @@ def _initializeFigure_xy(x_lim,y_lim):
     axtr.add_patch(rec_est)
 
     # Open loop simulation:
-    rec_ol = patches.Polygon(v, alpha=0.7, closed=True, fc='G', ec='k', zorder=10)
+    rec_ol = patches.Polygon(v, alpha=0.7, closed=True, fc='k', ec='k', zorder=10)
     axtr.add_patch(rec_ol)
 
     # Open loop simulation:
-    rec_meas = patches.Polygon(v, alpha=0.7, closed=True, fc='G', ec='k', zorder=10)
+    rec_meas = patches.Polygon(v, alpha=0.7, closed=True, fc='b', ec='k', zorder=10)
     axtr.add_patch(rec_meas)
 
 
@@ -967,19 +967,6 @@ def data_retrive_est(msg, est_msg, yaw_measured):
 
     return msg
 
-
-def EKF_filter(P, Q, R, A, B, C, states, u, y_meas, dt):
- 
-    A = np.eye(A.shape[0]) + A*dt
-    B = B*dt
-    L = np.dot(np.dot(np.dot(A,P),C.T),LA.inv(R + np.dot(np.dot(C,P),C.T)))
-    new_states = np.dot(A, states) + np.dot(B, u) + np.dot(L,(y_meas - np.dot(C,states))) 
-    P = Q + np.dot(np.dot((A - np.dot(L,C)),P),A.T)
-
-    return new_states, P
-
-
-
 def load_LQRgain():
 
     LQR_gain = np.array(sio.loadmat(gain_path)['data']['Lmi'].item())
@@ -989,9 +976,46 @@ def load_LQRgain():
     
     return LQR_gain, seq, sched_var
 
+def load_switchingLQRgain():
+
+    LQR_gain1 = np.array(sio.loadmat(gain_path)['data']['Lmi1'].item())
+    LQR_gain2 = np.array(sio.loadmat(gain_path)['data']['Lmi2'].item())
+    LQR_gain3 = np.array(sio.loadmat(gain_path)['data']['Lmi3'].item())
+    LQR_gain4 = np.array(sio.loadmat(gain_path)['data']['Lmi4'].item())
+    
+    LQR_gain = np.array([LQR_gain1, LQR_gain2, LQR_gain3, LQR_gain4])
+
+    seq_1 = sio.loadmat(gain_path)['data']['sequence_1'].item()
+    seq_1 = seq_1 - 1 ##matlab index to python index
+
+    seq_2 = sio.loadmat(gain_path)['data']['sequence_2'].item()
+    seq_2 = seq_2 - 1 ##matlab index to python index
+    
+    seq_3 = sio.loadmat(gain_path)['data']['sequence_3'].item()
+    seq_3 = seq_3 - 1 ##matlab index to python index
+    
+    seq_4 = sio.loadmat(gain_path)['data']['sequence_4'].item()
+    seq_4 = seq_4 - 1 ##matlab index to python index
+    
+    seq = np.array([seq_1, seq_2, seq_3, seq_4])
+
+    sched_var = sio.loadmat(gain_path,matlab_compatible = 'True')['data']['sched_var'].item()
+
+    sched_var1 = [sched_var[0], sched_var[1], sched_var[2], sched_var[3], sched_var[7]]
+    sched_var2 = [sched_var[0], sched_var[1], sched_var[2], sched_var[4], sched_var[7]]
+    sched_var3 = [sched_var[0], sched_var[1], sched_var[2], sched_var[5], sched_var[7]]
+    sched_var4 = [sched_var[0], sched_var[1], sched_var[2], sched_var[6], sched_var[7]]
+
+    sched_var = np.array([sched_var1, sched_var2, sched_var3, sched_var4])
+    return LQR_gain, seq, sched_var
+
+
+
 def yaw_correction(angle):
     if angle < 0:
         angle = 2*pi - abs(angle)
+    elif angle > 2*pi:
+        angle = angle - 2*pi
     return angle
 
 def wrap(angle):
@@ -1020,8 +1044,19 @@ def yaw_smooth(angle_cur, angle_past):
         AC = True
     return CC, AC
 
+
+def yaw_error_throw():
+    try:
+        raise Exception('general exceptions not caught by specific handling')
+    except ValueError as e:
+        print('Error in yaw transformation')
+
+
+
+
+
 def main():
-    rospy.init_node('lqr_state_estimation', anonymous=True)
+    rospy.init_node('switching_lqr_state_estimation', anonymous=True)
 
     loop_rate   = rospy.get_param("lqr_observer/publish_frequency")
     rate        = rospy.Rate(loop_rate)
@@ -1030,6 +1065,8 @@ def main():
     counter     = 0
     record_data =    rospy.get_param("lqr_observer/record_data")
     visualization  = rospy.get_param("lqr_observer/visualization")
+
+    LQR_gain, seq, sched_var =load_switchingLQRgain()
 
     N_enc  = rospy.get_param("lqr_observer/enc_MA_window")
     N_fcam = rospy.get_param("lqr_observer/fcam_MA_window")
@@ -1104,10 +1141,9 @@ def main():
     est_state_hist = [] 
     est_state_hist.append(est_state)
     
-    LQR_gain, seq, sched_var = load_LQRgain()
-    est_state_pub  = rospy.Publisher('est_state_info', sensorReading, queue_size=1)
     est_state_msg = sensorReading()
-    
+    est_state_pub  = rospy.Publisher('est_state_info', sensorReading, queue_size=1)
+
 
     #### Open loop simulation ###
     # ol_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, fcam.yaw ]).T
@@ -1115,14 +1151,9 @@ def main():
     ol_state_hist = [] 
     ol_state_hist.append(ol_state)
     
-    ol_state_pub  = rospy.Publisher('ol_state_info', sensorReading, queue_size=1)
     ol_state_msg = sensorReading()
-    
-    ekf_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, yaw_correction(fcam.yaw) ]).T
+    ol_state_pub  = rospy.Publisher('ol_state_info', sensorReading, queue_size=1)
 
-    ekf_state_pub  = rospy.Publisher('ekf_state_info', sensorReading, queue_size=1)
-    ekf_state_msg = sensorReading()
-    
 
     control_data = control()
     control_hist = {'timestamp_ms_dutycycle':[],'timestamp_ms_steer':[],'steering':[], 'duty_cycle':[]}
@@ -1159,23 +1190,16 @@ def main():
      
     prev_time = curr_time 
     
-    #### EKF ESTIMATOR ####
-    P_ekf = np.zeros((6,6))
-    Q_ekf = np.diag([0.1, 0.05, 0.1, 0.3, 0.3, 0.1]) ## plant disturbance
-    R_ekf = np.diag([0.1, 0.135, 0.05, 0.05, 0.05])    ##sensor noise
-
-
 
     #### YAW CORRECTION ####
     angle_temp = 0
     angle_acc  = 0
-    direction  = 1.0
+    direction = 1.0
     angle_past = yaw_correction(fcam.yaw)
 
     while not (rospy.is_shutdown()):
         
-        y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, angle_acc]).T 
-        # y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, fcam.yaw]).T 
+        
         print "fcam.yaw",fcam.yaw
 
         curr_time = rospy.get_rostime().to_sec() - time0
@@ -1197,43 +1221,94 @@ def main():
 
         angle_acc = angle_cur + direction*angle_temp  
 
-        if abs(control_input.duty_cycle) > 0.08:
+        # y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, angle_acc]).T 
+        # y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, fcam.yaw]).T
+        y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, yaw_correction(fcam.yaw)]).T 
+
+
+
+
+
+
+        if abs(control_input.duty_cycle) > 0.1:
+
+
+
+
+
+
             dt = curr_time - prev_time 
             u = np.array([control_input.duty_cycle, control_input.steer]).T
+
+
+
+
+            # %% quadrant case
+            if 0 <= est_state[5] <= pi/2:
+            # % 1st quadrant
+                 L_gain = L_Computation(est_state[0], est_state[1], est_state[2], est_state[5], u[1], LQR_gain[0], sched_var[0], seq[0])
+               
+            elif pi/2 < est_state[5] <= pi:
+            # % 2nd quadrant
+                 L_gain = L_Computation(est_state[0], est_state[1], est_state[2], est_state[5], u[1], LQR_gain[1], sched_var[1], seq[1])
+                    
+            elif pi < est_state[5] <= 3*pi/2:
+            # % 3rd quadrant
+                 L_gain = L_Computation(est_state[0], est_state[1], est_state[2], est_state[5], u[1], LQR_gain[2], sched_var[2], seq[2])
+                
+            elif (3*pi/2 < est_state[5] <= 2*pi):
+            # % 4th quadrant
+                 L_gain = L_Computation(est_state[0], est_state[1], est_state[2], est_state[5], u[1], LQR_gain[3], sched_var[3], seq[3])
+                
+            else:
+                
+                print "est theta", est_state[5], 'Measured theta', yaw_correction(fcam.yaw)
+
+                display("ERROR Normalize the theta")
+
+
+
+                yaw_error_throw()
+
+
+
+
+
+
+
+
+
             # print ("u",u)
             
             ####### LQR ESTIMATION ########
             A_obs, B_obs = Continuous_AB_Comp(est_state[0], est_state[1], est_state[2], est_state[5], u[1])
-            L_gain = L_Computation(est_state[0], est_state[1], est_state[2], est_state[5], u[1], LQR_gain, sched_var, seq)
+            # L_gain = L_Computation(est_state[0], est_state[1], est_state[2], est_state[5], u[1], LQR_gain, sched_var, seq)
             
             est_state  = est_state + ( dt * np.dot( ( A_obs - np.dot(L_gain, C) ), est_state )
                             +    dt * np.dot(B_obs, u)
                             +    dt * np.dot(L_gain, y_meas) )
             
-            # est_state[5] = wrap(est_state[5])
             # print ("time taken for estimation ={}".format(rospy.get_rostime().to_sec() - time0 - curr_time))
             
             ##### OPEN LOOP SIMULATION ####
             A_sim, B_sim = Continuous_AB_Comp(ol_state[0], ol_state[1], ol_state[2], ol_state[5], u[1])
             ol_state = ol_state + dt*(np.dot(A_sim,ol_state) + np.dot(B_sim,u)) 
-            # ol_state[5] = wrap(ol_state[5])
             # yaw_check += wrap(fcam.yaw)
 
-            ## EKF filter ##
-            A_ekf, B_ekf = Continuous_AB_Comp(ekf_state[0], ekf_state[1], ekf_state[2], ekf_state[5], u[1])
-            ekf_state, P_ekf = EKF_filter(P_ekf, Q_ekf, R_ekf, A_ekf, B_ekf, C, ekf_state, u, y_meas, dt)
 
+        # est_state[5] = wrap(est_state[5])
+        # ol_state[5] = wrap(ol_state[5])
+        est_state[5] = yaw_correction(est_state[5])
+        ol_state[5] = yaw_correction(ol_state[5])
+        
 
         print ("est_state",est_state)
 
         est_state_pub.publish(data_retrive_est(est_state_msg, est_state, angle_acc)) ## remember we want to check the transformed yaw angle for debugging that's why 
                                                                                     ##publishing this information in the topic of "s" which is not used for any purpose. 
         est_state_hist.append(est_state)  
-        
         ol_state_pub.publish(data_retrive(ol_state_msg, ol_state))
         ol_state_hist.append(ol_state)
-
-        ekf_state_pub.publish(data_retrive(ekf_state_msg, ekf_state))
 
         angle_past = angle_cur
 
