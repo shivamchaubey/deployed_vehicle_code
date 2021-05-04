@@ -169,7 +169,7 @@ def getCarPosition(x, y, psi, w, l):
 def main():
 
     rospy.init_node('fishcam_pose', anonymous=True)
-    loop_rate       = 30
+    loop_rate       = rospy.get_param("/fisheye_tracker/loop_rate")
     rate            = rospy.Rate(loop_rate)
 
 
