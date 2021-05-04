@@ -14,13 +14,14 @@
     <param name="Car"            type="double"   value="1.6775" />
     <param name="Iz"            type="double"   value="0.02" />
     
-    <node pkg="observer" type="lqr_state_estimator.py" name="lqr_observer" output="screen">
+    <!--node pkg="observer" type="lqr_state_estimator.py" name="lqr_observer" output="screen">-->
+    <node pkg="observer" type="switching_lqr.py" name="lqr_observer" output="screen">
 
         <param name="publish_frequency" type="double" value="100.0" />
         
-        <param name="lqr_gain_path"   type="string"  value="/data/LQR_16_04_2021/LQR_gain.mat" /> <!-- contained in observer/data/-->
+        <param name="lqr_gain_path"   type="string"  value="/data/LQR_16_04_2021/switching_LQR_gain.mat" /> <!-- contained in observer/data/-->
 
-        <param name="visualization"      type="bool" value="False" />
+        <param name="visualization"      type="bool" value="True" />
 
         <!-- sensor Moving average -->
         <param name="MA_status"      type="bool" value="True" />
