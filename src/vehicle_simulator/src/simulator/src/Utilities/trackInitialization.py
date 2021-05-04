@@ -54,9 +54,9 @@ class Map():
 
 
         elif selectedTrack == "oval_iri":
-            spec = 1.0*np.array([[1.75, 0],
+            spec = 1.0*np.array([[1.25, 0],
                              [3.5, 3.5 / np.pi],
-                             [1.75, 0],
+                             [1.25, 0],
                              [3.5, 3.5 / np.pi]])
 
 
