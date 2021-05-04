@@ -1104,8 +1104,8 @@ def main():
     beta = lr*tan(control_input.steer)/(lr+lf); ## slip angle
     vy = enc.vx*beta;
 
-    # est_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, fcam.yaw ]).T
-    est_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, yaw_correction(fcam.yaw) ]).T
+    est_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, fcam.yaw ]).T
+    # est_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, yaw_correction(fcam.yaw) ]).T
     est_state_hist = [] 
     est_state_hist.append(est_state)
     
@@ -1115,8 +1115,8 @@ def main():
 
 
     #### Open loop simulation ###
-    # ol_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, fcam.yaw ]).T
-    ol_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, yaw_correction(fcam.yaw) ]).T
+    ol_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, fcam.yaw ]).T
+    # ol_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, yaw_correction(fcam.yaw) ]).T
     ol_state_hist = [] 
     ol_state_hist.append(ol_state)
     
@@ -1193,7 +1193,8 @@ def main():
             dt = curr_time - prev_time 
             u = np.array([control_input.duty_cycle, control_input.steer]).T
             # print ("u",u)
-            y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, angle_acc]).T 
+            # y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, angle_acc]).T 
+            y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, fcam.yaw]).T 
             
             ####### LQR ESTIMATION ########
             A_obs, B_obs = Continuous_AB_Comp(est_state[0], est_state[1], est_state[2], est_state[5], u[1])
@@ -1202,19 +1203,21 @@ def main():
             est_state  = est_state + ( dt * np.dot( ( A_obs - np.dot(L_gain, C) ), est_state )
                             +    dt * np.dot(B_obs, u)
                             +    dt * np.dot(L_gain, y_meas) )
+            
+            est_state[5] = wrap(est_state[5])
             # print ("time taken for estimation ={}".format(rospy.get_rostime().to_sec() - time0 - curr_time))
             
             ##### OPEN LOOP SIMULATION ####
             A_sim, B_sim = Continuous_AB_Comp(ol_state[0], ol_state[1], ol_state[2], ol_state[5], u[1])
             ol_state = ol_state + dt*(np.dot(A_sim,ol_state) + np.dot(B_sim,u)) 
-
+            ol_state[5] = wrap(ol_state[5])
             # yaw_check += wrap(fcam.yaw)
 
         print ("est_state",est_state)
-        est_state_pub.publish(data_retrive_est(est_state_msg, est_state, angle_acc))
-        est_state_hist.append(est_state)  ## remember we want to check the transformed yaw angle for debugging that's why 
-                                                    ##publishing this information in the topic of "s" which is not used for any purpose. 
 
+        est_state_pub.publish(data_retrive_est(est_state_msg, est_state, angle_acc)) ## remember we want to check the transformed yaw angle for debugging that's why 
+                                                                                    ##publishing this information in the topic of "s" which is not used for any purpose. 
+        est_state_hist.append(est_state)  
         ol_state_pub.publish(data_retrive(ol_state_msg, ol_state))
         ol_state_hist.append(ol_state)
 

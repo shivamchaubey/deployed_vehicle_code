@@ -1,0 +1,26 @@
+OpenCV Error: Bad argument (The function can not solve under-determined linear systems) in solve, file /tmp/binarydeb/ros-kinetic-opencv3-3.3.1/modules/core/src/lapack.cpp, line 1250
+terminate called after throwing an instance of 'cv::Exception'
+  what():  /tmp/binarydeb/ros-kinetic-opencv3-3.3.1/modules/core/src/lapack.cpp:1250: error: (-5) The function can not solve under-determined linear systems in function solve
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+('\n[FUSED CAM POSE ::]', 'X =-0.876369391831, Y = 2.08489972945, Yaw = 4.05796633331')
+OpenCV Error: Bad argument (The function can not solve under-determined linear systems) in solve, file /tmp/binarydeb/ros-kinetic-opencv3-3.3.1/modules/core/src/lapack.cpp, line 1250
+terminate called after throwing an instance of 'cv::Exception'
+  what():  /tmp/binarydeb/ros-kinetic-opencv3-3.3.1/modules/core/src/lapack.cpp:1250: error: (-5) The function can not solve under-determined linear systems in function solve
+
+[fisheye_tracker-1] process has died [pid 3248, exit code -6, cmd /root/my_pkg/workspace/src/vehicle_sensors/fisheye_camera/src/fisheyecam_pose_estimation/src/pose_estimate.py __name:=fisheye_tracker __log:=/root/.ros/log/06540d12-acc4-11eb-9c19-001e06319b3d/fisheye_tracker-1.log].
+log file: /root/.ros/log/06540d12-acc4-11eb-9c19-001e06319b3d/fisheye_tracker-1*.log
+
