@@ -601,7 +601,7 @@ class EstimatorData(object):
         rospy.Subscriber("est_state_info", sensorReading, self.estimator_callback)
         self.offset_x = 0.
         self.offset_y = 0.0
-        self.offset_yaw = -pi/2
+        # self.offset_yaw = 0.0
         self.R = np.array([[cos(self.offset_yaw),-sin(self.offset_yaw)],[sin(self.offset_yaw), cos(self.offset_yaw)]])
         self.CurrentState = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
     
@@ -610,7 +610,7 @@ class EstimatorData(object):
         Unpack the messages from the estimator
         """
         self.CurrentState = [msg.vx, msg.vy, msg.yaw_rate, msg.X + self.offset_x, msg.Y + self.offset_y, msg.yaw + self.offset_yaw]
-        self.CurrentState = np.dot(self.R,self.CurrentState)
+        # self.CurrentState = np.dot(self.R,self.CurrentState)
 
 
 def main():
