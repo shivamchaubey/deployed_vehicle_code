@@ -35,12 +35,12 @@
         <param name="init_yaw"  type="double" value="0.01" />
 
         <!-- If transformation needed from estamed frame of reference to another -->
-        <param name="x_tf"      type="double" value="0.0" />
-        <param name="y_tf"      type="double" value="0.0" />
+        <param name="x_tf"      type="double" value="0.42998579" />
+        <param name="y_tf"      type="double" value="-1.1021565" />
         <!-- Map rotation -->
-        <param name="theta_tf"  type="double" value="-90" />
+        <param name="theta_tf"  type="double" value="-90.0" />
         <!-- Vehicle orientation-->
-        <param name="yaw_tf"    type="double" value="-90" />
+        <param name="yaw_tf"    type="double" value="-90.0" />
 
         <param name="Visualization"    type="bool"      value="True" />
         <param name="record_data"      type="bool"      value="False" />
