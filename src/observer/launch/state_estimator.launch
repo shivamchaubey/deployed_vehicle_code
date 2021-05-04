@@ -18,7 +18,7 @@
 
         <param name="publish_frequency" type="double" value="100.0" />
         
-        <param name="lqr_gain_path"   type="string"  value="/root/my_pkg/workspace/src/observer/data/LQR_16_04_2021/LQR_gain.mat" />
+        <param name="lqr_gain_path"   type="string"  value="/data/LQR_16_04_2021/LQR_gain.mat" /> <!-- contained in observer/data/-->
 
         <!-- sensor Moving average -->
         <param name="MA_status"      type="bool" value="True" />

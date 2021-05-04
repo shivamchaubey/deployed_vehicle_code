@@ -366,8 +366,7 @@ def main():
 
                 ###### Camera frame to Aruco frame transformation######
                 
-                # print ('rvec',rvec,'tvec',tvec)
-
+                ## Camera to aruco homogeneous matrix
                 c_T_a = np.zeros(shape=(4,4))
                 c_T_a[3,3] = 1
                 rot = np.zeros(shape=(3,3))
@@ -375,10 +374,10 @@ def main():
                 c_T_a[:3,:3] = rot
                 c_T_a[:3,3]  = np.squeeze(tvec)
 
+                ## Aruco to camera homogeneous matrix
                 a_T_c = np.zeros(shape=(4,4))
-
-                a_T_c[:3,:3] = rot.T
-                a_T_c[:3,3]  = np.squeeze(np.dot(-rot.T,tvec))
+                a_T_c[:3,:3] = rot.T                           # Rotation
+                a_T_c[:3,3]  = np.squeeze(np.dot(-rot.T,tvec)) # Translation
                         
                 pos_x = a_T_c[:3,3][0]
                 pos_y = a_T_c[:3,3][1]

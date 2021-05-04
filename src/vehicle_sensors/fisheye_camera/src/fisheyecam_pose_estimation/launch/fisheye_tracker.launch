@@ -4,10 +4,10 @@
     
     <node pkg="fisheyecam_pose_estimation"         type="pose_estimate.py"    name="fisheye_tracker" output="screen">
     
-    <param name="visualization"     type="bool"        value="False" />
+    <param name="visualization"     type="bool"        value="True" />
     <param name="yaw_offset"        type="double"      value="1.5707963267948966" />
     <param name="camera_stream"     type="string"      value="OpenCV" />  <!--OPTIONS:: OpenCV / Node --> 
-    <param name="USB_port"          type="int"         value="0" />
+    <param name="USB_port"          type="int"         value="1" />
     <param name="Calibrate_imu"     type="bool"        value="True" />
     <param name="record_data"       type="bool"        value="False" />
     

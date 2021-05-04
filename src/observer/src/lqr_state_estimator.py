@@ -19,6 +19,11 @@ import sys
 import scipy.io as sio
     
 
+################## LQR GAIN PATH ####################
+gain_path = rospy.get_param("lqr_observer/lqr_gain_path")
+gain_path = ('/').join(sys.path[0].split('/')[:-1]) + gain_path
+print "\n LQR gain path ={} \n".format(gain_path)
+
 class vehicle_control(object):
     """ Object collecting CMD command data
     Attributes:
@@ -996,7 +1001,6 @@ def data_retrive_est(msg, est_msg, yaw_measured):
 
 def load_LQRgain():
 
-    gain_path = rospy.get_param("lqr_observer/lqr_gain_path")
     LQR_gain = np.array(sio.loadmat(gain_path)['data']['Lmi'].item())
     seq = sio.loadmat(gain_path)['data']['sequence'].item()
     seq = seq - 1 ##matlab index to python index
@@ -1182,7 +1186,7 @@ def main():
 
         angle_acc = angle_cur + direction*angle_temp  
 
-        if abs(control_input.duty_cycle) > 0.08:
+        if abs(control_input.duty_cycle) > 0.0:
             dt = curr_time - prev_time 
             u = np.array([control_input.duty_cycle, control_input.steer]).T
             # print ("u",u)
@@ -1203,7 +1207,7 @@ def main():
 
             # yaw_check += wrap(fcam.yaw)
 
-        # print ("est_state",est_state)
+        print ("est_state",est_state)
         est_state_pub.publish(data_retrive_est(est_state_msg, est_state, angle_acc))
         est_state_hist.append(est_state)  ## remember we want to check the transformed yaw angle for debugging that's why 
                                                     ##publishing this information in the topic of "s" which is not used for any purpose. 
