@@ -179,7 +179,7 @@ class IMU():
         self.yaw_rate               = 0.0
         self.yaw_rate_MA            = 0.0
         self.yaw_rate_MA_window     = [0.0]*N
-        self.yaw_rate_offset        = -0.218736468054
+        self.yaw_rate_offset        = 0.0
         
         self.vx      = 0.0
         self.vy      = 0.0
@@ -471,12 +471,13 @@ class fiseye_cam():
 
 
         #### Homogeneous transformation for reference change####
-        x_tf     = rospy.get_param("lqr_observer/x_tf")
-        y_tf     = rospy.get_param("lqr_observer/y_tf")
-        theta_tf = rospy.get_param("lqr_observer/theta_tf")
+        self.x_tf     = rospy.get_param("lqr_observer/x_tf")
+        self.y_tf     = rospy.get_param("lqr_observer/y_tf")
+        theta_tf = rospy.get_param("lqr_observer/theta_tf")*pi/180
         self.R_tf = np.array([[cos(theta_tf), -sin(theta_tf)],
                          [sin(theta_tf),  cos(theta_tf)]])
-        self.yaw_tf   = rospy.get_param("lqr_observer/yaw_tf")
+        self.yaw_tf   = rospy.get_param("lqr_observer/yaw_tf")*pi/180
+
 
         # self.pure_x   = 0.0
 
@@ -563,8 +564,10 @@ class fiseye_cam():
         # self.Y   = data.position.y - self.y_m_offset
 
         [self.X, self.Y] = np.dot(self.R_tf, np.array([data.position.x,data.position.y]).T)
-
-        self.yaw = data.orientation.z + self.yaw_tf
+        self.X = self.X - self.x_tf
+        self.Y = self.Y - self.y_tf
+        # print "data.orientation.z",data.orientation.z,"self.yaw_tf", self.yaw_tf
+        self.yaw = wrap(data.orientation.z + self.yaw_tf)
 
         self.X_MA_window.pop(0)
         self.X_MA_window.append(self.X)
@@ -574,8 +577,6 @@ class fiseye_cam():
         self.Y_MA_window.pop(0)
         self.Y_MA_window.append(self.Y)
         self.Y_MA = np.squeeze(np.convolve(self.Y_MA_window, np.ones(self.N)/self.N, mode='valid'))
-        
-        self.yaw = data.orientation.z
 
         self.yaw_MA_window.pop(0)
         self.yaw_MA_window.append(self.yaw)
@@ -1059,7 +1060,7 @@ def main():
 
     control_input = vehicle_control(time0)
 
-
+    print "fcam.yaw",fcam.yaw
 
 
 # class EstimatorData(object):
@@ -1096,7 +1097,7 @@ def main():
                          [0, 0, 0, 0, 1, 0],
                          [0, 0, 0, 0, 0, 1]]) 
 
-    time.sleep(5)
+    # time.sleep(5)
     
     lr = rospy.get_param("lr")
     lf = rospy.get_param("lf")
@@ -1167,6 +1168,8 @@ def main():
 
     while not (rospy.is_shutdown()):
 
+        print "fcam.yaw",fcam.yaw
+
         curr_time = rospy.get_rostime().to_sec() - time0
     
         ######### YAW CALCULATION ########
@@ -1186,7 +1189,7 @@ def main():
 
         angle_acc = angle_cur + direction*angle_temp  
 
-        if abs(control_input.duty_cycle) > 0.0:
+        if abs(control_input.duty_cycle) > 0.08:
             dt = curr_time - prev_time 
             u = np.array([control_input.duty_cycle, control_input.steer]).T
             # print ("u",u)
