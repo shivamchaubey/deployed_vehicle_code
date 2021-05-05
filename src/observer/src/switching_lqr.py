@@ -1108,11 +1108,11 @@ def wrap(angle):
     elif angle > np.pi - eps :
         w_angle = angle - 2 * np.pi + eps 
     
-    # elif angle > 2*np.pi - eps :
-    #     w_angle = angle%(2.0*pi)
+    elif angle > 2*np.pi - eps :
+        w_angle = angle%(2.0*pi)
     
-    # elif angle < -2*np.pi + eps :
-    #     w_angle =  -(angle%(2.0*pi))
+    elif angle < -2*np.pi + eps :
+        w_angle =  -(angle%(2.0*pi))
 
     else:
         w_angle = angle
@@ -1167,11 +1167,11 @@ def main():
     fcam   = fiseye_cam(time0, N_fcam)
     imu    = IMU(time0, N_imu)
 
-    time.sleep(2)
+    time.sleep(3)
     print  "yaw_offset", fcam.yaw
     imu.yaw_offset = imu.yaw - fcam.yaw
     control_input = vehicle_control(time0)
-    time.sleep(2)
+    time.sleep(3)
 
     print "fcam.yaw",fcam.yaw
     
@@ -1293,7 +1293,7 @@ def main():
      
     prev_time = curr_time 
     
-
+    u = [0,0]
     #### YAW CORRECTION ####
     angle_temp = 0
     angle_acc  = 0
@@ -1356,10 +1356,10 @@ def main():
 
 
         dt = curr_time - prev_time 
-        u = np.array([control_input.duty_cycle, control_input.steer]).T
-
+        
         if abs(control_input.duty_cycle) > 0.1:
 
+            u = np.array([control_input.duty_cycle, control_input.steer]).T
 
             # yaw_trans = wrap(yaw_correction(y_meas[-1]))
             yaw_trans = est_state[5]
@@ -1440,16 +1440,16 @@ def main():
             ol_state = ol_state + dt*(np.dot(A_sim,ol_state) + np.dot(B_sim,u)) 
             # yaw_check += wrap(fcam.yaw)
 
-        else:
-            if enc.vx == 0.0:
-                est_state[0] = 0.0
-                ol_state[0]  = 0.0
-                est_state[1] = 0.0
-                ol_state[1]  = 0.0
+        # else:
+        #     if enc.vx == 0.0:
+        #         est_state[0] = 0.0
+        #         ol_state[0]  = 0.0
+        #         est_state[1] = 0.0
+        #         ol_state[1]  = 0.0
 
-            if imu.yaw_rate <= 0.018:    
-                est_state[2] = 0.0
-                ol_state[2]  = 0.0
+        #     if imu.yaw_rate <= 0.018:    
+        #         est_state[2] = 0.0
+        #         ol_state[2]  = 0.0
 
         print "\n <<<<<<<<< PRE WRAP >>>>>>>>>>>>>"
         print "est_state",est_state
