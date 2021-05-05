@@ -1111,11 +1111,6 @@ def main():
     vy = enc.vx*beta;
 
     # est_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, fcam.yaw ]).T
-<<<<<<< HEAD
-=======
-    est_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, imu.yaw ]).T
-
->>>>>>> 7579132f3f63c70586d951033f8461eae6f723d5
     # est_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, yaw_correction(fcam.yaw) ]).T
     est_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, imu.yaw ]).T
 
@@ -1129,11 +1124,6 @@ def main():
 
     #### Open loop simulation ###
     # ol_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, fcam.yaw ]).T
-<<<<<<< HEAD
-=======
-    ol_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, imu.yaw ]).T
-
->>>>>>> 7579132f3f63c70586d951033f8461eae6f723d5
     # ol_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, yaw_correction(fcam.yaw) ]).T
     ol_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, imu.yaw ]).T
 
@@ -1200,16 +1190,10 @@ def main():
 
     while not (rospy.is_shutdown()):
         
-<<<<<<< HEAD
         # y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, angle_acc]).T 
         # y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, fcam.yaw]).T
         y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, imu.yaw]).T 
 
-=======
-        # y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, angle_acc]).T
-        # y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, fcam.yaw]).T  
-        y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, imu.yaw]).T 
->>>>>>> 7579132f3f63c70586d951033f8461eae6f723d5
         print "fcam.yaw",fcam.yaw
 
         curr_time = rospy.get_rostime().to_sec() - time0

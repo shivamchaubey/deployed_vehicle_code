@@ -768,11 +768,11 @@ def _initializeFigure_xy(x_lim,y_lim):
     axtr.add_patch(rec_est)
 
     # Open loop simulation:
-    rec_ol = patches.Polygon(v, alpha=0.7, closed=True, fc='k', ec='k', zorder=10)
+    rec_ol = patches.Polygon(v, alpha=0.7, closed=True, fc='G', ec='k', zorder=10)
     axtr.add_patch(rec_ol)
 
     # Open loop simulation:
-    rec_meas = patches.Polygon(v, alpha=0.7, closed=True, fc='b', ec='k', zorder=10)
+    rec_meas = patches.Polygon(v, alpha=0.7, closed=True, fc='G', ec='k', zorder=10)
     axtr.add_patch(rec_meas)
 
 
@@ -831,44 +831,33 @@ def Continuous_AB_Comp(vx, vy, omega, theta, delta):
 
     
     F_flat = 0;
-    Fry = 0.0;
-    Frx = 0.0;
-    A11 = 0.0;
-    A31 = 0.0;
+    Fry = 0;
+    Frx = 0;
     
-    eps = 0.00000
     
-    if abs(vx)>0.0:
-        F_flat = 2*Caf*(delta- atan((vy+lf*omega)/(vx+eps)));
+    eps = 0.000001
+    F_flat = 2*Caf*(delta- atan((vy+lf*omega)/(vx+eps)));
     
     
     
-        Fry = -2*Car*atan((vy - lr*omega)/(vx+eps)) ;
-        A11 = -(1/m)*(C0 + C1/(vx+eps) + Cd_A*rho*vx/2);
-        A31 = -Fry*lr/((vx+eps)*Iz);
-            
+    Fry = -2*Car*atan((vy - lr*omega)/(vx+eps)) ;
+    A11 = -(1/m)*(C0 + C1/(vx+eps) + Cd_A*rho*vx/2);
+    A31 = -Fry*lr/((vx+eps)*Iz);
+        
     A12 = omega;
     A21 = -omega;
-    A22 = 0.0
-
-    if abs(vy)>0.0:
-
-        A22 = Fry/(m*(vy+eps));
+    
+    A22 = Fry/(m*(vy+eps));
 
     A41 = cos(theta);
     A42 = -sin(theta);
     A51 = sin(theta);
     A52 = cos(theta);
 
-    B12 = 0.0 
-    B22 = 0.0 
-    B32 = 0.0 
 
-    if abs(delta)>0.0:
-
-        B12 = -F_flat*sin(delta)/(m*(delta+eps));
-        B22 = F_flat*cos(delta)/(m*(delta+eps));    
-        B32 = F_flat*cos(delta)*lf/(Iz*(delta+eps));
+    B12 = -F_flat*sin(delta)/(m*(delta+eps));
+    B22 = F_flat*cos(delta)/(m*(delta+eps));    
+    B32 = F_flat*cos(delta)*lf/(Iz*(delta+eps));
 
 
 
@@ -978,19 +967,6 @@ def data_retrive_est(msg, est_msg, yaw_measured):
 
     return msg
 
-
-def EKF_filter(P, Q, R, A, B, C, states, u, y_meas, dt):
- 
-    A = np.eye(A.shape[0]) + A*dt
-    B = B*dt
-    L = np.dot(np.dot(np.dot(A,P),C.T),LA.inv(R + np.dot(np.dot(C,P),C.T)))
-    new_states = np.dot(A, states) + np.dot(B, u) + np.dot(L,(y_meas - np.dot(C,states))) 
-    P = Q + np.dot(np.dot((A - np.dot(L,C)),P),A.T)
-
-    return new_states, P
-
-
-
 def load_LQRgain():
 
     LQR_gain = np.array(sio.loadmat(gain_path)['data']['Lmi'].item())
@@ -1032,7 +1008,7 @@ def yaw_smooth(angle_cur, angle_past):
     return CC, AC
 
 def main():
-    rospy.init_node('lqr_state_estimation', anonymous=True)
+    rospy.init_node('state_estimation', anonymous=True)
 
     loop_rate   = rospy.get_param("lqr_observer/publish_frequency")
     rate        = rospy.Rate(loop_rate)
@@ -1054,7 +1030,7 @@ def main():
     print  "yaw_offset", fcam.yaw
     imu.yaw_offset = imu.yaw - fcam.yaw
     control_input = vehicle_control(time0)
-    time.sleep(2)
+
     print "fcam.yaw",fcam.yaw
     
     if visualization == True:
@@ -1110,45 +1086,25 @@ def main():
     beta = lr*tan(control_input.steer)/(lr+lf); ## slip angle
     vy = enc.vx*beta;
 
-    # est_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, fcam.yaw ]).T
-<<<<<<< HEAD
-=======
-    est_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, imu.yaw ]).T
-
->>>>>>> 7579132f3f63c70586d951033f8461eae6f723d5
+    est_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, fcam.yaw ]).T
     # est_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, yaw_correction(fcam.yaw) ]).T
-    est_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, imu.yaw ]).T
-
     est_state_hist = [] 
     est_state_hist.append(est_state)
     
+    est_state_msg = sensorReading()
     LQR_gain, seq, sched_var = load_LQRgain()
     est_state_pub  = rospy.Publisher('est_state_info', sensorReading, queue_size=1)
-    est_state_msg = sensorReading()
-    
+
 
     #### Open loop simulation ###
-    # ol_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, fcam.yaw ]).T
-<<<<<<< HEAD
-=======
-    ol_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, imu.yaw ]).T
-
->>>>>>> 7579132f3f63c70586d951033f8461eae6f723d5
+    ol_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, fcam.yaw ]).T
     # ol_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, yaw_correction(fcam.yaw) ]).T
-    ol_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, imu.yaw ]).T
-
     ol_state_hist = [] 
     ol_state_hist.append(ol_state)
     
-    ol_state_pub  = rospy.Publisher('ol_state_info', sensorReading, queue_size=1)
     ol_state_msg = sensorReading()
-    
-    # ekf_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, yaw_correction(fcam.yaw) ]).T
-    ekf_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, imu.yaw ]).T
+    ol_state_pub  = rospy.Publisher('ol_state_info', sensorReading, queue_size=1)
 
-    ekf_state_pub  = rospy.Publisher('ekf_state_info', sensorReading, queue_size=1)
-    ekf_state_msg = sensorReading()
-    
 
     control_data = control()
     control_hist = {'timestamp_ms_dutycycle':[],'timestamp_ms_steer':[],'steering':[], 'duty_cycle':[]}
@@ -1185,31 +1141,17 @@ def main():
      
     prev_time = curr_time 
     
-    #### EKF ESTIMATOR ####
-    P_ekf = np.eye((6))*10000
-    Q_ekf = np.diag([0.1, 0.05, 0.1, 0.3, 0.3, 0.1]) ## plant disturbance
-    R_ekf = np.diag([0.1, 0.135, 0.05, 0.05, 0.05])    ##sensor noise
-
-
 
     #### YAW CORRECTION ####
     angle_temp = 0
     angle_acc  = 0
-    direction  = 1.0
+    direction = 1.0
     angle_past = yaw_correction(fcam.yaw)
 
     while not (rospy.is_shutdown()):
         
-<<<<<<< HEAD
         # y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, angle_acc]).T 
-        # y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, fcam.yaw]).T
-        y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, imu.yaw]).T 
-
-=======
-        # y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, angle_acc]).T
-        # y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, fcam.yaw]).T  
-        y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, imu.yaw]).T 
->>>>>>> 7579132f3f63c70586d951033f8461eae6f723d5
+        y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, fcam.yaw]).T 
         print "fcam.yaw",fcam.yaw
 
         curr_time = rospy.get_rostime().to_sec() - time0
@@ -1244,51 +1186,37 @@ def main():
                             +    dt * np.dot(B_obs, u)
                             +    dt * np.dot(L_gain, y_meas) )
             
-            # est_state[5] = wrap(est_state[5])
+            est_state[5] = wrap(est_state[5])
             # print ("time taken for estimation ={}".format(rospy.get_rostime().to_sec() - time0 - curr_time))
             
             ##### OPEN LOOP SIMULATION ####
             A_sim, B_sim = Continuous_AB_Comp(ol_state[0], ol_state[1], ol_state[2], ol_state[5], u[1])
             ol_state = ol_state + dt*(np.dot(A_sim,ol_state) + np.dot(B_sim,u)) 
-            # ol_state[5] = wrap(ol_state[5])
+            ol_state[5] = wrap(ol_state[5])
             # yaw_check += wrap(fcam.yaw)
-
-            ## EKF filter ##
-            A_ekf, B_ekf = Continuous_AB_Comp(ekf_state[0], ekf_state[1], ekf_state[2], ekf_state[5], u[1])
-            ekf_state, P_ekf = EKF_filter(P_ekf, Q_ekf, R_ekf, A_ekf, B_ekf, C, ekf_state, u, y_meas, dt)
-
-
-
-        est_state[5] = wrap(est_state[5])
-        ol_state[5] = wrap(ol_state[5])
-        # est_state[5] = yaw_correction(est_state[5])
-        # ol_state[5] = yaw_correction(ol_state[5])
 
         print ("est_state",est_state)
 
         est_state_pub.publish(data_retrive_est(est_state_msg, est_state, angle_acc)) ## remember we want to check the transformed yaw angle for debugging that's why 
                                                                                     ##publishing this information in the topic of "s" which is not used for any purpose. 
         est_state_hist.append(est_state)  
-        
         ol_state_pub.publish(data_retrive(ol_state_msg, ol_state))
         ol_state_hist.append(ol_state)
 
-        ekf_state_pub.publish(data_retrive(ekf_state_msg, ekf_state))
-
         angle_past = angle_cur
 
-        # control_msg = control_input.data_retrive(control_data)        
-        # append_control_data(control_hist, control_msg)
+        control_msg = control_input.data_retrive(control_data)        
+        append_control_data(control_hist, control_msg)
 
 
-        # enc_msg = enc.data_retrive(enc_data)
-        # enc_pub.publish(enc_msg)
-        # append_sensor_data(enc_hist, enc_msg)
+        enc_msg = enc.data_retrive(enc_data)
+        enc_pub.publish(enc_msg)
+        append_sensor_data(enc_hist, enc_msg)
 
 
-        # enc_MA_msg = enc.data_retrive_MA(enc_MA_data)
-        # enc_MA_pub.publish(enc_MA_msg)
-        # append_sensor_data(enc_MA_hist, enc_MA_msg)
+        enc_MA_msg = enc.data_retrive_MA(enc_MA_data)
+        enc_MA_pub.publish(enc_MA_msg)
+        append_sensor_data(enc_MA_hist, enc_MA_msg)
 
 
         imu_msg = imu.data_retrive(imu_data)
@@ -1296,9 +1224,9 @@ def main():
         append_sensor_data(imu_hist, imu_msg)
 
 
-        # imu_MA_msg = imu.data_retrive_MA(imu_MA_data)
-        # imu_MA_pub.publish(imu_MA_msg)
-        # append_sensor_data(imu_MA_hist, imu_MA_msg)
+        imu_MA_msg = imu.data_retrive_MA(imu_MA_data)
+        imu_MA_pub.publish(imu_MA_msg)
+        append_sensor_data(imu_MA_hist, imu_MA_msg)
 
 
         fcam_msg = fcam.data_retrive(fcam_data)
@@ -1306,9 +1234,9 @@ def main():
         append_sensor_data(fcam_hist, fcam_msg)
 
 
-        # fcam_MA_msg = fcam.data_retrive_MA(fcam_MA_data)
-        # fcam_MA_pub.publish(fcam_MA_msg)
-        # append_sensor_data(fcam_MA_hist, fcam_MA_msg)
+        fcam_MA_msg = fcam.data_retrive_MA(fcam_MA_data)
+        fcam_MA_pub.publish(fcam_MA_msg)
+        append_sensor_data(fcam_MA_hist, fcam_MA_msg)
 
         prev_time = curr_time 
 
