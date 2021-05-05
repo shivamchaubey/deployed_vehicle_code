@@ -1233,6 +1233,7 @@ def main():
 
         if abs(control_input.duty_cycle) > 0.08:
             dt = curr_time - prev_time 
+            dt = 1/100
             u = np.array([control_input.duty_cycle, control_input.steer]).T
             # print ("u",u)
             
