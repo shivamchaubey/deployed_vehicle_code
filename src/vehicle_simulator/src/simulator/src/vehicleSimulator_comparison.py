@@ -189,6 +189,27 @@ def main():
             LPVerr_states = LPVPrediction(LPVerr_states, u, dt, track_map) ### ERROR MPC model
             LPV_states = LPV_model(LPV_states,u, dt)
 
+        else:
+            u = np.array([0, ecu.steer])
+                        # vehicle_sim.vehicle_model(u)
+            nl_states = vehicle_NLmodel(nl_states, u, dt)
+            LPVerr_states = LPVPrediction(LPVerr_states, u, dt, track_map) ### ERROR MPC model
+            LPV_states = LPV_model(LPV_states,u, dt)
+
+
+            # if enc.vx == 0.0:
+            #     nl_states[0] = 0.0
+            #     LPVerr_states[0]  = 0.0
+            #     LPV_states[0]  = 0.0
+                
+            #     nl_states[1] = 0.0
+            #     LPVerr_states[1]  = 0.0
+            #     LPV_states[1]  = 0.0
+                
+            # if imu.yaw_rate <= 0.018:    
+            #     nl_states[1] = 0.0
+            #     LPVerr_states[1]  = 0.0
+            #     LPV_states[1]  = 0.0
         # simStates.x      = vehicle_sim.x 
         # simStates.y      = vehicle_sim.y 
         # simStates.vx     = vehicle_sim.vx
@@ -381,8 +402,7 @@ def  LPV_model(states,u, dt):
     B32 = 0;
     B22 = 0;
     
-    # if abs(delta) > 0:
-    eps = 0.000001
+
     B12 = -F_flat*sin(delta)/(m*(delta+eps));
     B22 = F_flat*cos(delta)/(m*(delta+eps));    
     B32 = F_flat*cos(delta)*lf/(Iz*(delta+eps));
@@ -498,7 +518,7 @@ def LPVPrediction(states, u, dt, track_map):
         A31 = 0;
         A11 = 0;
 
-        eps = 0.000001
+        eps = 0.0000001
         # if abs(vx)> 0.0:
         F_flat = 2*Caf*(delta- atan((vy+lf*omega)/(vx+eps)));        
         Fry = -2*Car*atan((vy - lr*omega)/(vx+eps)) ;
@@ -596,9 +616,9 @@ def vehicle_NLmodel(states, u, dt):
     F_flat = 0
     Fry    = 0
     Frx    = (cm0 - cm1*vx)*D - C0*vx - C1 - (Cd_A*rho*vx**2)/2;
-    if abs(vx)>0:
-        Fry = -2.0*Car*atan((vy - lr*omega)/vx) ;
-        F_flat = 2.0*Caf*(delta - atan((vy+lf*omega)/vx));
+    eps = 0.0000001
+    Fry = -2.0*Car*atan((vy - lr*omega)/(vx+eps)) ;
+    F_flat = 2.0*Caf*(delta - atan((vy+lf*omega)/(vx+eps)));
 
     dvx = (1.0/m)*(Frx - F_flat*sin(delta) + m*vy*omega);
 

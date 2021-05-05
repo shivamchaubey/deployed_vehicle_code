@@ -129,8 +129,10 @@ def main():
     Tf = 0.07
     counter = 0
 
-    while not (rospy.is_shutdown()):
+    prev_time = rospy.get_rostime().to_sec() - time0
 
+    while not (rospy.is_shutdown()):
+        curr_time = rospy.get_rostime().to_sec() - time0
         #callback_time = rospy.get_time()
 
         if flag.status:
@@ -150,11 +152,21 @@ def main():
         #   u = [a_his.pop(0), df_his.pop(0)] # EA: remove the first element of the array and return it to you.
             #print "Applyied the first of this vector: ",df_his ,"\n "
 
-
+        dt = curr_time - prev_time 
         if abs(ecu.duty_cycle) > 0.1:
             u = [ecu.duty_cycle, ecu.steer]
         
-            vehicle_sim.vehicle_model(u)
+            vehicle_sim.vehicle_model(u, dt)
+
+
+        else:
+            if vehicle_sim.vx == 0.0:
+                vehicle_sim.vx = 0.0
+                vehicle_sim.vy = 0.0
+                
+            if vehicle_sim.omega <= 0.01:    
+                vehicle_sim.omega = 0.0
+                vehicle_sim.omega  = 0.0
 
         simStates.x      = vehicle_sim.x 
         simStates.y      = vehicle_sim.y 
@@ -217,6 +229,8 @@ def main():
         #time_since_last_callback = rospy.get_time() - callback_time
 
         #print time_since_last_callback
+
+        prev_time = curr_time
         vehicle_sim.rate.sleep()
 
     # str         = 'test2'    
@@ -233,6 +247,23 @@ def main():
     # np.save(newpath+'NoiseU', ecu.hist_noise)
     # quit()
 
+def wrap(angle):
+    eps = 0.00
+    if angle < -np.pi + eps:
+        w_angle = 2 * np.pi + angle -eps
+    elif angle > np.pi - eps :
+        w_angle = angle - 2 * np.pi + eps 
+    
+    elif angle > 2*np.pi - eps :
+        w_angle = angle%(2.0*pi)
+    
+    elif angle < -2*np.pi + eps :
+        w_angle =  -(angle%(2.0*pi))
+
+    else:
+        w_angle = angle
+
+    return w_angle
 
 
 def vehicle_model(vx,vy,omega,theta,delta,D):
@@ -261,9 +292,11 @@ def vehicle_model(vx,vy,omega,theta,delta,D):
     F_flat = 0
     Fry    = 0
     Frx    = (cm0 - cm1*vx)*D - C0*vx - C1 - (Cd_A*rho*vx**2)/2;
-    if abs(vx)>0:
-        Fry = -2.0*Car*atan((vy - lr*omega)/vx) ;
-        F_flat = 2.0*Caf*(delta - atan((vy+lf*omega)/vx));
+
+    eps = 0.00000001
+    # if abs(vx)>0:
+    Fry = -2.0*Car*atan((vy - lr*omega)/(vx+eps)) ;
+    F_flat = 2.0*Caf*(delta - atan((vy+lf*omega)/(vx+eps)));
 
     dvx = (1/m)*(Frx - F_flat*sin(delta) + m*vy*omega);
 
@@ -347,17 +380,17 @@ class Vehicle_Simulator(object):
         self.time_his   = []
 
         # Get process noise limits
-        self.x_std           = rospy.get_param("simulator/x_std_pr")/self.dt
-        self.y_std           = rospy.get_param("simulator/y_std_pr")/self.dt
-        self.vx_std          = rospy.get_param("simulator/vx_std_pr")/self.dt
-        self.vy_std          = rospy.get_param("simulator/vy_std_pr")/self.dt
-        self.omega_std      = rospy.get_param("simulator/psiDot_std_pr")/self.dt
-        self.yaw_std         = rospy.get_param("simulator/psi_std_pr")/self.dt
-        self.n_bound         = rospy.get_param("simulator/n_bound_pr")/self.dt
+        self.x_std           = rospy.get_param("simulator/x_std_pr")
+        self.y_std           = rospy.get_param("simulator/y_std_pr")
+        self.vx_std          = rospy.get_param("simulator/vx_std_pr")
+        self.vy_std          = rospy.get_param("simulator/vy_std_pr")
+        self.omega_std      = rospy.get_param("simulator/psiDot_std_pr")
+        self.yaw_std         = rospy.get_param("simulator/psi_std_pr")
+        self.n_bound         = rospy.get_param("simulator/n_bound_pr")
 
 
     # Go through each line of code ??   
-    def vehicle_model(self,u):
+    def vehicle_model(self,u, dt):
 
         x       = self.x
         y       = self.y
@@ -367,7 +400,7 @@ class Vehicle_Simulator(object):
         vy      = self.vy
         yaw     = self.yaw
         omega   = self.omega
-
+        self.dt = dt
     
     
         dX = vx*cos(yaw) - vy*sin(yaw)
@@ -379,9 +412,11 @@ class Vehicle_Simulator(object):
         F_flat = 0
         Fry    = 0
         Frx    = (self.Cm0 - self.Cm1*vx)*u[0] - self.C0*vx - self.C1 - (self.Cd_A*self.rho*vx**2)/2;
-        if abs(vx)>0:
-            Fry = -2.0*self.Car*atan((vy - self.lr*omega)/vx) ;
-            F_flat = 2.0*self.Caf*(u[1] - atan((vy+self.lf*omega)/vx));
+        
+        eps = 0.0000001
+        # if abs(vx)>0:
+        Fry = -2.0*self.Car*atan((vy - self.lr*omega)/(vx+eps)) ;
+        F_flat = 2.0*self.Caf*(u[1] - atan((vy+self.lf*omega)/(vx+eps)));
 
         dvx = (1/self.m)*(Frx - F_flat*sin(u[1]) + self.m*vy*omega);
 
@@ -392,25 +427,33 @@ class Vehicle_Simulator(object):
 
 
         n4 = max(-self.x_std*self.n_bound, min(self.x_std*0.66*(randn()), self.x_std*self.n_bound))
+        n4 = 0
         self.x      += self.dt*(dX + n4)
 
         n5 = max(-self.y_std*self.n_bound, min(self.y_std*0.66*(randn()), self.y_std*self.n_bound))
+        n5 = 0
         self.y      += self.dt*(dY + n5)
 
         n1 = max(-self.vx_std*self.n_bound, min(self.vx_std*0.66*(randn()), self.vx_std*self.n_bound))
+        n1 = 0
         self.vx     += self.dt*(dvx + n1) 
 
         n2 = max(-self.vy_std*self.n_bound, min(self.vy_std*0.66*(randn()), self.vy_std*self.n_bound))
+        n2 = 0
         self.vy     += self.dt*(dvy + n2)
 
         self.ax      = dvx 
         self.ay      = dvy
 
         n3 = max(-self.yaw_std*self.n_bound, min(self.yaw_std*0.1*(randn()), self.yaw_std*self.n_bound))
+        n3 = 0
         self.yaw    += self.dt*(omega + 0)
+        self.yaw     = wrap(self.yaw)   
 
         n6 = max(-self.omega_std*self.n_bound, min(self.omega_std*0.66*(randn()), self.omega_std*self.n_bound))
+        n6 = 0
         self.omega     += self.dt*(domega + n6)
+        self.omega      = - self.omega ## because the IMU installed in vehicle has z-axis downwards
 
         self.noise_hist.append([n1,n2,n6,n4,n5,n3])
 
@@ -541,7 +584,7 @@ class Sensor_Simulator():
         n = max(-self.y_std*self.n_bound, min(self.y_std*randn(), self.y_std*self.n_bound))
         self.y = sim.y + n
 
-        self.yaw = sim.yaw + uniform(0, 0.1)
+        self.yaw = wrap(sim.yaw + uniform(0, 0.1))
 
     def fcam_pub(self):
         if self.counter_fcam > self.thUpdate_fcam:
@@ -560,7 +603,7 @@ class Sensor_Simulator():
     def imu_update(self,sim):
 
         n = max(-self.yaw_std*self.n_bound, min(self.yaw_std*randn(), self.yaw_std*self.n_bound))
-        self.yaw_imu = sim.yaw + n
+        self.yaw_imu = wrap(sim.yaw + n)
 
         n = max(-self.omega_std*self.n_bound, min(self.omega_std*randn(), self.omega_std*self.n_bound))
         self.omega = sim.omega + n
