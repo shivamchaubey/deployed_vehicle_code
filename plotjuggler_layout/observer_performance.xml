@@ -1,33 +1,42 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <root version="2.3.8">
- <tabbed_widget name="Main Window" parent="main_window">
-  <plotmatrix rows="2" tab_name="plot" columns="1">
-   <plot col="0" style="Lines" row="0">
-    <range left="1.099271" top="1.636416" bottom="1.631999" right="1.105312"/>
+ <tabbed_widget parent="main_window" name="Main Window">
+  <plotmatrix columns="1" rows="2" tab_name="plot">
+   <plot style="Lines" row="0" col="0">
+    <range bottom="-0.426684" right="8.043876" left="-5.245997" top="3.226890"/>
     <limitY/>
-    <curve R="31" name="/est_state_info/[X;Y]" G="119" curve_x="/est_state_info/X" B="180" curve_y="/est_state_info/Y" custom_transform="XYPlot"/>
-    <curve R="214" name="/fcam_fused/[X;Y]" G="39" curve_x="/fcam_fused/X" B="40" curve_y="/fcam_fused/Y" custom_transform="XYPlot"/>
-    <curve R="26" name="/ol_state_info/[X;Y]" G="201" curve_x="/ol_state_info/X" B="56" curve_y="/ol_state_info/Y" custom_transform="XYPlot"/>
+    <curve R="31" curve_y="/est_state_info/Y" name="/est_state_info/[X;Y]" G="119" curve_x="/est_state_info/X" custom_transform="XYPlot" B="180"/>
+    <curve R="214" curve_y="/fcam_fused/Y" name="/fcam_fused/[X;Y]" G="39" curve_x="/fcam_fused/X" custom_transform="XYPlot" B="40"/>
+    <curve R="26" curve_y="/ol_state_info/Y" name="/ol_state_info/[X;Y]" G="201" curve_x="/ol_state_info/X" custom_transform="XYPlot" B="56"/>
     <transform value="XYPlot"/>
    </plot>
-   <plot col="0" style="Lines" row="1">
-    <range left="0.000000" top="2.869141" bottom="2.867461" right="8.523614"/>
+   <plot style="Lines" row="1" col="0">
+    <range bottom="-3.284177" right="106.082217" left="15.306619" top="3.277185"/>
     <limitY/>
-    <curve R="26" name="/est_state_info/yaw" G="201" B="56" custom_transform="noTransform"/>
-    <curve R="241" name="/fcam_fused/yaw" G="76" B="193" custom_transform="noTransform"/>
-    <curve R="148" name="/imu_fused/yaw" G="103" B="189" custom_transform="noTransform"/>
-    <curve R="255" name="/pose/orientation/z" G="127" B="14" custom_transform="noTransform"/>
+    <curve R="26" name="/est_state_info/yaw" G="201" custom_transform="noTransform" B="56"/>
+    <curve R="241" name="/fcam_fused/yaw" G="76" custom_transform="noTransform" B="193"/>
+    <curve R="148" name="/imu_fused/yaw" G="103" custom_transform="noTransform" B="189"/>
+    <curve R="23" name="/ol_state_info/yaw" G="190" custom_transform="noTransform" B="207"/>
+    <curve R="255" name="/pose/orientation/z" G="127" custom_transform="noTransform" B="14"/>
     <transform value="noTransform"/>
    </plot>
   </plotmatrix>
-  <plotmatrix rows="1" tab_name="plot" columns="1">
-   <plot col="0" style="Lines" row="0">
-    <range left="-222.607178" top="3.838572" bottom="-20.116430" right="-61.329265"/>
+  <plotmatrix columns="1" rows="2" tab_name="plot">
+   <plot style="Lines" row="0" col="0">
+    <range bottom="-13.222968" right="88.118178" left="-11.751549" top="5.544326"/>
     <limitY/>
-    <curve R="188" name="/est_state_info/yaw_rate" G="189" B="34" custom_transform="noTransform"/>
-    <curve R="31" name="/fcam_fused/yaw_rate" G="119" B="180" custom_transform="noTransform"/>
-    <curve R="214" name="/ol_state_info/yaw_rate" G="39" B="40" custom_transform="noTransform"/>
-    <curve R="23" name="/twist/angular/z" G="190" B="207" custom_transform="noTransform"/>
+    <curve R="188" name="/est_state_info/yaw_rate" G="189" custom_transform="noTransform" B="34"/>
+    <curve R="31" name="/fcam_fused/yaw_rate" G="119" custom_transform="noTransform" B="180"/>
+    <curve R="148" name="/imu_fused/yaw_rate" G="103" custom_transform="noTransform" B="189"/>
+    <curve R="214" name="/ol_state_info/yaw_rate" G="39" custom_transform="noTransform" B="40"/>
+    <curve R="23" name="/twist/angular/z" G="190" custom_transform="noTransform" B="207"/>
+    <transform value="noTransform"/>
+   </plot>
+   <plot style="Lines" row="1" col="0">
+    <range bottom="-0.691250" right="81.617554" left="-8.244198" top="0.621250"/>
+    <limitY/>
+    <curve R="255" name="/control/accel/data" G="127" custom_transform="noTransform" B="14"/>
+    <curve R="241" name="/control/steering/data" G="76" custom_transform="noTransform" B="193"/>
     <transform value="noTransform"/>
    </plot>
   </plotmatrix>
@@ -53,8 +62,8 @@
    <discard_large_arrays value="true"/>
    <max_array_size value="1000"/>
   </plugin>
-  <plugin status="idle" ID="ROS /rosout Visualization"/>
-  <plugin status="idle" ID="ROS Topic Re-Publisher"/>
+  <plugin ID="ROS /rosout Visualization" status="idle"/>
+  <plugin ID="ROS Topic Re-Publisher" status="idle"/>
  </Plugins>
  <!-- - - - - - - - - - - - - - - -->
  <previouslyLoaded_Datafiles/>
