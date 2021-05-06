@@ -813,8 +813,86 @@ def append_control_data(data,msg):
     data['duty_cycle'].append(msg.duty_cycle)
 
 
-
 def Continuous_AB_Comp(vx, vy, omega, theta, delta):
+
+
+#     %%% Parameters
+    m = 2.424;
+    rho = 1.225;
+    lr = 0.1203;
+    lf = 0.1377;
+    Cm0 = 10.1305;
+    Cm1 = 1.05294;
+    C0 = 3.68918;
+    C1 = 0.0306803;
+    Cd_A = -0.657645;
+    Caf = 1.3958;
+    Car = 1.6775;
+    Iz = 0.02;
+
+    F_flat = 0;
+    Fry = 0;
+    Frx = 0;
+    
+    A31 = 0;
+    A11 = 0;
+    
+    eps = 0.0000001
+    # eps = 0
+    # if abs(vx)> 0:
+    F_flat = 2*Caf*(delta- atan((vy+lf*omega)/(vx+eps)));
+    Fry = -2*Car*atan((vy - lr*omega)/(vx+eps)) ;
+    A11 = -(1/m)*(C0 + C1/(vx+eps) + Cd_A*rho*vx/2);
+    A31 = -Fry*lr/((vx+eps)*Iz);
+        
+    A12 = omega;
+    A21 = -omega;
+    A22 = 0;
+    
+    # if abs(vy) > 0.0:
+    A22 = Fry/(m*(vy+eps));
+
+    A41 = cos(theta);
+    A42 = -sin(theta);
+    A51 = sin(theta);
+    A52 = cos(theta);
+
+
+    B12 = 0;
+    B32 = 0;
+    B22 = 0;
+    
+
+    B12 = -F_flat*sin(delta)/(m*(delta+eps));
+    B22 = F_flat*cos(delta)/(m*(delta+eps));    
+    B32 = F_flat*cos(delta)*lf/(Iz*(delta+eps));
+
+
+
+    B11 = (1/m)*(Cm0 - Cm1*vx);
+    
+    A = np.array([[A11, A12, 0,  0,   0,  0],\
+                  [A21, A22, 0,  0,   0,  0],\
+                  [A31,  0 , 0,  0,   0,  0],\
+                  [A41, A42, 0,  0,   0,  0],\
+                  [A51, A52, 0,  0,   0,  0],\
+                  [ 0 ,  0 , 1,  0,   0,  0]])
+    
+    # print "A = {}".format(A), "Det A = {}".format(LA.det(A))
+
+    B = np.array([[B11, B12],\
+                  [ 0,  B22],\
+                  [ 0,  B32],\
+                  [ 0 ,  0 ],\
+                  [ 0 ,  0 ],\
+                  [ 0 ,  0 ]])
+        
+    # print "B = {}".format(B), "Det B = {}".format(LA.det(B))
+
+    return A, B
+
+
+def Continuous_AB_Comp_old(vx, vy, omega, theta, delta):
 
     m = rospy.get_param("m")
     rho = rospy.get_param("rho")
@@ -836,24 +914,24 @@ def Continuous_AB_Comp(vx, vy, omega, theta, delta):
     A11 = 0.0;
     A31 = 0.0;
     
-    eps = 0.00000
+    eps = 0.000001
     
-    if abs(vx)>0.0:
-        F_flat = 2*Caf*(delta- atan((vy+lf*omega)/(vx+eps)));
+    # if abs(vx)>0.0:
+    F_flat = 2*Caf*(delta- atan((vy+lf*omega)/(vx+eps)));
     
     
     
-        Fry = -2*Car*atan((vy - lr*omega)/(vx+eps)) ;
-        A11 = -(1/m)*(C0 + C1/(vx+eps) + Cd_A*rho*vx/2);
-        A31 = -Fry*lr/((vx+eps)*Iz);
+    Fry = -2*Car*atan((vy - lr*omega)/(vx+eps)) ;
+    A11 = -(1/m)*(C0 + C1/(vx+eps) + Cd_A*rho*vx/2);
+    A31 = -Fry*lr/((vx+eps)*Iz);
             
     A12 = omega;
     A21 = -omega;
     A22 = 0.0
 
-    if abs(vy)>0.0:
+    # if abs(vy)>0.0:
 
-        A22 = Fry/(m*(vy+eps));
+    A22 = Fry/(m*(vy+eps));
 
     A41 = cos(theta);
     A42 = -sin(theta);
@@ -864,11 +942,11 @@ def Continuous_AB_Comp(vx, vy, omega, theta, delta):
     B22 = 0.0 
     B32 = 0.0 
 
-    if abs(delta)>0.0:
+    # if abs(delta)>0.0:
 
-        B12 = -F_flat*sin(delta)/(m*(delta+eps));
-        B22 = F_flat*cos(delta)/(m*(delta+eps));    
-        B32 = F_flat*cos(delta)*lf/(Iz*(delta+eps));
+    B12 = -F_flat*sin(delta)/(m*(delta+eps));
+    B22 = F_flat*cos(delta)/(m*(delta+eps));    
+    B32 = F_flat*cos(delta)*lf/(Iz*(delta+eps));
 
 
 
@@ -896,7 +974,7 @@ def Continuous_AB_Comp(vx, vy, omega, theta, delta):
 
 
 
-def Continuous_AB_Comp_old(vx, vy, omega, theta, delta):
+def Continuous_AB_Comp_old2(vx, vy, omega, theta, delta):
 
     m = rospy.get_param("m")
     rho = rospy.get_param("rho")

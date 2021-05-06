@@ -840,10 +840,7 @@ def Continuous_AB_Comp(vx, vy, omega, theta, delta):
     
     if abs(vx)>0.0:
         F_flat = 2*Caf*(delta- atan((vy+lf*omega)/(vx+eps)));
-    
-    
-    
-        Fry = -2*Car*atan((vy - lr*omega)/(vx+eps)) ;
+        Fry = -2*Car*atan((vy - lr*omega)/(vx+eps));
         A11 = -(1/m)*(C0 + C1/(vx+eps) + Cd_A*rho*vx/2);
         A31 = -Fry*lr/((vx+eps)*Iz);
             
@@ -951,6 +948,25 @@ def data_retrive(msg, est_msg):
     msg.vx  = est_msg[0]
     msg.vy  = est_msg[1]
     msg.yaw_rate  = est_msg[2]
+    msg.ax  = 0
+    msg.ay  = 0
+    msg.s  = 0
+    msg.x  = 0
+    msg.y  = 0
+
+    return msg
+
+def meas_retrive(msg, est_msg):
+
+    msg.timestamp_ms = 0
+    msg.X  = est_msg[2]
+    msg.Y  = est_msg[3]
+    msg.roll  = 0
+    msg.yaw  = est_msg[4]
+    msg.pitch  = 0
+    msg.vx  = est_msg[0]
+    msg.vy  = 0
+    msg.yaw_rate  = est_msg[1]
     msg.ax  = 0
     msg.ay  = 0
     msg.s  = 0
@@ -1109,13 +1125,8 @@ def main():
     lf = rospy.get_param("lf")
     beta = lr*tan(control_input.steer)/(lr+lf); ## slip angle
     vy = enc.vx*beta;
-
+    vy = 0
     # est_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, fcam.yaw ]).T
-<<<<<<< HEAD
-=======
-    est_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, imu.yaw ]).T
-
->>>>>>> 7579132f3f63c70586d951033f8461eae6f723d5
     # est_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, yaw_correction(fcam.yaw) ]).T
     est_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, imu.yaw ]).T
 
@@ -1128,12 +1139,6 @@ def main():
     
 
     #### Open loop simulation ###
-    # ol_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, fcam.yaw ]).T
-<<<<<<< HEAD
-=======
-    ol_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, imu.yaw ]).T
-
->>>>>>> 7579132f3f63c70586d951033f8461eae6f723d5
     # ol_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, yaw_correction(fcam.yaw) ]).T
     ol_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, imu.yaw ]).T
 
@@ -1142,6 +1147,9 @@ def main():
     
     ol_state_pub  = rospy.Publisher('ol_state_info', sensorReading, queue_size=1)
     ol_state_msg = sensorReading()
+
+    meas_state_pub  = rospy.Publisher('meas_state_info', sensorReading, queue_size=1)
+    meas_state_msg = sensorReading()
     
     # ekf_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, yaw_correction(fcam.yaw) ]).T
     ekf_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, imu.yaw ]).T
@@ -1200,16 +1208,11 @@ def main():
 
     while not (rospy.is_shutdown()):
         
-<<<<<<< HEAD
-        # y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, angle_acc]).T 
-        # y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, fcam.yaw]).T
-        y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, imu.yaw]).T 
 
-=======
         # y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, angle_acc]).T
         # y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, fcam.yaw]).T  
         y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, imu.yaw]).T 
->>>>>>> 7579132f3f63c70586d951033f8461eae6f723d5
+
         print "fcam.yaw",fcam.yaw
 
         curr_time = rospy.get_rostime().to_sec() - time0
@@ -1233,7 +1236,6 @@ def main():
 
         if abs(control_input.duty_cycle) > 0.08:
             dt = curr_time - prev_time 
-            dt = 1/100
             u = np.array([control_input.duty_cycle, control_input.steer]).T
             # print ("u",u)
             
@@ -1274,22 +1276,24 @@ def main():
         ol_state_pub.publish(data_retrive(ol_state_msg, ol_state))
         ol_state_hist.append(ol_state)
 
+        meas_state_pub.publish(meas_retrive(meas_state_msg, y_meas))
+        
         ekf_state_pub.publish(data_retrive(ekf_state_msg, ekf_state))
 
         angle_past = angle_cur
 
-        # control_msg = control_input.data_retrive(control_data)        
-        # append_control_data(control_hist, control_msg)
+        control_msg = control_input.data_retrive(control_data)        
+        append_control_data(control_hist, control_msg)
 
 
-        # enc_msg = enc.data_retrive(enc_data)
-        # enc_pub.publish(enc_msg)
-        # append_sensor_data(enc_hist, enc_msg)
+        enc_msg = enc.data_retrive(enc_data)
+        enc_pub.publish(enc_msg)
+        append_sensor_data(enc_hist, enc_msg)
 
 
-        # enc_MA_msg = enc.data_retrive_MA(enc_MA_data)
-        # enc_MA_pub.publish(enc_MA_msg)
-        # append_sensor_data(enc_MA_hist, enc_MA_msg)
+        enc_MA_msg = enc.data_retrive_MA(enc_MA_data)
+        enc_MA_pub.publish(enc_MA_msg)
+        append_sensor_data(enc_MA_hist, enc_MA_msg)
 
 
         imu_msg = imu.data_retrive(imu_data)
@@ -1297,9 +1301,9 @@ def main():
         append_sensor_data(imu_hist, imu_msg)
 
 
-        # imu_MA_msg = imu.data_retrive_MA(imu_MA_data)
-        # imu_MA_pub.publish(imu_MA_msg)
-        # append_sensor_data(imu_MA_hist, imu_MA_msg)
+        imu_MA_msg = imu.data_retrive_MA(imu_MA_data)
+        imu_MA_pub.publish(imu_MA_msg)
+        append_sensor_data(imu_MA_hist, imu_MA_msg)
 
 
         fcam_msg = fcam.data_retrive(fcam_data)
@@ -1307,9 +1311,9 @@ def main():
         append_sensor_data(fcam_hist, fcam_msg)
 
 
-        # fcam_MA_msg = fcam.data_retrive_MA(fcam_MA_data)
-        # fcam_MA_pub.publish(fcam_MA_msg)
-        # append_sensor_data(fcam_MA_hist, fcam_MA_msg)
+        fcam_MA_msg = fcam.data_retrive_MA(fcam_MA_data)
+        fcam_MA_pub.publish(fcam_MA_msg)
+        append_sensor_data(fcam_MA_hist, fcam_MA_msg)
 
         prev_time = curr_time 
 

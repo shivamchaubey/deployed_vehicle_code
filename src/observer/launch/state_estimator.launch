@@ -17,7 +17,7 @@
     
     <!-- LOAD ESTIMATOR TYPE -->
 
-    <arg name="SWITCHING_LQR" default="1"/>
+    <arg name="SWITCHING_LQR" default="0"/>
 
     <!-- switching  LQR type --> 
     <group if="$(arg SWITCHING_LQR)">
@@ -29,11 +29,12 @@
 
         <param name="lqr_gain_path"   type="string"  value="/data/LQR_16_04_2021/switching_LQR_gain.mat" if="$(arg SWITCHING_LQR)"/>
         
+        <param name="visualization"    type="bool"      value="false" />
+        <param name="record_data"      type="bool"      value="False" />
+
 
         <param name="publish_frequency" type="double" value="100.0" />
         
-
-        <param name="visualization"      type="bool" value="True" />
 
         <!-- sensor Moving average -->
         <param name="MA_status"      type="bool" value="True" />
@@ -49,6 +50,8 @@
         <param name="init_y"    type="double" value="0.005" />
         <param name="init_yaw"  type="double" value="0.01" />
 
+
+        <?ignore
         <!-- If transformation needed from estamed frame of reference to another -->
         <param name="x_tf"      type="double" value="0.42998579" />
         <param name="y_tf"      type="double" value="-1.1021565" />
@@ -56,9 +59,17 @@
         <param name="theta_tf"  type="double" value="-90.0" />
         <!-- Vehicle orientation-->
         <param name="yaw_tf"    type="double" value="-90.0" />
+        ?>
 
-        <param name="Visualization"    type="bool"      value="True" />
-        <param name="record_data"      type="bool"      value="False" />
+        
+        <!-- FOR TESTING PUSPOSE -->
+        <param name="x_tf"      type="double" value="0.0" />
+        <param name="y_tf"      type="double" value="0.0" />
+        <!-- Map rotation -->
+        <param name="theta_tf"  type="double" value="0.0" />
+        <!-- Vehicle orientation-->
+        <param name="yaw_tf"    type="double" value="0.0" />
+        
 
 
 
@@ -68,18 +79,18 @@
     <!--  LQR --> 
 
     <group unless="$(arg SWITCHING_LQR)">
-        <node pkg="observer" type="lqr_state_estimator.py" name="switching_lqr_observer" output="screen">
+        <node pkg="observer" type="lqr_state_estimator.py" name="lqr_observer" output="screen">
         
 
 
         <!-- contained in observer/data/-->
         <param name="lqr_gain_path"   type="string"  value="/data/LQR_16_04_2021/LQR_gain.mat" unless="$(arg SWITCHING_LQR)"/>
         
+        <param name="visualization"    type="bool"      value="False" />
+        <param name="record_data"      type="bool"      value="False" />
 
         <param name="publish_frequency" type="double" value="100.0" />
         
-
-        <param name="visualization"      type="bool" value="True" />
 
         <!-- sensor Moving average -->
         <param name="MA_status"      type="bool" value="True" />
@@ -95,6 +106,7 @@
         <param name="init_y"    type="double" value="0.005" />
         <param name="init_yaw"  type="double" value="0.01" />
 
+        <?ignore
         <!-- If transformation needed from estamed frame of reference to another -->
         <param name="x_tf"      type="double" value="0.42998579" />
         <param name="y_tf"      type="double" value="-1.1021565" />
@@ -102,9 +114,17 @@
         <param name="theta_tf"  type="double" value="-90.0" />
         <!-- Vehicle orientation-->
         <param name="yaw_tf"    type="double" value="-90.0" />
+        ?>
 
-        <param name="Visualization"    type="bool"      value="True" />
-        <param name="record_data"      type="bool"      value="False" />
+        
+        <!-- FOR TESTING PUSPOSE -->
+        <param name="x_tf"      type="double" value="0.0" />
+        <param name="y_tf"      type="double" value="0.0" />
+        <!-- Map rotation -->
+        <param name="theta_tf"  type="double" value="0.0" />
+        <!-- Vehicle orientation-->
+        <param name="yaw_tf"    type="double" value="0.0" />
+        
 
 
         </node>
