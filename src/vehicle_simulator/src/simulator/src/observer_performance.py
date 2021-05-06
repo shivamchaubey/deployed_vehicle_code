@@ -129,6 +129,9 @@ def unityTestChangeOfCoordinates(map, ClosedLoopData):
         print ("Change of coordinates test passed!")
 
 
+
+from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+
 def plot_vehicle(x_lim,y_lim):
 
     xdata = []; ydata = []
@@ -139,6 +142,12 @@ def plot_vehicle(x_lim,y_lim):
 
     axtr = plt.axes()
 
+
+    im = plt.imread('/home/auto/Desktop/autonomus_vehicle_project/project/deployement/deployed_vehicle_code/pics/vehicle.png')
+    oi = OffsetImage(im, zoom = 0.05)
+
+    box = AnnotationBbox(oi, (px, py), frameon=False)
+    
     line_ol,        = axtr.plot(xdata, ydata, '-k', label = 'Open loop simulation')
     # line_est,    = axtr.plot(xdata, ydata, '-r', label = 'Estimated states')  # Plots the traveled positions
     # line_meas,    = axtr.plot(xdata, ydata, '-b', label = 'Measured position camera')  # Plots the traveled positions
@@ -231,6 +240,51 @@ def _initializeFigure_xy(map):
     # plt.pause(2)
     plt.legend()
     return fig, axtr, line_planning, line_tr, line_pred, line_SS, line_cl, line_est, line_gps_cl, rec_est
+
+
+def plot_vehicle(x_lim,y_lim):
+
+    xdata = []; ydata = []
+    fig = plt.figure(figsize=(10,8))
+    plt.ion()
+    plt.xlim([-1*x_lim,x_lim])
+    plt.ylim([-1*y_lim,y_lim])
+
+    axtr = plt.axes()
+
+    line_ol,        = axtr.plot(xdata, ydata, '-k', label = 'Open loop simulation')
+    line_est,    = axtr.plot(xdata, ydata, '-r', label = 'Estimated states')  # Plots the traveled positions
+    line_meas,    = axtr.plot(xdata, ydata, '-b', label = 'Measured position camera')  # Plots the traveled positions
+    # line_tr,        = axtr.plot(xdata, ydata, '-r', linewidth = 6, alpha = 0.5)       # Plots the current positions
+    # line_SS,        = axtr.plot(xdata, ydata, '-g', , linewidth = 10, alpha = 0.5)
+    # line_pred,      = axtr.plot(xdata, ydata, '-or')
+    # line_planning,  = axtr.plot(xdata, ydata, '-ok')
+    
+    l = 0.4; w = 0.2 #legth and width of the car
+
+    v = np.array([[ 1,  1],
+                  [ 1, -1],
+                  [-1, -1],
+                  [-1,  1]])
+
+    # Estimated states:
+    rec_est = patches.Polygon(v, alpha=0.7, closed=True, fc='r', ec='k', zorder=10)
+    axtr.add_patch(rec_est)
+
+    # Open loop simulation:
+    rec_ol = patches.Polygon(v, alpha=0.7, closed=True, fc='k', ec='k', zorder=10)
+    axtr.add_patch(rec_ol)
+
+    # Open loop simulation:
+    rec_meas = patches.Polygon(v, alpha=0.7, closed=True, fc='b', ec='k', zorder=10)
+    axtr.add_patch(rec_meas)
+
+
+    plt.legend()
+    return fig, axtr, line_est, line_ol, line_meas, rec_est, rec_ol, rec_meas
+
+
+
 
 
 def errorFigure2(map):
@@ -423,268 +477,121 @@ class EstimatorData(object): ## For simulation
     """Data from estimator"""
     def __init__(self):
         """Subscriber to estimator"""
+        print "subscribed to vehicle estimated states"
+
         rospy.Subscriber("est_state_info", sensorReading, self.estimator_callback)
-        self.offset_x = 0.
-        self.offset_y = 0.
-        self.offset_yaw = 0
-        self.R = np.array([[cos(self.offset_yaw),-sin(self.offset_yaw)],[sin(self.offset_yaw), cos(self.offset_yaw)]])
         self.CurrentState = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]).T
     
     def estimator_callback(self, msg):
         """
         Unpack the messages from the estimator
         """
-        self.CurrentState = np.array([msg.vx, msg.vy, msg.yaw_rate, msg.X, msg.Y, msg.yaw + self.offset_yaw]).T
-        self.CurrentState[3:5] = np.dot(self.R,self.CurrentState[3:5])
-        self.CurrentState[3:5] = self.CurrentState[3:5] - np.array([self.offset_x, self.offset_y]).T
+        self.CurrentState = np.array([msg.vx, msg.vy, msg.yaw_rate, msg.X, msg.Y, msg.yaw]).T
+       
 
 
-
-class Vehicle_states(object): ## For simulation
+class Vehicle_measurement(object): ## For simulation
     """Data from estimator"""
     def __init__(self):
         """Subscriber to estimator"""
-        rospy.Subscriber('vehicle_simulatorStates', simulatorStates, self.vehicle_state_callback)
-        self.offset_x = 0.
-        self.offset_y = 0.
-        self.offset_yaw = 0.
-
-        self.x      = 0. 
-        self.y      = 0.
-        self.vx     = 0.
-        self.vy     = 0.
-        self.yaw    = 0. 
-        self.omega  = 0.
-
-        self.R = np.array([[cos(self.offset_yaw),-sin(self.offset_yaw)],[sin(self.offset_yaw), cos(self.offset_yaw)]])
+        
+        print "subscribed to vehicle measurement"
+        rospy.Subscriber('meas_state_info', simulatorStates, self.meas_state_callback)
+        
         self.CurrentState = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]).T
     
-    def vehicle_state_callback(self, msg):
+    def meas_state_callback(self, msg):
         """
         Unpack the messages from the estimator
         """
-        self.CurrentState = np.array([msg.vx, msg.vy, msg.omega, msg.x, msg.y, msg.yaw + self.offset_yaw]).T
-        # self.CurrentState[3:5] = np.dot(self.R,self.CurrentState[3:5])
-        # self.CurrentState[3:5] = self.CurrentState[3:5] - np.array([self.offset_x, self.offset_y]).T
+        print "self.CurrentState",self.CurrentState 
 
-
-class Vehicle_states_LPVerr(object): ## For simulation
-    """Data from estimator"""
-    def __init__(self):
-        """Subscriber to estimator"""
-        rospy.Subscriber('vehicleLPVerr_simulatorStates', simulatorStates, self.vehicle_state_callback)
-        self.offset_x = 0.
-        self.offset_y = 0.
-        self.offset_yaw = 0.
-
-        self.x      = 0. 
-        self.y      = 0.
-        self.vx     = 0.
-        self.vy     = 0.
-        self.yaw    = 0. 
-        self.omega  = 0.
-
-        self.R = np.array([[cos(self.offset_yaw),-sin(self.offset_yaw)],[sin(self.offset_yaw), cos(self.offset_yaw)]])
-        self.CurrentState = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]).T
-    
-    def vehicle_state_callback(self, msg):
-        """
-        Unpack the messages from the estimator
-        """
-        self.CurrentState = np.array([msg.vx, msg.vy, msg.omega, msg.x, msg.y, msg.yaw + self.offset_yaw]).T
-        # self.CurrentState[3:5] = np.dot(self.R,self.CurrentState[3:5])
-        # self.CurrentState[3:5] = self.CurrentState[3:5] - np.array([self.offset_x, self.offset_y]).T
+        self.CurrentState = np.array([msg.vx, msg.vy, msg.yaw_rate, msg.X, msg.Y, msg.yaw]).T
         
 
-class Vehicle_states_LPV(object): ## For simulation
+class Vehicle_ol(object): ## For simulation
     """Data from estimator"""
     def __init__(self):
         """Subscriber to estimator"""
-        rospy.Subscriber('vehicleLPV_simulatorStates', simulatorStates, self.vehicle_state_callback)
-        self.offset_x = 0.
-        self.offset_y = 0.
-        self.offset_yaw = 0.
+        print "subscribed to vehicle open loop states"
 
-        self.x      = 0. 
-        self.y      = 0.
-        self.vx     = 0.
-        self.vy     = 0.
-        self.yaw    = 0. 
-        self.omega  = 0.
+        rospy.Subscriber('ol_state_info', simulatorStates, self.vehicle_ol_state_callback)
 
-        self.R = np.array([[cos(self.offset_yaw),-sin(self.offset_yaw)],[sin(self.offset_yaw), cos(self.offset_yaw)]])
         self.CurrentState = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]).T
     
-    def vehicle_state_callback(self, msg):
+    def vehicle_ol_state_callback(self, msg):
         """
         Unpack the messages from the estimator
         """
-        self.CurrentState = np.array([msg.vx, msg.vy, msg.omega, msg.x, msg.y, msg.yaw + self.offset_yaw]).T
-        # self.CurrentState[3:5] = np.dot(self.R,self.CurrentState[3:5])
-        # self.CurrentState[3:5] = self.CurrentState[3:5] - np.array([self.offset_x, self.offset_y]).T
-        
-
+        self.CurrentState = np.array([msg.vx, msg.vy, msg.yaw_rate, msg.X, msg.Y, msg.yaw]).T
+        print "self.CurrentState", self.CurrentState
 
 
 
 def main():
 
 
-    rospy.init_node('realtime_response', anonymous=True)
-    loop_rate       = 100
+    rospy.init_node('observer_performance_checker', anonymous=True)
+    loop_rate       = 200
     rate            = rospy.Rate(loop_rate)
 
     track_map = Map()
 
 
-    est = EstimatorData()
-    vehicle_state = Vehicle_states()
-    vehicle_state_LPVerr = Vehicle_states_LPVerr()
-    vehicle_state_LPV = Vehicle_states_LPV()
+    vehicle_state_est = EstimatorData()
+    vehicle_state_meas = Vehicle_measurement()
+    vehicle_state_ol = Vehicle_ol()
 
-    (fig, axtr, line_planning, line_tr, line_pred, line_SS, line_cl, line_est, line_gps_cl, rec_est ) = _initializeFigure_xy(track_map)
+    x_lim = 10
+    y_lim = 10
+    (fig, axtr, line_est, line_ol, line_meas, rec_est, rec_ol, rec_meas) = plot_vehicle(x_lim,y_lim)
 
-
-    map_error_plot = False
-
-    if map_error_plot == True:
-        (plt_err, fig_err, line_est_s, line_est_ey, line_est_epsi, line_nl_s, line_nl_ey, line_nl_epsi, line_LPVerr_s, line_LPVerr_ey, line_LPVerr_epsi) = errorFigure()
-
-
-
-    line_est_s_his = []
-    line_est_ey_his = []
-    line_est_epsi_his = []
-
-    line_nl_s_his = []
-    line_nl_ey_his = []
-    line_nl_epsi_his = []
-
-    line_LPVerr_s_his = []
-    line_LPVerr_ey_his = []
-    line_LPVerr_epsi_his = []
-
-
-    est_x_his = []
-    est_y_his = []
-
-    veh_x_his = []
-    veh_y_his = []
-
-    lpverr_x_his = []
-    lpverr_y_his = []
-
-    lpv_x_his = []
-    lpv_y_his = []
-
-    lim = 5.0
-    plt.xlim([-2.5,lim])
-    plt.ylim([-2.5,lim])
-
-
-    
+    ol_x_his     = []
+    est_x_his    = []
+    meas_x_his   = []
+    ol_y_his     = []
+    est_y_his    = []
+    meas_y_his   = []
 
     counter = 0
     while not (rospy.is_shutdown()):
 
-        x_est   = est.CurrentState[3]
-        y_est   = est.CurrentState[4]
-        yaw_est = wrap(est.CurrentState[5])
-        print "est.CurrentState",est.CurrentState
-        est_x_his.append(x_est)
-        est_y_his.append(y_est)
+        # print "vehicle_state_meas.CurrentState[-3:]", vehicle_state_meas.CurrentState[-3:]
 
-
-        x_veh   = vehicle_state.CurrentState[3]
-        y_veh   = vehicle_state.CurrentState[4]
-        yaw_veh = wrap(vehicle_state.CurrentState[5])
-        print "vehicle_state.CurrentState",vehicle_state.CurrentState
-        veh_x_his.append(x_veh)
-        veh_y_his.append(y_veh)
-
-
-        x_lpverr   = vehicle_state_LPVerr.CurrentState[3]
-        y_lpverr   = vehicle_state_LPVerr.CurrentState[4]
-        yaw_lpverr = wrap(vehicle_state_LPVerr.CurrentState[5])
-        print "vehicle_state_LPVerr.CurrentState",vehicle_state_LPVerr.CurrentState
-        lpverr_x_his.append(x_lpverr)
-        lpverr_y_his.append(y_lpverr)
-        
-
-        x_lpv   = vehicle_state_LPV.CurrentState[3]
-        y_lpv   = vehicle_state_LPV.CurrentState[4]
-        yaw_lpv = wrap(vehicle_state_LPV.CurrentState[5])
-        print "vehicle_state_LPV.CurrentState",vehicle_state_LPV.CurrentState
-        lpv_x_his.append(x_lpv)
-        lpv_y_his.append(y_lpv)
-
-        est_s, est_ey, est_epsi, est_insideMap = track_map.getLocalPosition(est.CurrentState[3], est.CurrentState[4], wrap(est.CurrentState[5]))
-
-        veh_s, veh_ey, veh_epsi, veh_insideMap = track_map.getLocalPosition(vehicle_state.CurrentState[3], vehicle_state.CurrentState[4], wrap(vehicle_state.CurrentState[5]))
-
-        lpverr_s, lpverr_ey, lpverr_epsi, lpverr_insideMap = track_map.getLocalPosition(vehicle_state_LPVerr.CurrentState[3], vehicle_state_LPVerr.CurrentState[4], wrap(vehicle_state_LPVerr.CurrentState[5]))
-
-        lpv_s, lpv_ey, lpv_epsi, lpv_insideMap = track_map.getLocalPosition(vehicle_state_LPV.CurrentState[3], vehicle_state_LPV.CurrentState[4], wrap(vehicle_state_LPV.CurrentState[5]))
-
-        if map_error_plot == True:
-            line_est_s_his.append(est_s)
-            line_est_ey_his.append(est_ey)
-            line_est_epsi_his.append(est_epsi)
-
-            line_nl_s_his.append(veh_s)
-            line_nl_ey_his.append(veh_ey)
-            line_nl_epsi_his.append(veh_epsi)
-            
-            line_LPVerr_s_his.append(lpverr_s)
-            line_LPVerr_ey_his.append(lpverr_ey)
-            line_LPVerr_epsi_his.append(lpverr_epsi)
-
-            line_est_s.set_data(np.arange(len(line_est_s_his)), line_est_s_his)
-            # limx = len(line_est_s_his)
-            # limy = max(line_est_s_his)
-            # plt_err.xlim([0,limx])
-            # plt_err.ylim([-limy,limy])
-
-            line_est_ey.set_data(np.arange(len(line_est_ey_his)), line_est_ey_his)
-            line_est_epsi.set_data(np.arange(len(line_est_epsi_his)), line_est_epsi_his)
-
-            
-            line_nl_s.set_data(np.arange(len(line_nl_s_his)), line_nl_s_his)
-            line_nl_ey.set_data(np.arange(len(line_nl_ey_his)), line_nl_ey_his)
-            line_nl_epsi.set_data(np.arange(len(line_nl_epsi_his)), line_nl_epsi_his)
-
-            line_LPVerr_s.set_data(np.arange(len(line_LPVerr_s_his)), line_LPVerr_s_his)
-            line_LPVerr_ey.set_data(np.arange(len(line_LPVerr_ey_his)), line_LPVerr_ey_his)
-            line_LPVerr_epsi.set_data(np.arange(len(line_LPVerr_epsi_his)), line_LPVerr_epsi_his)
-
-            fig_err.canvas.draw()
-            plt_err.show()
-            plt_err.pause(1.0/30)
-
-
-        print "Vehicle Estimated states",'s', est_s,  'ey', est_ey,  'epsi', est_epsi,  'insideMap', est_insideMap
-        print "Vehicle non-linear states",'s', veh_s,  'ey', veh_ey,  'epsi', veh_epsi,  'insideMap', veh_insideMap
-        print "Vehicle LPVerr states REVERSE CAL",'s', lpverr_s,  'ey', lpverr_ey,  'epsi', lpverr_epsi,  'insideMap', lpverr_insideMap
-        print "Vehicle LPV states",'s', lpv_s,  'ey', lpv_ey,  'epsi', lpv_epsi,  'insideMap', lpv_insideMap
+        # print "vehicle_state_ol.CurrentState[-3:]", vehicle_state_ol.CurrentState[-3:]
 
         l = 0.42; w = 0.19
 
-        # print ('lim',lim,'x',x)
+        (x_est , y_est , yaw_est )  = vehicle_state_est.CurrentState[-3:]
+        (x_ol  , y_ol  , yaw_ol  )  = vehicle_state_ol.CurrentState[-3:]
+        (x_meas, y_meas, yaw_meas)  = vehicle_state_meas.CurrentState[-3:]
 
-        #plotting real vehicle
+        est_x_his.append(x_est)
+        est_y_his.append(y_est)
+
+        ol_x_his.append(x_ol)
+        ol_y_his.append(y_ol)
+                    
+        meas_x_his.append(x_meas)
+        meas_y_his.append(y_meas)
+
         car_est_x, car_est_y = getCarPosition(x_est, y_est, yaw_est, w, l)
         rec_est.set_xy(np.array([car_est_x, car_est_y]).T)
-        # point_rlc.set_data(x_est, y_est)
-        # line_est.set_data(est_x_his, est_y_his)
 
+        car_ol_x, car_ol_y = getCarPosition(x_ol, y_ol, yaw_ol, w, l)
+        rec_ol.set_xy(np.array([car_ol_x, car_ol_y]).T)
 
-        line_SS.set_data(veh_x_his, veh_y_his)
-        line_cl.set_data(lpverr_x_his, lpverr_y_his)
-        line_tr.set_data(lpv_x_his, lpv_y_his)
+        meas_x, car_meas_y = getCarPosition(x_meas, y_meas, yaw_meas, w, l)
+        rec_meas.set_xy(np.array([meas_x, car_meas_y]).T)
+
+        line_est.set_data(est_x_his, est_y_his)
+        line_ol.set_data(ol_x_his, ol_y_his)
+        line_meas.set_data(meas_x_his, meas_y_his)
 
         fig.canvas.draw()
         plt.show()
         plt.pause(1.0/300)
+        
         counter +=1
         rate.sleep()
 
