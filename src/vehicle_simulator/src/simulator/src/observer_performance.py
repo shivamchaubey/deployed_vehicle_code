@@ -1,195 +1,20 @@
 #!/usr/bin/env python
 
 
-import os
-import sys
-sys.path.append(sys.path[0]+'/ControllerObject')
-sys.path.append(sys.path[0]+'/Utilities')
-sys.path.append(sys.path[0]+'/data')
-
+''' This code is to compare the performance of the estimation technique. The
+estimated states, measured states and the open loop simulation states are
+plotted to compare the performance. This code is bit slow due to online
+plotting of matplotlib. Use other plotter for real time debugging such as
+plotjuggler. This plot is created for documentation which has nice appearance.
+ '''
 
 import numpy as np
-import pdb
-import numpy.linalg as la
 import rospy
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
-from simulator.msg import simulatorStates
-from sensor_fusion.msg import sensorReading, control, hedge_imu_fusion, hedge_imu_raw
-from math import sin, cos, atan, pi
-from trackInitialization import Map
+from sensor_fusion.msg import sensorReading, control
 
-
-
-
-# ======================================================================================================================
-# ======================================================================================================================
-# ====================================== Internal utilities functions ==================================================
-# ======================================================================================================================
-# ======================================================================================================================
-
-def computeAngle(point1, origin, point2):
-    # The orientation of this angle matches that of the coordinate system. Tha is why a minus sign is needed
-    v1 = np.array(point1) - np.array(origin)
-    v2 = np.array(point2) - np.array(origin)
-    #
-    # cosang = np.dot(v1, v2)
-    # sinang = la.norm(np.cross(v1, v2))
-    #
-    # dp = np.dot(v1, v2)
-    # laa = la.norm(v1)
-    # lba = la.norm(v2)
-    # costheta = dp / (laa * lba)
-
-    dot = v1[0] * v2[0] + v1[1] * v2[1]  # dot product between [x1, y1] and [x2, y2]
-    det = v1[0] * v2[1] - v1[1] * v2[0]  # determinant
-    angle = np.arctan2(det, dot)  # atan2(y, x) or atan2(sin, cos)
-
-    return angle # np.arctan2(sinang, cosang)
-
-
-def wrap(angle):
-    if angle < -np.pi:
-        w_angle = 2 * np.pi + angle
-    elif angle > np.pi:
-        w_angle = angle - 2 * np.pi
-    else:
-        w_angle = angle
-
-    return w_angle
-
-
-def sign(a):
-    if a >= 0:
-        res = 1
-    else:
-        res = -1
-
-    return res
-
-
-# def unityTestChangeOfCoordinates(map, ClosedLoopData):
-#     """For each point in ClosedLoopData change (X, Y) into (s, ey) and back to (X, Y) to check accurancy
-#     """
-#     TestResult = 1
-#     for i in range(0, ClosedLoopData.x.shape[0]):
-#         xdat = ClosedLoopData.x
-#         xglobdat = ClosedLoopData.x_glob
-
-#         s, ey, _, _ = map.getLocalPosition(xglobdat[i, 4], xglobdat[i, 5], xglobdat[i, 3])
-#         v1 = np.array([s, ey])
-#         v2 = np.array(xdat[i, 4:6])
-#         v3 = np.array(map.getGlobalPosition(v1[0], v1[1]))
-#         v4 = np.array([xglobdat[i, 4], xglobdat[i, 5]])
-#         # print v1, v2, np.dot(v1 - v2, v1 - v2), np.dot(v3 - v4, v3 - v4)
-
-#         if np.dot(v3 - v4, v3 - v4) > 0.00000001:
-#             TestResult = 0
-#             print "ERROR", v1, v2, v3, v4
-#             pdb.set_trace()
-#             v1 = np.array(map.getLocalPosition(xglobdat[i, 4], xglobdat[i, 5]))
-#             v2 = np.array(xdat[i, 4:6])
-#             v3 = np.array(map.getGlobalPosition(v1[0], v1[1]))
-#             v4 = np.array([xglobdat[i, 4], xglobdat[i, 5]])
-#             print np.dot(v3 - v4, v3 - v4)
-#             pdb.set_trace()
-
-#     if TestResult == 1:
-#         print "Change of coordinates test passed!"
-
-
-
-def unityTestChangeOfCoordinates(map, ClosedLoopData):
-    """For each point in ClosedLoopData change (X, Y) into (s, ey) and back to (X, Y) to check accurancy
-    """
-    TestResult = 1
-    for i in range(0, ClosedLoopData.x.shape[0]):
-        xdat = ClosedLoopData.x
-        xglobdat = ClosedLoopData.x_glob
-
-        s, ey, _, _ = map.getLocalPosition(xglobdat[i, 4], xglobdat[i, 5], xglobdat[i, 3])
-        v1 = np.array([s, ey])
-        v2 = np.array(xdat[i, 4:6])
-        v3 = np.array(map.getGlobalPosition(v1[0], v1[1]))
-        v4 = np.array([xglobdat[i, 4], xglobdat[i, 5]])
-        # print v1, v2, np.dot(v1 - v2, v1 - v2), np.dot(v3 - v4, v3 - v4)
-
-        if np.dot(v3 - v4, v3 - v4) > 0.00000001:
-            TestResult = 0
-            print ("ERROR", v1, v2, v3, v4)
-            pdb.set_trace()
-            v1 = np.array(map.getLocalPosition(xglobdat[i, 4], xglobdat[i, 5]))
-            v2 = np.array(xdat[i, 4:6])
-            v3 = np.array(map.getGlobalPosition(v1[0], v1[1]))
-            v4 = np.array([xglobdat[i, 4], xglobdat[i, 5]])
-            print (np.dot(v3 - v4, v3 - v4))
-            pdb.set_trace()
-
-    if TestResult == 1:
-        print ("Change of coordinates test passed!")
-
-
-
-def _initializeFigure_xy(map):
-    xdata = []; ydata = []
-    fig = plt.figure(figsize=(10,8))
-    plt.ion()
-    axtr = plt.axes()
-
-    Points = int(np.floor(10 * (map.PointAndTangent[-1, 3] + map.PointAndTangent[-1, 4])))
-    # Points1 = np.zeros((Points, 2))
-    # Points2 = np.zeros((Points, 2))
-    # Points0 = np.zeros((Points, 2))
-    Points1 = np.zeros((Points, 3))
-    Points2 = np.zeros((Points, 3))
-    Points0 = np.zeros((Points, 3))    
-
-    for i in range(0, int(Points)):
-        Points1[i, :] = map.getGlobalPosition(i * 0.1, map.halfWidth)
-        Points2[i, :] = map.getGlobalPosition(i * 0.1, -map.halfWidth)
-        Points0[i, :] = map.getGlobalPosition(i * 0.1, 0)
-
-    plt.plot(map.PointAndTangent[:, 0], map.PointAndTangent[:, 1], 'o') #points on center track
-    # np.save('inner_track',np.array([Points0[:, 0], Points0[:, 1]]))
-    plt.plot(Points1[:, 0], Points1[:, 1], '-b') # inner track
-    plt.plot(Points2[:, 0], Points2[:, 1], '-b') #outer track
-
-
-
-    line_cl,        = axtr.plot(xdata, ydata, '-k', label = 'LPVerr MPC error model', linewidth = 2, alpha = 0.5)
-    line_est,    = axtr.plot(xdata, ydata, '--or')  # Plots the traveled positions
-    line_gps_cl,    = axtr.plot(xdata, ydata, '--ob')  # Plots the traveled positions
-    line_tr,        = axtr.plot(xdata, ydata, '-r', label = 'LPV Observer model', linewidth = 6, alpha = 0.5)       # Plots the current positions
-    line_SS,        = axtr.plot(xdata, ydata, '-g', label = 'Non-linear full state model', linewidth = 10, alpha = 0.5)
-    line_pred,      = axtr.plot(xdata, ydata, '-or')
-    line_planning,  = axtr.plot(xdata, ydata, '-ok')
-    
-    l = 0.4; w = 0.2 #legth and width of the car
-
-    v = np.array([[ 0.4,  0.2],
-                  [ 0.4, -0.2],
-                  [-0.4, -0.2],
-                  [-0.4,  0.2]])
-
-    rec_est = patches.Polygon(v, alpha=0.7, closed=True, fc='r', ec='k', zorder=10)
-    axtr.add_patch(rec_est)
-
-    # Vehicle:
-    # rec_sim = patches.Polygon(v, alpha=0.7, closed=True, fc='G', ec='k', zorder=10)
-
-#     if mode == "simulations":
-    # axtr.add_patch(rec_sim)    
-
-    # Planner vehicle:
-    # rec_planning = patches.Polygon(v, alpha=0.7, closed=True, fc='k', ec='k', zorder=10)
-
-
-    # plt.show()
-    # plt.pause(2)
-    plt.legend()
-    return fig, axtr, line_planning, line_tr, line_pred, line_SS, line_cl, line_est, line_gps_cl, rec_est
-
-
+#### plotter for vehicle motion ####
 def plot_vehicle_kinematics(x_lim,y_lim):
 
     xdata = []; ydata = []
@@ -200,151 +25,107 @@ def plot_vehicle_kinematics(x_lim,y_lim):
 
     axtr = plt.axes()
 
-    line_ol,        = axtr.plot(xdata, ydata, '-k', label = 'Open loop simulation')
-    line_est,       = axtr.plot(xdata, ydata, '-r', label = 'Estimated states')  # Plots the traveled positions
-    line_meas,      = axtr.plot(xdata, ydata, '-b', label = 'Measured position camera')  # Plots the traveled positions
-    # line_tr,        = axtr.plot(xdata, ydata, '-r', linewidth = 6, alpha = 0.5)       # Plots the current positions
-    # line_SS,        = axtr.plot(xdata, ydata, '-g', , linewidth = 10, alpha = 0.5)
-    # line_pred,      = axtr.plot(xdata, ydata, '-or')
-    # line_planning,  = axtr.plot(xdata, ydata, '-ok')
-    
-    l = 0.4; w = 0.2 #legth and width of the car
+    line_ol,        = axtr.plot(xdata, ydata, '-g', label = 'Open loop simulation')
+    line_est,       = axtr.plot(xdata, ydata, '-b', label = 'Estimated states')  
+    line_meas,      = axtr.plot(xdata, ydata, '-m', label = 'Measured position camera') 
+
+    l = 0.4; w = 0.2
 
     v = np.array([[ 1,  1],
                   [ 1, -1],
                   [-1, -1],
                   [-1,  1]])
 
-    # Estimated states:
-    rec_est = patches.Polygon(v, alpha=0.7, closed=True, fc='r', ec='k', zorder=10)
+    rec_est = patches.Polygon(v, alpha=0.7, closed=True, fc='b', ec='k', zorder=10)
     axtr.add_patch(rec_est)
 
-    # Open loop simulation:
-    rec_ol = patches.Polygon(v, alpha=0.7, closed=True, fc='k', ec='k', zorder=10)
+    rec_ol = patches.Polygon(v, alpha=0.7, closed=True, fc='g', ec='k', zorder=10)
     axtr.add_patch(rec_ol)
 
-    # Open loop simulation:
-    rec_meas = patches.Polygon(v, alpha=0.7, closed=True, fc='b', ec='k', zorder=10)
+    rec_meas = patches.Polygon(v, alpha=0.7, closed=True, fc='m', ec='k', zorder=10)
     axtr.add_patch(rec_meas)
 
-
     plt.legend()
-    return fig, axtr, line_est, line_ol, line_meas, rec_est, rec_ol, rec_meas
-
-
-
-
-
-def plot_vehicle_states(x_lim,y_lim):
-
-    xdata = []; ydata = []
+    plt.grid()
     
-    fig = plt.figure(figsize=(10,8))
 
-    fig, axs = plt.subplots(2, 3, figsize=(10,10))
+    return fig, plt, axtr, line_est, line_ol, line_meas, rec_est, rec_ol, rec_meas
 
+
+
+
+#### plotter for vehicle 6 states ####
+def plot_vehicle_states(window):
+
+    xdata = []; ydata = [];
+    fig, axs = plt.subplots(3, 2, figsize=(50,50))
     plt.ion()
-
-    # plt.xlim([-1*x_lim,x_lim])
-    # plt.ylim([-1*y_lim,y_lim])
-
-    # axtr = plt.axes()
 
 
     ### longitudinal Velocity
-    line_vx_est,        = axs[0,0].plot(xdata, ydata, '-k', label = r'$v_x$: Estimated longitudinal velocity')
-    line_vx_ol,         = axs[0,0].plot(xdata, ydata, '-r', label = r'$v_x$: Open loop longitudinal velocity')  # Plots the traveled positions
-    line_vx_meas,       = axs[0,0].plot(xdata, ydata, '-b', label = r'$v_x$: Measured longitudinal velocity')  # Plots the traveled positions
+    line_vx_est,        = axs[0,0].plot(xdata, ydata, '-b', label = r'$v_x$: Estimated longitudinal velocity')
+    line_vx_ol,         = axs[0,0].plot(xdata, ydata, '-g', label = r'$v_x$: Open loop longitudinal velocity')  
+    line_vx_meas,       = axs[0,0].plot(xdata, ydata, '-m', label = r'$v_x$: Measured longitudinal velocity')  
+    axs[0,0].set_xlim(0,window)
+    axs[0,0].set_ylim(-1,5)
+    axs[0,0].legend(prop={'size': 12}, framealpha = 0.2)
+    axs[0,0].grid()
+
 
 
     ### lateral Velocity
-    line_vy_est,        = axs[0,1].plot(xdata, ydata, '-k', label = r'$v_y$: Estimated lateral velocity')
-    line_vy_ol,         = axs[0,1].plot(xdata, ydata, '-r', label = r'$v_y$: Open loop lateral velocity')  # Plots the traveled positions
-    line_vy_meas,       = axs[0,1].plot(xdata, ydata, '-b', label = r'$v_y$: Measured lateral velocity')  # Plots the traveled positions
-
+    line_vy_est,        = axs[0,1].plot(xdata, ydata, '-b', label = r'$v_y$: Estimated lateral velocity')
+    line_vy_ol,         = axs[0,1].plot(xdata, ydata, '-g', label = r'$v_y$: Open loop lateral velocity')  
+    line_vy_meas,       = axs[0,1].plot(xdata, ydata, '-m', label = r'$v_y$: Measured lateral velocity')  
+    axs[0,1].set_xlim(0,window)
+    axs[0,1].set_ylim(-1,5)
+    axs[0,1].legend(prop={'size': 12}, framealpha = 0.2)
+    axs[0,1].grid()
 
     ### Angular rate
-    line_omega_est,     = axs[0,2].plot(xdata, ydata, '-k', label = r'$\omega$: Estimated angular velocity')
-    line_omega_ol,      = axs[0,2].plot(xdata, ydata, '-r', label = r'$\omega$: Open loop angular velocity')  # Plots the traveled positions
-    line_omega_meas,    = axs[0,2].plot(xdata, ydata, '-b', label = r'$\omega$: Measured angular velocity')  # Plots the traveled positions
-
-
+    line_omega_est,     = axs[1,0].plot(xdata, ydata, '-b', label = r'$\omega$: Estimated angular velocity')
+    line_omega_ol,      = axs[1,0].plot(xdata, ydata, '-g', label = r'$\omega$: Open loop angular velocity')  
+    line_omega_meas,    = axs[1,0].plot(xdata, ydata, '-m', label = r'$\omega$: Measured angular velocity')  
+    axs[1,0].set_xlim(0,window)
+    axs[1,0].set_ylim(-5,5)
+    axs[1,0].legend(prop={'size': 12} , framealpha = 0.2)
+    axs[1,0].grid()
+    
     ### Global X -position
-    line_X_est,     = axs[1,0].plot(xdata, ydata, '-k', label = r'$X$: Estimated X - position')
-    line_X_ol,      = axs[1,0].plot(xdata, ydata, '-r', label = r'$X$: Open loop X - position')  # Plots the traveled positions
-    line_X_meas,    = axs[1,0].plot(xdata, ydata, '-b', label = r'$X$: Measured X - position')  # Plots the traveled positions
-
+    line_X_est,     = axs[1,1].plot(xdata, ydata, '-b', label = r'$X$: Estimated X - position')
+    line_X_ol,      = axs[1,1].plot(xdata, ydata, '-g', label = r'$X$: Open loop X - position')  
+    line_X_meas,    = axs[1,1].plot(xdata, ydata, '-m', label = r'$X$: Measured X - position')  
+    axs[1,1].set_xlim(0,window)
+    axs[1,1].set_ylim(-10,10)
+    axs[1,1].legend(prop={'size': 12} , framealpha = 0.2)
+    axs[1,1].grid()
+    
 
     ### Global Y -position
-    line_Y_est,     = axs[1,1].plot(xdata, ydata, '-k', label = r'$\omega$: Estimated Y - position')
-    line_Y_ol,      = axs[1,1].plot(xdata, ydata, '-r', label = r'$\omega$: Open loop Y - position')  # Plots the traveled positions
-    line_Y_meas,    = axs[1,1].plot(xdata, ydata, '-b', label = r'$\omega$: Measured Y - position')  # Plots the traveled positions
+    line_Y_est,     = axs[2,0].plot(xdata, ydata, '-b', label = r'$Y$: Estimated Y - position')
+    line_Y_ol,      = axs[2,0].plot(xdata, ydata, '-g', label = r'$Y$: Open loop Y - position')  
+    line_Y_meas,    = axs[2,0].plot(xdata, ydata, '-m', label = r'$Y$: Measured Y - position')  
+    axs[2,0].set_xlim(0,window)
+    axs[2,0].set_ylim(-10,10)
+    axs[2,0].legend(prop={'size': 12} , framealpha = 0.2)
+    axs[2,0].grid()
+
 
     ### Yaw
-    line_yaw_est,     = axs[1,2].plot(xdata, ydata, '-k', label = r'$\omega$: Estimated yaw')
-    line_yaw_ol,      = axs[1,2].plot(xdata, ydata, '-r', label = r'$\omega$: Open loop yaw')  # Plots the traveled positions
-    line_yaw_meas,    = axs[1,2].plot(xdata, ydata, '-b', label = r'$\omega$: Measured yaw')  # Plots the traveled positions
+    line_yaw_est,     = axs[2,1].plot(xdata, ydata, '-b', label = r'$\theta$: Estimated yaw')
+    line_yaw_ol,      = axs[2,1].plot(xdata, ydata, '-g', label = r'$\theta$: Open loop yaw')  
+    line_yaw_meas,    = axs[2,1].plot(xdata, ydata, '-m', label = r'$\theta$: Measured yaw')  
+    axs[2,1].set_xlim(0,window)
+    axs[2,1].set_ylim(-4,4)
+    axs[2,1].legend(prop={'size': 12} , framealpha = 0.2)
+    axs[2,1].grid()
 
 
-    plt.legend()
-
-    return fig, axtr, line_vx_ol, line_vx_est, line_vx_meas, line_vy_ol, line_vy_est, line_vy_meas, line_omega_ol, line_omega_est, line_omega_meas,\
+    return fig, axs, plt, line_vx_ol, line_vx_est, line_vx_meas, line_vy_ol, line_vy_est, line_vy_meas, line_omega_ol, line_omega_est, line_omega_meas,\
     line_X_ol, line_X_est, line_X_meas, line_Y_ol, line_Y_est, line_Y_meas, line_yaw_ol, line_yaw_est, line_yaw_meas
 
 
-
-def errorFigure():
-    xdata = []; ydata = []
-    fig, axs = plt.subplots(3, 3, figsize=(10,10))
-
-    plt.ion()
-
-    ### Estimator track error
-    line_est_s,      = axs[0,0].plot(xdata, ydata, '-k', label = 's est error model')
-    line_est_ey,     = axs[0,1].plot(xdata, ydata, '-r', label = 'ey est error model')  # Plots the traveled positions
-    line_est_epsi,   = axs[0,2].plot(xdata, ydata, '-b', label = 'epsi est error model')  # Plots the traveled positions
-
-    axs[0,0].legend(loc = 'lower left')
-    axs[0,0].grid()
-    axs[0,1].legend(loc = 'lower left')
-    axs[0,1].grid()
-    axs[0,2].legend(loc = 'lower left')
-    axs[0,2].grid()
-
-    # axs[0,:].set_title("Vehicle error w.r.t MAP for Observer")
-    ### Vehicle nonlinear track error
-    line_nl_s,      = axs[1,0].plot(xdata, ydata, '-k', label = 's NL model')
-    line_nl_ey,     = axs[1,1].plot(xdata, ydata, '-r', label = 'ey NL model')  # Plots the traveled positions
-    line_nl_epsi,   = axs[1,2].plot(xdata, ydata, '-b', label = 'epsi NL model')  # Plots the traveled positions
-
-    axs[1,0].legend(loc = 'lower left')
-    axs[1,0].grid()
-    axs[1,1].legend(loc = 'lower left')
-    axs[1,1].grid()
-    axs[1,2].legend(loc = 'lower left')
-    axs[1,2].grid()
-
-    # axs[1,:].set_title("Vehicle error w.r.t MAP non-linear model")
-    
-    ### Vehicle LPV error model error 
-    line_LPVerr_s,      = axs[2,0].plot(xdata, ydata, '-k', label = 's LPVerr model')
-    line_LPVerr_ey,     = axs[2,1].plot(xdata, ydata, '-r', label = 'ey LPVerr model')  # Plots the traveled positions
-    line_LPVerr_epsi,   = axs[2,2].plot(xdata, ydata, '-b', label = 'epsi LPVerr model')  # Plots the traveled positions
-    
-    axs[2,0].legend(loc = 'lower left')
-    axs[2,0].grid()
-    axs[2,1].legend(loc = 'lower left')
-    axs[2,1].grid()
-    axs[2,2].legend(loc = 'lower left')
-    axs[2,2].grid()
-
-
-    # axs[2,:].set_title("Vehicle error w.r.t MAP from LPVerr model for MPC")
-
-
-    return plt, fig, line_est_s, line_est_ey, line_est_epsi, line_nl_s, line_nl_ey, line_nl_epsi, line_LPVerr_s, line_LPVerr_ey, line_LPVerr_epsi
-
-
+#### gives the coordinate of the patches for plotting the rectangular (vehicle) orientation and position.
 def getCarPosition(x, y, psi, w, l):
     car_x = [ x + l * np.cos(psi) - w * np.sin(psi), x + l * np.cos(psi) + w * np.sin(psi),
               x - l * np.cos(psi) + w * np.sin(psi), x - l * np.cos(psi) - w * np.sin(psi)]
@@ -353,103 +134,35 @@ def getCarPosition(x, y, psi, w, l):
     return car_x, car_y
 
 
-
-class vehicle_control(object):
-    """ Object collecting CMD command data
-    Attributes:
-        Input command:
-            1.a 2.df
-        Time stamp
-            1.t0  2.curr_time
-    """
-    def __init__(self,t0):
-        """ Initialization
-        Arguments:
-            t0: starting measurement time
-        """
-        rospy.Subscriber('control/accel', Float32, self.accel_callback, queue_size=1)
-        rospy.Subscriber('control/steering', Float32, self.steering_callback, queue_size=1)
-
-        # ECU measurement
-        self.duty_cycle  = 0.0 #dutycyle
-        self.steer = 0.0
-
-        # time stamp
-        self.t0         = t0
-        self.curr_time_dc  = rospy.get_rostime().to_sec() - self.t0
-        self.curr_time_steer  = rospy.get_rostime().to_sec() - self.t0
-
-    def accel_callback(self,data):
-        """Unpack message from sensor, ECU"""
-        self.curr_time_dc = rospy.get_rostime().to_sec() - self.t0
-        self.duty_cycle  = data.data
-
-    def steering_callback(self,data):
-        self.curr_time_steer = rospy.get_rostime().to_sec() - self.t0
-        self.steer = data.data
-
-    def data_retrive(self, msg):
-
-        msg.timestamp_ms_DC = self.curr_time_dc
-        msg.timestamp_ms_steer = self.curr_time_steer
-        msg.duty_cycle  = self.duty_cycle
-        msg.steer = self.steer
-        return msg
-
-
-
-class EstimatorData(object): ## For simulation
-    """Data from estimator"""
+'''All the three subscription is made from the estimator as it produces all this information'''
+class EstimatorData(object):
     def __init__(self):
-        """Subscriber to estimator"""
         print "subscribed to vehicle estimated states"
-
         rospy.Subscriber("est_state_info", sensorReading, self.estimator_callback, queue_size=1)
         self.CurrentState = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]).T
     
     def estimator_callback(self, msg):
-        """
-        Unpack the messages from the estimator
-        """
         self.CurrentState = np.array([msg.vx, msg.vy, msg.yaw_rate, msg.X, msg.Y, msg.yaw]).T
-       
 
-
-class Vehicle_measurement(object): ## For simulation
-    """Data from estimator"""
+class Vehicle_measurement(object):
     def __init__(self):
-        """Subscriber to estimator"""
         
         print "subscribed to vehicle measurement"
         rospy.Subscriber('meas_state_info', sensorReading, self.meas_state_callback, queue_size=1)
-        
         self.CurrentState = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]).T
     
     def meas_state_callback(self, msg):
-        """
-        Unpack the messages from the estimator
-        """
-        print "self.CurrentState",self.CurrentState 
-
         self.CurrentState = np.array([msg.vx, msg.vy, msg.yaw_rate, msg.X, msg.Y, msg.yaw]).T
         
-
-class Vehicle_ol(object): ## For simulation
-    """Data from estimator"""
+class Vehicle_ol(object):
     def __init__(self):
-        """Subscriber to estimator"""
         print "subscribed to vehicle open loop states"
-
         rospy.Subscriber('ol_state_info', sensorReading, self.vehicle_ol_state_callback, queue_size=1)
-
         self.CurrentState = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]).T
     
     def vehicle_ol_state_callback(self, msg):
-        """
-        Unpack the messages from the estimator
-        """
         self.CurrentState = np.array([msg.vx, msg.vy, msg.yaw_rate, msg.X, msg.Y, msg.yaw]).T
-        print "self.CurrentState", self.CurrentState
+
 
 
 
@@ -460,146 +173,242 @@ def main():
     loop_rate       = 200
     rate            = rospy.Rate(loop_rate)
 
-    track_map = Map()
-
-
     vehicle_state_est = EstimatorData()
     vehicle_state_meas = Vehicle_measurement()
     vehicle_state_ol = Vehicle_ol()
 
-    x_lim = 10
-    y_lim = 10
 
 
-    ### Vehicle kinematics
-    (fig, axtr, line_est, line_ol, line_meas, rec_est, rec_ol, rec_meas) = plot_vehicle_kinematics(x_lim,y_lim)
-
-    ol_x_his     = []
-    est_x_his    = []
-    meas_x_his   = []
-    ol_y_his     = []
-    est_y_his    = []
-    meas_y_his   = []
+    vehicle_visualization = True
+    states_visualization = True
 
 
+    if vehicle_visualization == True:
+
+        margin = 0.5 ## margin percentage fox axes: make dynamic window size
+        x_lim_init_max = 2
+        x_lim_init_min = -x_lim_init_max
+        
+        y_lim_init_max = 2
+        y_lim_init_min = -y_lim_init_max
 
 
-    ### vehicle states
-    (fig_dy, axtr_dy, line_vx_ol, line_vx_est, line_vx_meas, line_vy_ol, line_vy_est, line_vy_meas, line_omega_ol, line_omega_est, line_omega_meas,\
-    line_X_ol, line_X_est, line_X_meas, line_Y_ol, line_Y_est, line_Y_meas, line_yaw_ol, line_yaw_est, line_yaw_meas) = plot_vehicle_states()
+        ### Vehicle kinematics
+        (fig, plt_veh, axtr, line_est, line_ol, line_meas, rec_est, rec_ol, rec_meas) = plot_vehicle_kinematics(x_lim_init_max,y_lim_init_max)
+
+        ol_x_his     = []
+        est_x_his    = []
+        meas_x_his   = []
+        ol_y_his     = []
+        est_y_his    = []
+        meas_y_his   = []
 
 
-    line_vx_ol       =  []
-    line_vx_est      =  []
-    line_vx_meas     =  []
-    line_vy_ol       =  []
-    line_vy_est      =  []
-    line_vy_meas     =  []
-    line_omega_ol    =  []
-    line_omega_est   =  []
-    line_omega_meas  =  []
-    line_X_ol        =  []
-    line_X_est       =  []
-    line_X_meas      =  []
-    line_Y_ol        =  []
-    line_Y_est       =  []
-    line_Y_meas      =  []
-    line_yaw_ol      =  []
-    line_yaw_est     =  []
-    line_yaw_meas    =  []
+
+    if states_visualization == True:
+
+        window_size = 100
+
+        ### vehicle states
+        (fig_dy, axs_dy, plt_dy, line_vx_ol, line_vx_est, line_vx_meas, line_vy_ol, line_vy_est, line_vy_meas, line_omega_ol, line_omega_est, line_omega_meas,\
+        line_X_ol, line_X_est, line_X_meas, line_Y_ol, line_Y_est, line_Y_meas, line_yaw_ol, line_yaw_est, line_yaw_meas) = plot_vehicle_states(window_size)
+
+
+        line_vx_ol_his       =  []
+        line_vx_est_his      =  []
+        line_vx_meas_his     =  []
+        line_vy_ol_his       =  []
+        line_vy_est_his      =  []
+        line_vy_meas_his     =  []
+        line_omega_ol_his    =  []
+        line_omega_est_his   =  []
+        line_omega_meas_his  =  []
+        line_X_ol_his        =  []
+        line_X_est_his       =  []
+        line_X_meas_his      =  []
+        line_Y_ol_his        =  []
+        line_Y_est_his       =  []
+        line_Y_meas_his      =  []
+        line_yaw_ol_his      =  []
+        line_yaw_est_his     =  []
+        line_yaw_meas_his    =  []
 
 
     counter = 0
     while not (rospy.is_shutdown()):
 
 
-        ####################### unpack messages ##################################
+        ########################################### unpack messages ############################################
 
-        ( vx_est  , vy_est  , omega_est  , x_est  , y_est  , yaw_est  )  = vehicle_state_est.CurrentState
-        ( vx_ol   , vy_ol   , omega_ol   , x_ol   , y_ol   , yaw_ol   )  = vehicle_state_ol.CurrentState
-        ( vx_meas , vy_meas , omega_meas , x_meas , y_meas , yaw_meas )  = vehicle_state_meas.CurrentState
+        ( vx_est  , vy_est  , omega_est  , X_est  , Y_est  , yaw_est  )  = vehicle_state_est.CurrentState
+        ( vx_ol   , vy_ol   , omega_ol   , X_ol   , Y_ol   , yaw_ol   )  = vehicle_state_ol.CurrentState
+        ( vx_meas , vy_meas , omega_meas , X_meas , Y_meas , yaw_meas )  = vehicle_state_meas.CurrentState
 
-        ##########################################################################
-
-
-
-        ############################# vehicle motion plot #########################
-
-        l = 0.42; w = 0.19
-
-        est_x_his.append(x_est)
-        est_y_his.append(y_est)
-
-        ol_x_his.append(x_ol)
-        ol_y_his.append(y_ol)
-                    
-        meas_x_his.append(x_meas)
-        meas_y_his.append(y_meas)
-
-        car_est_x, car_est_y = getCarPosition(x_est, y_est, yaw_est, w, l)
-        rec_est.set_xy(np.array([car_est_x, car_est_y]).T)
-
-        car_ol_x, car_ol_y = getCarPosition(x_ol, y_ol, yaw_ol, w, l)
-        rec_ol.set_xy(np.array([car_ol_x, car_ol_y]).T)
-
-        car_meas_x, car_meas_y = getCarPosition(x_meas, y_meas, yaw_meas, w, l)
-        rec_meas.set_xy(np.array([car_meas_x, car_meas_y]).T)
-
-        line_est.set_data(est_x_his, est_y_his)
-        line_ol.set_data(ol_x_his, ol_y_his)
-        line_meas.set_data(meas_x_his, meas_y_his)
-
-        fig.canvas.draw()
-        plt.show()
-        plt.pause(1.0/300)
-
-
-        #############################################################################
-
-        ##############################  vehicle states plot ##############################
-
-
-        line_vx_ol.append()       
-        line_vx_est.append()      
-        line_vx_meas.append()     
-        line_vy_ol.append()       
-        line_vy_est.append()      
-        line_vy_meas.append()     
-        line_omega_ol.append()    
-        line_omega_est.append()   
-        line_omega_meas.append()  
-        line_X_ol.append(x_ol)        
-        line_X_est.append(x_est)       
-        line_X_meas.append(x_meas)      
-        line_Y_ol.append(y_ol)        
-        line_Y_est.append(y_est)       
-        line_Y_meas.append(y_meas)      
-        line_yaw_ol.append(yaw_ol)      
-        line_yaw_est.append(yaw_est)     
-        line_yaw_meas.append(yaw_meas)    
+        ########################################################################################################
 
 
 
+        ############################################## vehicle motion plot ######################################
 
-        
+        if vehicle_visualization == True: 
+
+            l = 0.42; w = 0.19
+
+            est_x_his.append(X_est)
+            est_y_his.append(Y_est)
+
+            ol_x_his.append(X_ol)
+            ol_y_his.append(Y_ol)
+                        
+            meas_x_his.append(X_meas)
+            meas_y_his.append(Y_meas)
+
+            car_est_x, car_est_y = getCarPosition(X_est, Y_est, yaw_est, w, l)
+            rec_est.set_xy(np.array([car_est_x, car_est_y]).T)
+
+            car_ol_x, car_ol_y = getCarPosition(X_ol, Y_ol, yaw_ol, w, l)
+            rec_ol.set_xy(np.array([car_ol_x, car_ol_y]).T)
+
+            car_meas_x, car_meas_y = getCarPosition(X_meas, Y_meas, yaw_meas, w, l)
+            rec_meas.set_xy(np.array([car_meas_x, car_meas_y]).T)
+
+            line_est.set_data(est_x_his, est_y_his)
+            line_ol.set_data(ol_x_his, ol_y_his)
+            line_meas.set_data(meas_x_his, meas_y_his)
+
+            ############# Dynamic window size ##############
+            min_x_lim = min(ol_x_his) - margin*min(ol_x_his) 
+            max_x_lim = max(ol_x_his) + margin*max(ol_x_his)
+            min_y_lim = min(ol_y_his) - margin*min(ol_y_his)
+            max_y_lim = max(ol_y_his) + margin*max(ol_y_his)
+
+            if (x_lim_init_max < max_x_lim):
+                x_lim_init_max = max_x_lim
+                axtr.set_xlim( x_lim_init_min, x_lim_init_max )
+
+            
+            if (x_lim_init_min > min_x_lim):
+                x_lim_init_min = min_x_lim
+                axtr.set_xlim( x_lim_init_min, x_lim_init_max )
+
+
+            if (y_lim_init_max < max_y_lim):
+                y_lim_init_max = max_y_lim
+                axtr.set_ylim( y_lim_init_min, y_lim_init_max )
+
+            if (y_lim_init_min > min_y_lim):
+                y_lim_init_min = min_y_lim
+                axtr.set_ylim( y_lim_init_min, y_lim_init_max )
+                
+
+            fig.canvas.draw()
+
+
+        ##########################################################################################################
+
+        #############################################  vehicle states plot #######################################
+
+        if states_visualization == True:
+
+            line_vx_ol_his.append(vx_ol)       
+            line_vx_est_his.append(vx_est)      
+            line_vx_meas_his.append(vx_meas)     
+            line_vy_ol_his.append(vy_ol)       
+            line_vy_est_his.append(vy_est)      
+            line_vy_meas_his.append(vy_meas)     
+            line_omega_ol_his.append(omega_ol)    
+            line_omega_est_his.append(omega_est)   
+            line_omega_meas_his.append(omega_meas)  
+            line_X_ol_his.append(X_ol)        
+            line_X_est_his.append(X_est)       
+            line_X_meas_his.append(X_meas)      
+            line_Y_ol_his.append(Y_ol)        
+            line_Y_est_his.append(Y_est)       
+            line_Y_meas_his.append(Y_meas)      
+            line_yaw_ol_his.append(yaw_ol)      
+            line_yaw_est_his.append(yaw_est)     
+            line_yaw_meas_his.append(yaw_meas)    
+
+
+            # print "range(len(line_vx_ol_his))", range(len(line_vx_ol_his))
+            # print "line_vx_ol_his", line_vx_ol_his
+
+            ### Keep size of window to 100 points 
+
+            if counter >window_size :
+
+                line_vx_ol_his.pop(0)
+                line_vx_est_his.pop(0)
+                line_vx_meas_his.pop(0)
+                line_vy_ol_his.pop(0)
+                line_vy_est_his.pop(0)
+                line_vy_meas_his.pop(0)
+                line_omega_ol_his.pop(0)
+                line_omega_est_his.pop(0)
+                line_omega_meas_his.pop(0)
+                line_X_ol_his.pop(0)
+                line_X_est_his.pop(0)
+                line_X_meas_his.pop(0)
+                line_Y_ol_his.pop(0)
+                line_Y_est_his.pop(0)
+                line_Y_meas_his.pop(0)
+                line_yaw_ol_his.pop(0)
+                line_yaw_est_his.pop(0)
+                line_yaw_meas_his.pop(0)
+
+
+
+                # axs_dy[0,0].set_ylim(min(line_vx_ol_his) + , max(line_vx_ol_his) + ) # FOR SETTING THE DYNAMIC AXES
+                
+
+                line_vx_ol.set_data( range(counter, counter + window_size + 1) ,line_vx_ol_his)
+                line_vx_est.set_data( range(counter, counter + window_size + 1) ,line_vx_est_his)
+                line_vx_meas.set_data( range(counter, counter + window_size + 1) ,line_vx_meas_his)
+                axs_dy[0,0].set_xlim(counter, counter + window_size + 1) # FOR SETTING THE DYNAMIC AXES
+                
+                
+                line_vy_ol.set_data( range(counter, counter + window_size + 1) ,line_vy_ol_his)
+                line_vy_est.set_data( range(counter, counter + window_size + 1) ,line_vy_est_his)
+                line_vy_meas.set_data( range(counter, counter + window_size + 1) ,line_vy_meas_his)
+                axs_dy[0,1].set_xlim(counter, counter + window_size + 1) # FOR SETTING THE DYNAMIC AXES
+                
+
+                line_omega_ol.set_data( range(counter, counter + window_size + 1) ,line_omega_ol_his)
+                line_omega_est.set_data( range(counter, counter + window_size + 1) ,line_omega_est_his)
+                line_omega_meas.set_data( range(counter, counter + window_size + 1) ,line_omega_meas_his)
+                axs_dy[1,0].set_xlim(counter, counter + window_size + 1) # FOR SETTING THE DYNAMIC AXES
+                
+                
+                line_X_ol.set_data( range(counter, counter + window_size + 1) ,line_X_ol_his)
+                line_X_est.set_data( range(counter, counter + window_size + 1) ,line_X_est_his)
+                line_X_meas.set_data( range(counter, counter + window_size + 1) ,line_X_meas_his)
+                axs_dy[1,1].set_xlim(counter, counter + window_size + 1) # FOR SETTING THE DYNAMIC AXES
+                
+
+                line_Y_ol.set_data( range(counter, counter + window_size + 1) ,line_Y_ol_his)
+                line_Y_est.set_data( range(counter, counter + window_size + 1) ,line_Y_est_his)
+                line_Y_meas.set_data( range(counter, counter + window_size + 1) ,line_Y_meas_his)
+                axs_dy[2,0].set_xlim(counter, counter + window_size + 1) # FOR SETTING THE DYNAMIC AXES
+                
+
+                line_yaw_ol.set_data( range(counter, counter + window_size + 1) ,line_yaw_ol_his)
+                line_yaw_est.set_data( range(counter, counter + window_size + 1) ,line_yaw_est_his)
+                line_yaw_meas.set_data( range(counter, counter + window_size + 1) ,line_yaw_meas_his)
+                axs_dy[2,1].set_xlim(counter, counter + window_size + 1) # FOR SETTING THE DYNAMIC AXES
+                
+
+                fig_dy.canvas.draw()
+
+
+
+        ##########################################################################################################
+
+        plt_dy.show()
+        plt_veh.show()
+        plt.pause(1.0/3000)
+
         counter +=1
         rate.sleep()
-
-
-
-
-def Body_Frame_Errors (x, y, psi, xd, yd, psid, s0, vx, vy, curv, dt):
-
-    ex = (x-xd)*np.cos(psid) + (y-yd)*np.sin(psid)
-
-    ey = -(x-xd)*np.sin(psid) + (y-yd)*np.cos(psid)
-
-    epsi = wrap(psi - psid)
-
-    s = s0 + ( (vx*np.cos(epsi) - vy*np.sin(epsi)) / (1-ey*curv) ) * dt
-
-    return s, ex, ey, epsi
-
 
 
 if __name__ == '__main__':
