@@ -186,10 +186,10 @@ def main():
     if vehicle_visualization == True:
 
         margin = 0.5 ## margin percentage fox axes: make dynamic window size
-        x_lim_init_max = 2
+        x_lim_init_max = 5
         x_lim_init_min = -x_lim_init_max
         
-        y_lim_init_max = 2
+        y_lim_init_max = 5
         y_lim_init_min = -y_lim_init_max
 
 
@@ -277,9 +277,9 @@ def main():
             line_meas.set_data(meas_x_his, meas_y_his)
 
             ############# Dynamic window size ##############
-            min_x_lim = min(ol_x_his) - margin*min(ol_x_his) 
+            min_x_lim = min(ol_x_his) + margin*min(ol_x_his) 
             max_x_lim = max(ol_x_his) + margin*max(ol_x_his)
-            min_y_lim = min(ol_y_his) - margin*min(ol_y_his)
+            min_y_lim = min(ol_y_his) + margin*min(ol_y_his)
             max_y_lim = max(ol_y_his) + margin*max(ol_y_his)
 
             if (x_lim_init_max < max_x_lim):

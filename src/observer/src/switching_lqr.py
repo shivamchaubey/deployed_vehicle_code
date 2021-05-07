@@ -1127,6 +1127,25 @@ def data_retrive_est(msg, est_msg, yaw_measured, AC_sig, CC_sig):
 
     return msg
 
+def meas_retrive(msg, est_msg):
+
+    msg.timestamp_ms = 0
+    msg.X  = est_msg[2]
+    msg.Y  = est_msg[3]
+    msg.roll  = 0
+    msg.yaw  = est_msg[4]
+    msg.pitch  = 0
+    msg.vx  = est_msg[0]
+    msg.vy  = 0
+    msg.yaw_rate  = est_msg[1]
+    msg.ax  = 0
+    msg.ay  = 0
+    msg.s  = 0
+    msg.x  = 0
+    msg.y  = 0
+
+    return msg
+
 def load_LQRgain():
 
     LQR_gain = np.array(sio.loadmat(gain_path)['data']['Lmi'].item())
@@ -1335,6 +1354,8 @@ def main():
     ol_state_msg = sensorReading()
     ol_state_pub  = rospy.Publisher('ol_state_info', sensorReading, queue_size=1)
 
+    meas_state_pub  = rospy.Publisher('meas_state_info', sensorReading, queue_size=1)
+    meas_state_msg = sensorReading()
 
     control_data = control()
     control_hist = {'timestamp_ms_dutycycle':[],'timestamp_ms_steer':[],'steering':[], 'duty_cycle':[]}
@@ -1555,6 +1576,8 @@ def main():
         ol_state_pub.publish(data_retrive(ol_state_msg, ol_state))
         ol_state_hist.append(ol_state)
 
+        meas_pub = meas_retrive(meas_state_msg, y_meas)
+        meas_state_pub.publish(meas_pub)
         # angle_past = angle_cur
 
         control_msg = control_input.data_retrive(control_data)        
