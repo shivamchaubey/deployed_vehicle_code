@@ -1276,7 +1276,11 @@ def main():
         ol_state_pub.publish(data_retrive(ol_state_msg, ol_state))
         ol_state_hist.append(ol_state)
 
-        meas_state_pub.publish(meas_retrive(meas_state_msg, y_meas))
+        meas_pub = meas_retrive(meas_state_msg, y_meas)
+
+        print "meas_pub", meas_pub
+
+        meas_state_pub.publish(meas_pub)
         
         ekf_state_pub.publish(data_retrive(ekf_state_msg, ekf_state))
 
