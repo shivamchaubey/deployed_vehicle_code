@@ -29,7 +29,7 @@ from gazebo_msgs.srv import SetModelState
 from gazebo_msgs.msg import ModelState
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
 # from l4vehicle_msgs.msg import VehicleState
-from math import atan, tan, cos, sin, pi
+from math import atan, tan, cos, sin, pi, atan2
 from numpy.random import randn,rand
 from random import randrange, uniform
 from tf import transformations
@@ -169,12 +169,14 @@ def main():
             #     vehicle_sim.omega = 0.0
             #     vehicle_sim.omega  = 0.0
 
-        simStates.x      = vehicle_sim.x 
-        simStates.y      = vehicle_sim.y 
-        simStates.vx     = vehicle_sim.vx
-        simStates.vy     = vehicle_sim.vy
-        simStates.yaw    = vehicle_sim.yaw
-        simStates.omega  = vehicle_sim.omega
+        (simStates.vx, simStates.vy, simStates.omega, simStates.x, simStates.y, simStates.yaw) = vehicle_sim.states
+
+        # simStates.x      = vehicle_sim.x 
+        # simStates.y      = vehicle_sim.y 
+        # simStates.vx     = vehicle_sim.vx
+        # simStates.vy     = vehicle_sim.vy
+        # simStates.yaw    = vehicle_sim.yaw
+        # simStates.omega  = vehicle_sim.omega
 
         print "\n <<<< STATS >>>>"
         print "u", u 
@@ -197,9 +199,9 @@ def main():
         
         counter = 0
 
-        sensor_sim.fcam_update(simStates)
-        sensor_sim.imu_update(simStates)
-        sensor_sim.enc_update(simStates)
+        sensor_sim.fcam_update(vehicle_sim)
+        sensor_sim.imu_update(vehicle_sim)
+        sensor_sim.enc_update(vehicle_sim)
         # gps.update(sim)
 
         # sim.saveHistory()
@@ -269,6 +271,8 @@ def wrap(angle):
         w_angle = angle
 
     return w_angle
+
+
 
 
 def vehicle_model(vx,vy,omega,theta,delta,D):
@@ -390,9 +394,11 @@ class Vehicle_Simulator(object):
         self.y_std           = rospy.get_param("simulator/y_std_pr")
         self.vx_std          = rospy.get_param("simulator/vx_std_pr")
         self.vy_std          = rospy.get_param("simulator/vy_std_pr")
-        self.omega_std      = rospy.get_param("simulator/psiDot_std_pr")
+        self.omega_std       = rospy.get_param("simulator/psiDot_std_pr")
         self.yaw_std         = rospy.get_param("simulator/psi_std_pr")
         self.n_bound         = rospy.get_param("simulator/n_bound_pr")
+        self.disturbance     = np.array([0, 0, 0, 0, 0, 0]).T
+        self.states          = np.array([self.vx, self.vy, self.omega, self.x, self.y, self.yaw])
 
 
     # Go through each line of code ??   
@@ -422,8 +428,8 @@ class Vehicle_Simulator(object):
         eps = 0.0000001
 
 
-        Fry = -2.0*self.Car*atan((vy - self.lr*omega)/(vx+eps)) ;
-        F_flat = 2.0*self.Caf*(u[1] - atan((vy+self.lf*omega)/(vx+eps)));
+        Fry = -2.0*self.Car*atan2((vy - self.lr*omega),(vx+eps)) ;
+        F_flat = 2.0*self.Caf*(u[1] - atan2((vy+self.lf*omega),(vx+eps)));
 
 
         # if u[0]>0:
@@ -482,7 +488,23 @@ class Vehicle_Simulator(object):
         self.omega     += self.dt*(domega + n6)
         self.omega      = self.omega 
 
+
+        self.states          = np.array([self.vx, self.vy, self.omega, self.x, self.y, self.yaw])
+
+        self.w_vx    = max(-self.vx_std*self.n_bound, min(self.vx_std*0.66*(randn()), self.vx_std*self.n_bound))  
+        self.w_vy    = max(-self.vy_std*self.n_bound, min(self.vy_std*0.66*(randn()), self.vy_std*self.n_bound)) 
+        self.w_omega = max(-self.omega_std*self.n_bound, min(self.omega_std*0.66*(randn()), self.omega_std*self.n_bound)) 
+        self.w_X     = max(-self.x_std*self.n_bound, min(self.x_std*0.66*(randn()), self.x_std*self.n_bound))
+        self.W_Y     = max(-self.y_std*self.n_bound, min(self.y_std*0.66*(randn()), self.y_std*self.n_bound))
+        self.W_yaw   = max(-self.yaw_std*self.n_bound, min(self.yaw_std*0.1*(randn()), self.yaw_std*self.n_bound))
+
+        self.disturbance    = np.array([self.w_vx,self.w_vy,self.w_omega,self.w_X,self.W_Y,self.W_yaw]).T
+
+        self.states = self.states +  self.disturbance
+
         # self.noise_hist.append([n1,n2,n6,n4,n5,n3])
+
+
 
     def saveHistory(self):
         self.x_his.append(self.x)
@@ -606,14 +628,16 @@ class Sensor_Simulator():
     #### SIMULATE FISHEYE CAMERA ####
     def fcam_update(self,sim):
         n = max(-self.x_std*self.n_bound, min(self.x_std*randn(), self.x_std*self.n_bound))
-        n = 0
+        # n = 0
         self.x = sim.x + n
 
         n = max(-self.y_std*self.n_bound, min(self.y_std*randn(), self.y_std*self.n_bound))
-        n = 0
+        # n = 0
         self.y = sim.y + n
 
-        self.yaw = wrap(sim.yaw + uniform(0, 0.1))
+        n = max(-self.yaw_std*self.n_bound, min(self.yaw_std*randn(), self.yaw_std*self.n_bound))
+
+        self.yaw = wrap(sim.yaw + n)
 
 
 
@@ -634,11 +658,11 @@ class Sensor_Simulator():
     def imu_update(self,sim):
 
         n = max(-self.yaw_std*self.n_bound, min(self.yaw_std*randn(), self.yaw_std*self.n_bound))
-        n = 0
+        # n = 0
         self.yaw_imu = wrap(sim.yaw + n)
 
         n = max(-self.omega_std*self.n_bound, min(self.omega_std*randn(), self.omega_std*self.n_bound))
-        n = 0
+        # n = 0
         self.omega = sim.omega + n
         self.pub_pose.publish(self.msg_imu_pose)
 
@@ -661,8 +685,10 @@ class Sensor_Simulator():
     #### SIMULATE MOTOR ENCODER ###
     def enc_update(self,sim):
 
+        n = max(-self.vx_std*self.n_bound, min(self.vx_std*randn(), self.vx_std*self.n_bound))
+
         self.wheel_radius = 0.03*1.12178 #radius of wheel
-        self.wheel_rpm    = sim.vx*60.0/(2*pi*self.wheel_radius)# + uniform(-20,20)
+        self.wheel_rpm    = (sim.vx + n)*60.0/(2*pi*self.wheel_radius)# + uniform(-20,20)
         
         
 

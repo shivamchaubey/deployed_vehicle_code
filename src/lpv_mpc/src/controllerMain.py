@@ -284,8 +284,8 @@ def main():
 
         if first_it < 15:
 
-            accel_rate  = 0.1
-            delta = 0.01
+            accel_rate  = 0.15
+            delta = 0.1
             # xx, uu      = predicted_vectors_generation(N, LocalState, accel_rate, dt)
             xx, uu      = predicted_vectors_generation_new(N, LocalState, accel_rate, delta, dt)
             
@@ -302,7 +302,7 @@ def main():
             print "LocalState[0:6]",LocalState[0:6]
             # print (B_L.shape)
             Controller.MPC_solve(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref)
-            #Controller.MPC_solve_integral(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref)
+            # Controller.MPC_solve_integral(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref)
 
 
             if Controller.feasible == 0:

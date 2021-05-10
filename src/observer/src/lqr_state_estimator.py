@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from math import tan, atan, cos, sin, pi, atan2
+from math import tan, atan, cos, sin, pi, atan2, fmod
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
@@ -976,10 +976,10 @@ def meas_retrive(msg, est_msg):
 
 def data_retrive_est(msg, est_msg, yaw_measured):
 
-    x = yaw_measured[0]
-    y = yaw_measured[1]
-    z = yaw_measured[2]
-    w = yaw_measured[3]
+    # x = yaw_measured[0]
+    # y = yaw_measured[1]
+    # z = yaw_measured[2]
+    # w = yaw_measured[3]
 
     msg.timestamp_ms = 0
     msg.X  = est_msg[3]
@@ -990,11 +990,11 @@ def data_retrive_est(msg, est_msg, yaw_measured):
     msg.vx  = est_msg[0]
     msg.vy  = est_msg[1]
     msg.yaw_rate  = est_msg[2]
-    msg.ax  = w
+    msg.ax  = 0#w
     msg.ay  = 0
-    msg.s  = z
-    msg.x  = x
-    msg.y  = y
+    msg.s  = yaw_measured#z
+    msg.x  = 0#x
+    msg.y  = 0#y
 
     return msg
 
@@ -1232,7 +1232,7 @@ def main():
     angle_temp = 0
     angle_acc  = 0
     direction  = 1.0
-    angle_past = yaw_correction(fcam.yaw)
+    angle_past = imu.yaw
 
     while not (rospy.is_shutdown()):
         
@@ -1246,23 +1246,28 @@ def main():
         curr_time = rospy.get_rostime().to_sec() - time0
     
         ######### YAW CALCULATION ########
-        angle_cur = yaw_correction(fcam.yaw)
+        angle_cur = imu.yaw
 
-        CC, AC = yaw_smooth(angle_cur, angle_past)
+        # CC, AC = yaw_smooth(angle_cur, angle_past)
 
-        if AC == True:
-            angle_temp += angle_past
-            direction = 1.0
-            # print ("anticlockwise crossed")
+        # if AC == True:
+        #     angle_temp += angle_past
+        #     direction = 1.0
+        #     # print ("anticlockwise crossed")
 
-        if CC == True:
-            angle_temp += angle_cur
-            direction = -1.0
-            # print ("clockwise crossed")
+        # if CC == True:
+        #     angle_temp += angle_cur
+        #     direction = -1.0
+        #     # print ("clockwise crossed")
 
-        angle_acc = angle_cur + direction*angle_temp  
+        # angle_acc = angle_cur + direction*angle_temp  
+        
+        angle_acc = unwrap(angle_past, angle_cur)  
+
+        angle_past = angle_acc
 
 
+        # y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, imu.yaw]).T 
         y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, angle_acc]).T 
 
 
@@ -1294,14 +1299,14 @@ def main():
 
 
 
-        est_state[5] = wrap(est_state[5])
-        ol_state[5] = wrap(ol_state[5])
+        # est_state[5] = wrap(est_state[5])
+        # ol_state[5] = wrap(ol_state[5])
         # est_state[5] = yaw_correction(est_state[5])
         # ol_state[5] = yaw_correction(ol_state[5])
 
         print ("est_state",est_state)
 
-        angle_acc =  tf.transformations.quaternion_from_euler(0, 0, y_meas[-1])
+        # angle_acc =  tf.transformations.quaternion_from_euler(0, 0, y_meas[-1])
 
         est_state_pub.publish(data_retrive_est(est_state_msg, est_state, angle_acc)) ## remember we want to check the transformed yaw angle for debugging that's why 
                                                                                     ##publishing this information in the topic of "s" which is not used for any purpose. 
@@ -1318,7 +1323,7 @@ def main():
         
         ekf_state_pub.publish(data_retrive(ekf_state_msg, ekf_state))
 
-        angle_past = angle_cur
+        # angle_past = angle_cur
 
         # control_msg = control_input.data_retrive(control_data)        
         # append_control_data(control_hist, control_msg)
