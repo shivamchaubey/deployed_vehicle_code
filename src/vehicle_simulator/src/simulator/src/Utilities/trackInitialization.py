@@ -18,7 +18,7 @@ class Map():
 
         # self.halfWidth  = rospy.get_param("halfWidth")
 
-        self.halfWidth  = 0.4
+        self.halfWidth  = 0.8
         self.slack      = 0.15
         # selectedTrack   = rospy.get_param("trackShape")
         selectedTrack   =  'oval_iri'

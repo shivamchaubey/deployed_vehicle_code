@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+# -*- coding: utf-8 -*-
 
 ''' This code is to compare the performance of the estimation technique. The
 estimated states, measured states and the open loop simulation states are
@@ -13,6 +13,7 @@ import rospy
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from sensor_fusion.msg import sensorReading, control
+from PIL import Image
 
 #### plotter for vehicle motion ####
 def plot_vehicle_kinematics(x_lim,y_lim):
@@ -25,7 +26,7 @@ def plot_vehicle_kinematics(x_lim,y_lim):
 
     axtr = plt.axes()
 
-    line_ol,        = axtr.plot(xdata, ydata, '-g', label = 'Open loop simulation')
+    line_ol,        = axtr.plot(xdata, ydata, '-g', label = 'Vehicle model simulation')
     line_est,       = axtr.plot(xdata, ydata, '-b', label = 'Estimated states')  
     line_meas,      = axtr.plot(xdata, ydata, '-m', label = 'Measured position camera') 
 
@@ -64,7 +65,7 @@ def plot_vehicle_states(window):
 
     ### longitudinal Velocity
     line_vx_est,        = axs[0,0].plot(xdata, ydata, '-b', label = r'$v_x$: Estimated longitudinal velocity')
-    line_vx_ol,         = axs[0,0].plot(xdata, ydata, '-g', label = r'$v_x$: Open loop longitudinal velocity')  
+    line_vx_ol,         = axs[0,0].plot(xdata, ydata, '-g', label = r'$v_x$: Vehicle model longitudinal velocity')  
     line_vx_meas,       = axs[0,0].plot(xdata, ydata, '-m', label = r'$v_x$: Measured longitudinal velocity')  
     axs[0,0].set_xlim(0,window)
     axs[0,0].set_ylim(-1,5)
@@ -75,7 +76,7 @@ def plot_vehicle_states(window):
 
     ### lateral Velocity
     line_vy_est,        = axs[0,1].plot(xdata, ydata, '-b', label = r'$v_y$: Estimated lateral velocity')
-    line_vy_ol,         = axs[0,1].plot(xdata, ydata, '-g', label = r'$v_y$: Open loop lateral velocity')  
+    line_vy_ol,         = axs[0,1].plot(xdata, ydata, '-g', label = r'$v_y$: Vehicle model lateral velocity')  
     line_vy_meas,       = axs[0,1].plot(xdata, ydata, '-m', label = r'$v_y$: Measured lateral velocity')  
     axs[0,1].set_xlim(0,window)
     axs[0,1].set_ylim(-1,5)
@@ -84,7 +85,7 @@ def plot_vehicle_states(window):
 
     ### Angular rate
     line_omega_est,     = axs[1,0].plot(xdata, ydata, '-b', label = r'$\omega$: Estimated angular velocity')
-    line_omega_ol,      = axs[1,0].plot(xdata, ydata, '-g', label = r'$\omega$: Open loop angular velocity')  
+    line_omega_ol,      = axs[1,0].plot(xdata, ydata, '-g', label = r'$\omega$: Vehicle model angular velocity')  
     line_omega_meas,    = axs[1,0].plot(xdata, ydata, '-m', label = r'$\omega$: Measured angular velocity')  
     axs[1,0].set_xlim(0,window)
     axs[1,0].set_ylim(-5,5)
@@ -93,7 +94,7 @@ def plot_vehicle_states(window):
     
     ### Global X -position
     line_X_est,     = axs[1,1].plot(xdata, ydata, '-b', label = r'$X$: Estimated X - position')
-    line_X_ol,      = axs[1,1].plot(xdata, ydata, '-g', label = r'$X$: Open loop X - position')  
+    line_X_ol,      = axs[1,1].plot(xdata, ydata, '-g', label = r'$X$: Vehicle model X - position')  
     line_X_meas,    = axs[1,1].plot(xdata, ydata, '-m', label = r'$X$: Measured X - position')  
     axs[1,1].set_xlim(0,window)
     axs[1,1].set_ylim(-10,10)
@@ -103,7 +104,7 @@ def plot_vehicle_states(window):
 
     ### Global Y -position
     line_Y_est,     = axs[2,0].plot(xdata, ydata, '-b', label = r'$Y$: Estimated Y - position')
-    line_Y_ol,      = axs[2,0].plot(xdata, ydata, '-g', label = r'$Y$: Open loop Y - position')  
+    line_Y_ol,      = axs[2,0].plot(xdata, ydata, '-g', label = r'$Y$: Vehicle model Y - position')  
     line_Y_meas,    = axs[2,0].plot(xdata, ydata, '-m', label = r'$Y$: Measured Y - position')  
     axs[2,0].set_xlim(0,window)
     axs[2,0].set_ylim(-10,10)
@@ -113,7 +114,7 @@ def plot_vehicle_states(window):
 
     ### Yaw
     line_yaw_est,     = axs[2,1].plot(xdata, ydata, '-b', label = r'$\theta$: Estimated yaw')
-    line_yaw_ol,      = axs[2,1].plot(xdata, ydata, '-g', label = r'$\theta$: Open loop yaw')  
+    line_yaw_ol,      = axs[2,1].plot(xdata, ydata, '-g', label = r'$\theta$: Vehicle model yaw')  
     line_yaw_meas,    = axs[2,1].plot(xdata, ydata, '-m', label = r'$\theta$: Measured yaw')  
     axs[2,1].set_xlim(0,window)
     axs[2,1].set_ylim(-4,4)
@@ -156,7 +157,7 @@ class Vehicle_measurement(object):
         
 class Vehicle_ol(object):
     def __init__(self):
-        print "subscribed to vehicle open loop states"
+        print "subscribed to vehicle Vehicle model states"
         rospy.Subscriber('ol_state_info', sensorReading, self.vehicle_ol_state_callback, queue_size=1)
         self.CurrentState = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]).T
     
@@ -170,13 +171,15 @@ def main():
 
 
     rospy.init_node('observer_performance_tester', anonymous=True)
-    loop_rate       = 200
+    loop_rate       = 2000
     rate            = rospy.Rate(loop_rate)
 
     vehicle_state_est = EstimatorData()
     vehicle_state_meas = Vehicle_measurement()
     vehicle_state_ol = Vehicle_ol()
 
+    image_dy_his = []
+    image_veh_his = []
 
 
     vehicle_visualization = True
@@ -194,7 +197,7 @@ def main():
 
 
         ### Vehicle kinematics
-        (fig, plt_veh, axtr, line_est, line_ol, line_meas, rec_est, rec_ol, rec_meas) = plot_vehicle_kinematics(x_lim_init_max,y_lim_init_max)
+        (fig_veh, plt_veh, axtr, line_est, line_ol, line_meas, rec_est, rec_ol, rec_meas) = plot_vehicle_kinematics(x_lim_init_max,y_lim_init_max)
 
         ol_x_his     = []
         est_x_his    = []
@@ -277,10 +280,10 @@ def main():
             line_meas.set_data(meas_x_his, meas_y_his)
 
             ############# Dynamic window size ##############
-            min_x_lim = min(ol_x_his) + margin*min(ol_x_his) 
-            max_x_lim = max(ol_x_his) + margin*max(ol_x_his)
-            min_y_lim = min(ol_y_his) + margin*min(ol_y_his)
-            max_y_lim = max(ol_y_his) + margin*max(ol_y_his)
+            min_x_lim = min(min(ol_x_his) - margin*min(ol_x_his), min(meas_x_his) - margin*min(meas_x_his)) 
+            max_x_lim = max(max(ol_x_his) + margin*max(ol_x_his), max(meas_x_his) + margin*max(meas_x_his))
+            min_y_lim = min(min(ol_y_his) - margin*min(ol_y_his), min(meas_y_his) - margin*min(meas_y_his))
+            max_y_lim = max(max(ol_y_his) + margin*max(ol_y_his), max(meas_y_his) + margin*max(meas_y_his))
 
             if (x_lim_init_max < max_x_lim):
                 x_lim_init_max = max_x_lim
@@ -301,7 +304,6 @@ def main():
                 axtr.set_ylim( y_lim_init_min, y_lim_init_max )
                 
 
-            fig.canvas.draw()
 
 
         ##########################################################################################################
@@ -395,22 +397,65 @@ def main():
                 line_yaw_est.set_data( range(counter, counter + window_size + 1) ,line_yaw_est_his)
                 line_yaw_meas.set_data( range(counter, counter + window_size + 1) ,line_yaw_meas_his)
                 axs_dy[2,1].set_xlim(counter, counter + window_size + 1) # FOR SETTING THE DYNAMIC AXES
+                axs_dy[2,1].set_ylim(min(min(line_yaw_meas_his) - margin*min(line_yaw_meas_his)\
+                    , min(line_yaw_ol_his) - margin*min(line_yaw_ol_his)), \
+                max(max(line_yaw_meas_his) + margin*max(line_yaw_meas_his), max(line_yaw_ol_his) + margin*max(line_yaw_ol_his))) # FOR SETTING THE DYNAMIC AXES
                 
 
-                fig_dy.canvas.draw()
+        
+        fig_dy.canvas.draw()
 
+        fig_veh.canvas.draw()
 
+        image_dy = Image.frombytes('RGB', fig_dy.canvas.get_width_height(),fig_dy.canvas.tostring_rgb())
+        # image_dy = np.fromstring(fig_dy.canvas.tostring_rgb(), dtype='uint8')
+        # print "image_dy.shape",image_dy.shape
+        # image_veh = np.fromstring(fig_veh.canvas.tostring_rgb(), dtype='uint8')
+
+        image_dy_his.append(image_dy)
+        # image_veh_his.append(image_veh)
 
         ##########################################################################################################
 
         plt_dy.show()
         plt_veh.show()
+
+        # create file name and append it to a list
+        # filename_veh = '/home/auto/Desktop/autonomus_vehicle_project/thesis/TFM_Shivam/raw_doc/estimator/images/vehicle_motion/incorrect_yaw'+str(counter)+'.png'
+        # filename_dy = '/home/auto/Desktop/autonomus_vehicle_project/thesis/TFM_Shivam/raw_doc/estimator/images/vehicle_states/incorrect_yaw'+str(counter)+'.png'
+        
+        # filenames.append(filename)
+        
+        # # repeat last frame
+        # if (index == len(coordinates_lists)-1):
+        #     for i in range(15):
+        #         filenames.append(filename)
+                
+        # save frame
+
+
+
+        # plt_veh.savefig(filename_veh)
+        # plt_dy.savefig(filename_dy)
+
         plt.pause(1.0/3000)
+        # plt_veh.close()
+
+
 
         counter +=1
         rate.sleep()
 
+    print "Saving GIF images"
 
+    # Save into a GIF file that loops forever
+    image_dy_his[0].save("/home/auto/Desktop/autonomus_vehicle_project/thesis/TFM_Shivam/raw_doc/estimator/images/vehilce_motion.gif", format='GIF', append_images=image_dy_his[1:], save_all=True, duration=300, loop=0)
+    # from moviepy.editor import ImageSequenceClip
+    # clip = ImageSequenceClip(list(np.array(image_veh_his)), fps=20)
+    # clip.write_gif('test.gif', fps=20)
+
+    print "Saved"
+    
 if __name__ == '__main__':
     try:
         main()

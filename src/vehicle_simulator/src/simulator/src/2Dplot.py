@@ -129,6 +129,9 @@ def unityTestChangeOfCoordinates(map, ClosedLoopData):
         print ("Change of coordinates test passed!")
 
 
+
+from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+
 def plot_vehicle(x_lim,y_lim):
 
     xdata = []; ydata = []
@@ -139,6 +142,12 @@ def plot_vehicle(x_lim,y_lim):
 
     axtr = plt.axes()
 
+
+    im = plt.imread('/home/auto/Desktop/autonomus_vehicle_project/project/deployement/deployed_vehicle_code/pics/vehicle.png')
+    oi = OffsetImage(im, zoom = 0.05)
+
+    box = AnnotationBbox(oi, (px, py), frameon=False)
+    
     line_ol,        = axtr.plot(xdata, ydata, '-k', label = 'Open loop simulation')
     # line_est,    = axtr.plot(xdata, ydata, '-r', label = 'Estimated states')  # Plots the traveled positions
     # line_meas,    = axtr.plot(xdata, ydata, '-b', label = 'Measured position camera')  # Plots the traveled positions
