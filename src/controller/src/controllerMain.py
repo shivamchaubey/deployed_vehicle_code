@@ -22,7 +22,7 @@ sys.path.append(('/').join(sys.path[0].split('/')[:-2])+'/planner/src/')
 from std_msgs.msg import Bool, Float32
 from PathFollowingLPVMPC import PathFollowingLPV_MPC
 from trackInitialization import Map
-
+from math import pi 
 
 np.set_printoptions(formatter={'float': lambda x: "{0:0.3f}".format(x)})
 
@@ -75,25 +75,26 @@ def main():
 
 
     Controller  = PathFollowingLPV_MPC(N, Vx_ref, dt, map)
+    rospy.sleep(1.2)
 
-
+    print "controller initialized"
     while (not rospy.is_shutdown()):
 
         startTimer = datetime.datetime.now()
 
         # Read Measurements
         GlobalState[:] = estimatorData.CurrentState  # The current estimated state vector [vx vy w x y psi]
-        GlobalState[5] = wrap(GlobalState[5] - 2 * np.pi * LapNumber)
+        GlobalState[5] = (GlobalState[5] + pi) % (2 * pi) - pi #wrap(GlobalState[5] - 2 * np.pi * LapNumber)
         LocalState[:]  = estimatorData.CurrentState  # [vx vy w x y psi]
 
         if test_gen == 2:
 
             # OUT: s, ey, epsi       IN: x, y, psi
             LocalState[4], LocalState[5], LocalState[3], insideTrack = map.getLocalPosition(
-                GlobalState[3], GlobalState[4], wrap(GlobalState[5]))
+                GlobalState[3], GlobalState[4], (GlobalState[5] + pi) % (2 * pi) - pi )
 
-
-            print("x:  ", GlobalState[3],"y:  ", GlobalState[4], "yaw", wrap(GlobalState[5]))
+            print("\n")
+            print("vx vy w x y yaw: ", GlobalState)
             print("\n")
             print("vx vy w epsi s ey: ", LocalState)
             print("\n")
@@ -103,6 +104,7 @@ def main():
             # Check if the lap has finished
             if LocalState[4] >= 3*map.TrackLength/4:
                 HalfTrack = 1
+                print 'the lap has finished'
 
 
         SS = LocalState[4] 
@@ -116,22 +118,23 @@ def main():
             HalfTrack       = 0
             LapNumber       += 1
             SS              = 0
+            print "END OF THE LAP"
 
         ###################################################################################################
         ###################################################################################################
 
         if first_it < 5:
 
-            accel_rate  = 1.0
-            delta = 0.1
+            accel_rate  = 0.0
+            delta = 0.01
             # xx, uu      = predicted_vectors_generation(N, LocalState, accel_rate, dt)
             xx, uu      = predicted_vectors_generation_new(N, LocalState, accel_rate, delta, dt)
             
             Controller.uPred = uu
             LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction(LocalState[0:6], Controller.uPred, vel_ref*0.0)
-            if first_it == 0:
-                Controller.MPC_setup(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref) 
-                [N,nx,nu] = B_L.shape 
+            # if first_it == 0:
+            #     Controller.MPC_setup(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref) 
+            #     [N,nx,nu] = B_L.shape 
 
 
         else:
@@ -143,32 +146,32 @@ def main():
             # print "LPV_States_Prediction",LPV_States_Prediction.shape 
             print "LocalState[0:6]",LocalState[0:6]
             # print (B_L.shape)
-            # Controller.MPC_solve(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref)
+            Controller.MPC_solve(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref)
             # Controller.MPC_solve_integral(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref)
 
                         # Solve
-            res = Controller.prob.solve()
+            # res = Controller.prob.solve()
 
-            print "TimeCounter",TimeCounter
-            # Check solver status
-            if res.info.status != 'solved':
-                print ('OSQP did not solve the problem!')
+            # print "TimeCounter",TimeCounter
+            # # Check solver status
+            # if res.info.status != 'solved':
+            #     print ('OSQP did not solve the problem!')
             
 
-            Solution = res.x
+            # Solution = res.x
 
-            print "controller to be applied", Solution[(N+1)*nx:(N+1)*nx + nu]
-            print "Solution shape", Solution.shape
+            # print "controller to be applied", Solution[(N+1)*nx:(N+1)*nx + nu]
+            # print "Solution shape", Solution.shape
             
 
-            Controller.xPred = np.squeeze(np.transpose(np.reshape((Solution[np.arange(nx * (N + 1))]), (N + 1, nx)))).T
-            Controller.uPred = np.squeeze(np.transpose(np.reshape((Solution[nx * (N + 1) + np.arange(nu * N)]), (N, nu)))).T
+            # Controller.xPred = np.squeeze(np.transpose(np.reshape((Solution[np.arange(nx * (N + 1))]), (N + 1, nx)))).T
+            # Controller.uPred = np.squeeze(np.transpose(np.reshape((Solution[nx * (N + 1) + np.arange(nu * N)]), (N, nu)))).T
 
-            print "Controller.uPred", Controller.uPred
-            Controller.uminus1 = Controller.uPred[0,:]            
+            # print "Controller.uPred", Controller.uPred
+            # Controller.uminus1 = Controller.uPred[0,:]            
             LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction(LocalState[0:6], Controller.uPred, vel_ref*0.0)
 
-            Controller.MPC_update(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref)
+            # Controller.MPC_update(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref)
 
 
             # self.LinPoints = np.concatenate( (self.xPred.T[1:,:], np.array([self.xPred.T[-1,:]])), axis=0 )

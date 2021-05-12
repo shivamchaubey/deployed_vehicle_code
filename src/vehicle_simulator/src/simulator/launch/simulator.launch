@@ -133,7 +133,7 @@
         <param name="N"           type="int"     value="20" />
         <param name="Hz"          type="double"  value="30" />
         <param name="vel_ref"     type="double"  value="2.5"/>
-        <param name="vel_th"      type="double"  value="0.8" />
+        <param name="vel_th"      type="double"  value="0.4" />
     </node>
     ?>
 

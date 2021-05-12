@@ -20,18 +20,18 @@
     <!-- Variables limits-->
     <param name="max_vel"           type="double"   value="2.0" />
     <param name="min_vel"           type="double"   value="-2.0" />
-    <param name="dutycycle_max"     type="double"   value="1.0" />
+    <param name="dutycycle_max"     type="double"   value="0.5" />
     <param name="dutycycle_min"     type="double"   value="0.081" />
     <param name="steer_max"         type="double"   value="0.249" />
     <param name="steer_min"         type="double"   value="-0.249" />
-    <param name="lat_e_max"         type="double"   value="0.6" />   <!-- like halfWidth-->
+    <param name="lat_e_max"         type="double"   value="0.4" />   <!-- like halfWidth-->
     <param name="orient_e_max"      type="double"   value="0.4" />
 
 
     <!-- PLANNER    -->
     <param name="slow_mode_th"  type="double"   value="0.6" />
     <param name="planning_mode" type="int"      value="2" />
-    <param name="halfWidth"     type="double"   value="0.8" />
+    <param name="halfWidth"     type="double"   value="0.4" />
     <param name="trackShape"    type="str"      value="oval_iri" />
 
 
@@ -45,9 +45,9 @@
     
     <node pkg="lpv_mpc"         type="controllerMain.py"    name="control" output="screen">
         <param name="vel_th"    type="double"   value="0.7" />
-        <param name="N"         type="int"      value="4" />
-        <param name="Hz"        type="double"   value="10" />
-        <param name="vel_ref"   type="double"   value="1.2"/>
+        <param name="N"         type="int"      value="8" />
+        <param name="Hz"        type="double"   value="30" />
+        <param name="vel_ref"   type="double"   value="0.6"/>
     </node>
 
 </launch>
