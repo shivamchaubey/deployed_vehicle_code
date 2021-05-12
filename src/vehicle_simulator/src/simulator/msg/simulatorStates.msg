@@ -11,5 +11,5 @@ float64 x
 float64 y
 float64 vx 
 float64 vy
-float64 psi 
-float64 psiDot
+float64 yaw 
+float64 omega

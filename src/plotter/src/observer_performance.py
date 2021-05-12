@@ -14,6 +14,29 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from sensor_fusion.msg import sensorReading, control
 from PIL import Image
+from std_msgs.msg import Bool, Float32
+
+
+
+#### plotter for control action ####
+def plot_control(x_lim,y_lim):
+
+    xdata = []; ydata = []
+    fig = plt.figure(figsize=(10,8))
+    plt.ion()
+    plt.xlim([-1*x_lim,x_lim])
+    plt.ylim([-1*y_lim,y_lim])
+
+    axtr = plt.axes()
+
+    line_dutycycle,   = axtr.plot(xdata, ydata, '-g', label = 'Duty cycle')
+    line_steer,       = axtr.plot(xdata, ydata, '-b', label = 'Steering angle')  
+
+    plt.legend()
+    plt.grid()
+    
+
+    return fig, plt, line_dutycycle, line_steer
 
 #### plotter for vehicle motion ####
 def plot_vehicle_kinematics(x_lim,y_lim):
@@ -165,6 +188,27 @@ class Vehicle_ol(object):
         self.CurrentState = np.array([msg.vx, msg.vy, msg.yaw_rate, msg.X, msg.Y, msg.yaw]).T
 
 
+class vehicle_control_action(object):
+    """ Object collecting CMD command data
+    Attributes:
+        Input command:
+            1.duty_cycle 2.steer
+    """
+    def __init__(self):
+        """ Initialization"""
+        rospy.Subscriber('control/accel', Float32, self.accel_callback, queue_size=1)
+        rospy.Subscriber('control/steering', Float32, self.steering_callback, queue_size=1)
+
+        # ECU measurement
+        self.duty_cycle  = 0.0 #dutycyle
+        self.steer = 0.0
+
+    def accel_callback(self,data):
+        """Unpack message from sensor, ECU"""
+        self.duty_cycle  = data.data
+
+    def steering_callback(self,data):
+        self.steer = data.data
 
 
 def main():
@@ -174,18 +218,20 @@ def main():
     loop_rate       = 2000
     rate            = rospy.Rate(loop_rate)
 
-    vehicle_state_est = EstimatorData()
+    vehicle_state_est  = EstimatorData()
     vehicle_state_meas = Vehicle_measurement()
-    vehicle_state_ol = Vehicle_ol()
+    vehicle_state_ol   = Vehicle_ol()
+    vehicle_control    = vehicle_control_action()
 
     image_dy_his = []
     image_veh_his = []
 
 
     vehicle_visualization = True
-    states_visualization = True
-
-
+    states_visualization  = True
+    control_visualization = True
+    window_size = 100
+    
     if vehicle_visualization == True:
 
         margin = 0.5 ## margin percentage fox axes: make dynamic window size
@@ -210,31 +256,38 @@ def main():
 
     if states_visualization == True:
 
-        window_size = 100
 
         ### vehicle states
         (fig_dy, axs_dy, plt_dy, line_vx_ol, line_vx_est, line_vx_meas, line_vy_ol, line_vy_est, line_vy_meas, line_omega_ol, line_omega_est, line_omega_meas,\
         line_X_ol, line_X_est, line_X_meas, line_Y_ol, line_Y_est, line_Y_meas, line_yaw_ol, line_yaw_est, line_yaw_meas) = plot_vehicle_states(window_size)
 
 
-        line_vx_ol_his       =  []
-        line_vx_est_his      =  []
-        line_vx_meas_his     =  []
-        line_vy_ol_his       =  []
-        line_vy_est_his      =  []
-        line_vy_meas_his     =  []
-        line_omega_ol_his    =  []
-        line_omega_est_his   =  []
-        line_omega_meas_his  =  []
-        line_X_ol_his        =  []
-        line_X_est_his       =  []
-        line_X_meas_his      =  []
-        line_Y_ol_his        =  []
-        line_Y_est_his       =  []
-        line_Y_meas_his      =  []
-        line_yaw_ol_his      =  []
-        line_yaw_est_his     =  []
-        line_yaw_meas_his    =  []
+        line_vx_ol_his       =  [0.0]*window_size
+        line_vx_est_his      =  [0.0]*window_size
+        line_vx_meas_his     =  [0.0]*window_size
+        line_vy_ol_his       =  [0.0]*window_size
+        line_vy_est_his      =  [0.0]*window_size
+        line_vy_meas_his     =  [0.0]*window_size
+        line_omega_ol_his    =  [0.0]*window_size
+        line_omega_est_his   =  [0.0]*window_size
+        line_omega_meas_his  =  [0.0]*window_size
+        line_X_ol_his        =  [0.0]*window_size
+        line_X_est_his       =  [0.0]*window_size
+        line_X_meas_his      =  [0.0]*window_size
+        line_Y_ol_his        =  [0.0]*window_size
+        line_Y_est_his       =  [0.0]*window_size
+        line_Y_meas_his      =  [0.0]*window_size
+        line_yaw_ol_his      =  [0.0]*window_size
+        line_yaw_est_his     =  [0.0]*window_size
+        line_yaw_meas_his    =  [0.0]*window_size
+
+    if control_visualization == True:    
+        x_lim = 100
+        y_lim = 1.2
+        fig_cont, plt_cont, line_dutycycle, line_steer = plot_control(x_lim,y_lim)
+
+        line_dutycycle_his = [0.0]*window_size
+        line_steer_his     = [0.0]*window_size         
 
 
     counter = 0
@@ -337,88 +390,99 @@ def main():
 
             ### Keep size of window to 100 points 
 
-            if counter >window_size :
-
-                line_vx_ol_his.pop(0)
-                line_vx_est_his.pop(0)
-                line_vx_meas_his.pop(0)
-                line_vy_ol_his.pop(0)
-                line_vy_est_his.pop(0)
-                line_vy_meas_his.pop(0)
-                line_omega_ol_his.pop(0)
-                line_omega_est_his.pop(0)
-                line_omega_meas_his.pop(0)
-                line_X_ol_his.pop(0)
-                line_X_est_his.pop(0)
-                line_X_meas_his.pop(0)
-                line_Y_ol_his.pop(0)
-                line_Y_est_his.pop(0)
-                line_Y_meas_his.pop(0)
-                line_yaw_ol_his.pop(0)
-                line_yaw_est_his.pop(0)
-                line_yaw_meas_his.pop(0)
+            line_vx_ol_his.pop(0)
+            line_vx_est_his.pop(0)
+            line_vx_meas_his.pop(0)
+            line_vy_ol_his.pop(0)
+            line_vy_est_his.pop(0)
+            line_vy_meas_his.pop(0)
+            line_omega_ol_his.pop(0)
+            line_omega_est_his.pop(0)
+            line_omega_meas_his.pop(0)
+            line_X_ol_his.pop(0)
+            line_X_est_his.pop(0)
+            line_X_meas_his.pop(0)
+            line_Y_ol_his.pop(0)
+            line_Y_est_his.pop(0)
+            line_Y_meas_his.pop(0)
+            line_yaw_ol_his.pop(0)
+            line_yaw_est_his.pop(0)
+            line_yaw_meas_his.pop(0)
 
 
 
                 # axs_dy[0,0].set_ylim(min(line_vx_ol_his) + , max(line_vx_ol_his) + ) # FOR SETTING THE DYNAMIC AXES
+            line_vx_ol.set_data( range(counter, counter + window_size ) ,line_vx_ol_his)
+            line_vx_est.set_data( range(counter, counter + window_size ) ,line_vx_est_his)
+            line_vx_meas.set_data( range(counter, counter + window_size ) ,line_vx_meas_his)
+            axs_dy[0,0].set_xlim(counter, counter + window_size ) # FOR SETTING THE DYNAMIC AXES
+            
+            
+            line_vy_ol.set_data( range(counter, counter + window_size ) ,line_vy_ol_his)
+            line_vy_est.set_data( range(counter, counter + window_size ) ,line_vy_est_his)
+            line_vy_meas.set_data( range(counter, counter + window_size ) ,line_vy_meas_his)
+            axs_dy[0,1].set_xlim(counter, counter + window_size ) # FOR SETTING THE DYNAMIC AXES
+            
+
+            line_omega_ol.set_data( range(counter, counter + window_size ) ,line_omega_ol_his)
+            line_omega_est.set_data( range(counter, counter + window_size ) ,line_omega_est_his)
+            line_omega_meas.set_data( range(counter, counter + window_size ) ,line_omega_meas_his)
+            axs_dy[1,0].set_xlim(counter, counter + window_size ) # FOR SETTING THE DYNAMIC AXES
+            
+            
+            line_X_ol.set_data( range(counter, counter + window_size ) ,line_X_ol_his)
+            line_X_est.set_data( range(counter, counter + window_size ) ,line_X_est_his)
+            line_X_meas.set_data( range(counter, counter + window_size ) ,line_X_meas_his)
+            axs_dy[1,1].set_xlim(counter, counter + window_size ) # FOR SETTING THE DYNAMIC AXES
+            
+
+            line_Y_ol.set_data( range(counter, counter + window_size ) ,line_Y_ol_his)
+            line_Y_est.set_data( range(counter, counter + window_size ) ,line_Y_est_his)
+            line_Y_meas.set_data( range(counter, counter + window_size ) ,line_Y_meas_his)
+            axs_dy[2,0].set_xlim(counter, counter + window_size ) # FOR SETTING THE DYNAMIC AXES
+            
+
+            line_yaw_ol.set_data( range(counter, counter + window_size ) ,line_yaw_ol_his)
+            line_yaw_est.set_data( range(counter, counter + window_size ) ,line_yaw_est_his)
+            line_yaw_meas.set_data( range(counter, counter + window_size ) ,line_yaw_meas_his)
+            axs_dy[2,1].set_xlim(counter, counter + window_size ) # FOR SETTING THE DYNAMIC AXES
+            axs_dy[2,1].set_ylim(min(min(line_yaw_meas_his) - margin*min(line_yaw_meas_his)\
+                , min(line_yaw_ol_his) - margin*min(line_yaw_ol_his)), \
+            max(max(line_yaw_meas_his) + margin*max(line_yaw_meas_his), max(line_yaw_ol_his) + margin*max(line_yaw_ol_his))) # FOR SETTING THE DYNAMIC AXES
                 
 
-                line_vx_ol.set_data( range(counter, counter + window_size + 1) ,line_vx_ol_his)
-                line_vx_est.set_data( range(counter, counter + window_size + 1) ,line_vx_est_his)
-                line_vx_meas.set_data( range(counter, counter + window_size + 1) ,line_vx_meas_his)
-                axs_dy[0,0].set_xlim(counter, counter + window_size + 1) # FOR SETTING THE DYNAMIC AXES
-                
-                
-                line_vy_ol.set_data( range(counter, counter + window_size + 1) ,line_vy_ol_his)
-                line_vy_est.set_data( range(counter, counter + window_size + 1) ,line_vy_est_his)
-                line_vy_meas.set_data( range(counter, counter + window_size + 1) ,line_vy_meas_his)
-                axs_dy[0,1].set_xlim(counter, counter + window_size + 1) # FOR SETTING THE DYNAMIC AXES
-                
+            if control_visualization == True:
 
-                line_omega_ol.set_data( range(counter, counter + window_size + 1) ,line_omega_ol_his)
-                line_omega_est.set_data( range(counter, counter + window_size + 1) ,line_omega_est_his)
-                line_omega_meas.set_data( range(counter, counter + window_size + 1) ,line_omega_meas_his)
-                axs_dy[1,0].set_xlim(counter, counter + window_size + 1) # FOR SETTING THE DYNAMIC AXES
-                
-                
-                line_X_ol.set_data( range(counter, counter + window_size + 1) ,line_X_ol_his)
-                line_X_est.set_data( range(counter, counter + window_size + 1) ,line_X_est_his)
-                line_X_meas.set_data( range(counter, counter + window_size + 1) ,line_X_meas_his)
-                axs_dy[1,1].set_xlim(counter, counter + window_size + 1) # FOR SETTING THE DYNAMIC AXES
-                
+                print "vehicle_control.duty_cycle", vehicle_control.duty_cycle
+                line_dutycycle_his.append(vehicle_control.duty_cycle)
+                line_steer_his.append(vehicle_control.steer)
 
-                line_Y_ol.set_data( range(counter, counter + window_size + 1) ,line_Y_ol_his)
-                line_Y_est.set_data( range(counter, counter + window_size + 1) ,line_Y_est_his)
-                line_Y_meas.set_data( range(counter, counter + window_size + 1) ,line_Y_meas_his)
-                axs_dy[2,0].set_xlim(counter, counter + window_size + 1) # FOR SETTING THE DYNAMIC AXES
-                
+                # if counter >window_size:
 
-                line_yaw_ol.set_data( range(counter, counter + window_size + 1) ,line_yaw_ol_his)
-                line_yaw_est.set_data( range(counter, counter + window_size + 1) ,line_yaw_est_his)
-                line_yaw_meas.set_data( range(counter, counter + window_size + 1) ,line_yaw_meas_his)
-                axs_dy[2,1].set_xlim(counter, counter + window_size + 1) # FOR SETTING THE DYNAMIC AXES
-                axs_dy[2,1].set_ylim(min(min(line_yaw_meas_his) - margin*min(line_yaw_meas_his)\
-                    , min(line_yaw_ol_his) - margin*min(line_yaw_ol_his)), \
-                max(max(line_yaw_meas_his) + margin*max(line_yaw_meas_his), max(line_yaw_ol_his) + margin*max(line_yaw_ol_his))) # FOR SETTING THE DYNAMIC AXES
-                
+                line_dutycycle_his.pop(0)
+                line_steer_his.pop(0)
 
-        
+                line_dutycycle.set_data(range(counter, counter + window_size ) ,line_dutycycle_his)
+                line_steer.set_data(range(counter, counter + window_size ) ,line_steer_his)
+                plt_cont.xlim(counter, counter + window_size )
+
+
         fig_dy.canvas.draw()
-
         fig_veh.canvas.draw()
-
-        image_dy = Image.frombytes('RGB', fig_dy.canvas.get_width_height(),fig_dy.canvas.tostring_rgb())
+        fig_cont.canvas.draw()
+        # image_dy = Image.frombytes('RGB', fig_dy.canvas.get_width_height(),fig_dy.canvas.tostring_rgb())
         # image_dy = np.fromstring(fig_dy.canvas.tostring_rgb(), dtype='uint8')
         # print "image_dy.shape",image_dy.shape
         # image_veh = np.fromstring(fig_veh.canvas.tostring_rgb(), dtype='uint8')
 
-        image_dy_his.append(image_dy)
+        # image_dy_his.append(image_dy)
         # image_veh_his.append(image_veh)
 
         ##########################################################################################################
 
         plt_dy.show()
         plt_veh.show()
+        plt_cont.show()
 
         # create file name and append it to a list
         # filename_veh = '/home/auto/Desktop/autonomus_vehicle_project/thesis/TFM_Shivam/raw_doc/estimator/images/vehicle_motion/incorrect_yaw'+str(counter)+'.png'
@@ -449,7 +513,7 @@ def main():
     print "Saving GIF images"
 
     # Save into a GIF file that loops forever
-    image_dy_his[0].save("/home/auto/Desktop/autonomus_vehicle_project/thesis/TFM_Shivam/raw_doc/estimator/images/vehilce_motion.gif", format='GIF', append_images=image_dy_his[1:], save_all=True, duration=300, loop=0)
+    # image_dy_his[0].save("/home/auto/Desktop/autonomus_vehicle_project/thesis/TFM_Shivam/raw_doc/estimator/images/vehilce_motion.gif", format='GIF', append_images=image_dy_his[1:], save_all=True, duration=300, loop=0)
     # from moviepy.editor import ImageSequenceClip
     # clip = ImageSequenceClip(list(np.array(image_veh_his)), fps=20)
     # clip.write_gif('test.gif', fps=20)

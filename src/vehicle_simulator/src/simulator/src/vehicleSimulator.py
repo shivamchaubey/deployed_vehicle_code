@@ -154,22 +154,29 @@ def main():
 
         u = [ecu.duty_cycle, ecu.steer]
         # dt = curr_time - prev_time 
-        if abs(ecu.duty_cycle) > 0.1:
+        if abs(ecu.duty_cycle) > 0.08:
             
             vehicle_sim.vehicle_model(u, simulator_dt)
 
 
-        else:
-            # vehicle_sim.vehicle_model(u, simulator_dt)
-            if vehicle_sim.vx == 0.0:
-                vehicle_sim.vx = 0.0
-                vehicle_sim.vy = 0.0
+
                 
             # if vehicle_sim.omega <= 0.01:    
             #     vehicle_sim.omega = 0.0
             #     vehicle_sim.omega  = 0.0
 
+        
         (simStates.vx, simStates.vy, simStates.omega, simStates.x, simStates.y, simStates.yaw) = vehicle_sim.states
+        
+        if abs(ecu.duty_cycle) <= 0.08:
+                #     # vehicle_sim.vehicle_model(u, simulator_dt)
+                    # if vehicle_sim.vx <= 0.01 :
+                    vehicle_sim.vx = 0.000001 
+                    vehicle_sim.vy = 0.000001
+                    vehicle_sim.omega = 0.000001 
+                    simStates.vx = 0.000001
+                    simStates.vy = 0.000001
+                    simStates.omega = 0.000001
 
         # simStates.x      = vehicle_sim.x 
         # simStates.y      = vehicle_sim.y 
@@ -425,11 +432,12 @@ class Vehicle_Simulator(object):
         Fry    = 0
         Frx    = (self.Cm0 - self.Cm1*vx)*u[0] - self.C0*vx - self.C1 - (self.Cd_A*self.rho*vx**2)/2;
         
-        eps = 0.0000001
+        # eps = 0.0000001
+        eps = 0.0
 
-
-        Fry = -2.0*self.Car*atan2((vy - self.lr*omega),(vx+eps)) ;
-        F_flat = 2.0*self.Caf*(u[1] - atan2((vy+self.lf*omega),(vx+eps)));
+        if abs(vx)> 0:
+            Fry = -2.0*self.Car*atan((vy - self.lr*omega)/(vx+eps)) ;
+            F_flat = 2.0*self.Caf*(u[1] - atan((vy+self.lf*omega)/(vx+eps)));
 
 
         # if u[0]>0:

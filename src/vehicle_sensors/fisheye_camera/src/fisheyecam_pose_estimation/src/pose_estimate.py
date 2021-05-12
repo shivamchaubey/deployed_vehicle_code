@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 
 ###############################################
-##      IRI 1:10 Autonomous Car               ##
+##      IRI 1:10 Autonomous Car              ##
 ##      Supervisor: Puig Cayuela Vicenc      ##
 ##      Author: Shivam Chaubey               ##
+##      Email: shivam.chaubey1006@gmail.com  ##
 ##      Date: 20/03/2021                     ##
 ###############################################
 

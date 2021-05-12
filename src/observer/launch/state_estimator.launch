@@ -76,8 +76,7 @@
         </node>
     </group>
 
-    <!--  LQR --> 
-
+    <!-- SIMPLE LQR --> 
     <group unless="$(arg SWITCHING_LQR)">
         <node pkg="observer" type="lqr_state_estimator.py" name="lqr_observer" output="screen">
         
