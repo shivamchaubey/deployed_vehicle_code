@@ -27,9 +27,7 @@ class vehicle_control(object):
     """ Object collecting CMD command data
     Attributes:
         Input command:
-            1.a 2.df
-        Time stamp
-            1.t0  2.curr_time
+            1.duty_cycle 2.steer
     """
     def __init__(self,t0):
         """ Initialization
@@ -230,7 +228,7 @@ class IMU():
         # self.t0     = time.time()
         self.t0     = t0
 
-        print  "yaw_offset", self.yaw_offset
+        # print  "yaw_offset", self.yaw_offset
 
 
         # Time for yawDot integration
@@ -363,7 +361,7 @@ class IMU():
         self.roll   = data.orientation.x 
         self.pitch  = data.orientation.y 
 
-        print "data.orientation.z", data.orientation.z, "yaw_offset", self.yaw_offset
+        # print "data.orientation.z", data.orientation.z, "yaw_offset", self.yaw_offset
 
         self.yaw    = wrap(data.orientation.z - (self.yaw_offset))
 
@@ -835,7 +833,7 @@ def Continuous_AB_Comp(vx, vy, omega, theta, delta):
     A11 = 0.0;
     A31 = 0.0;
     
-    eps = 0.00000
+    eps = 0.0
     
     if abs(vx)>0.0:
         F_flat = 2*Caf*(delta- atan((vy+lf*omega)/(vx+eps)));
@@ -884,7 +882,22 @@ def Continuous_AB_Comp(vx, vy, omega, theta, delta):
                     [ 0 ,  0 ],\
                     [ 0 ,  0 ]])
 
-    
+
+    # Construct the controllability matrix
+    n = A_obs.shape[0]
+    # ctrb = B_obs
+    # for i in range(1, n):
+    #     ctrb = np.hstack((ctrb, A_obs**i*B_obs))
+
+
+    ctrb = np.hstack(
+        [B_obs] + [np.dot(np.linalg.matrix_power(A_obs, i), B_obs)
+                  for i in range(1, n)])
+
+    print "A_obs", A_obs, "B_obs", B_obs
+    print "ctrb",ctrb, 'ctrb.shape', ctrb.shape, "matrix_rank", LA.matrix_rank(ctrb)
+    # obsv = np.vstack([cmat] + [np.dot(cmat, np.linalg.matrix_power(amat, i))
+    #                            for i in range(1, n)])    
     # print ('self.A_obs',self.A_obs,'self.B_obs',self.B_obs)
     
     return A_obs, B_obs
@@ -1082,7 +1095,6 @@ def main():
     rate        = rospy.Rate(loop_rate)
     time0       = rospy.get_rostime().to_sec()
     
-    counter     = 0
     record_data =    rospy.get_param("lqr_observer/record_data")
     visualization  = rospy.get_param("lqr_observer/visualization")
 
@@ -1216,7 +1228,7 @@ def main():
     # fcam_MA_hist = {'timestamp_ms':[], 'X':[], 'Y':[], 'roll':[], 'yaw':[], 'pitch':[], 'vx':[], 'vy':[], 'yaw_rate':[], 'ax':[], 'ay':[], 's':[], 'x':[], 'y':[]}
 
     
-    yaw_check = wrap(fcam.yaw)
+    # yaw_check = wrap(fcam.yaw)
     curr_time = rospy.get_rostime().to_sec() - time0
      
     prev_time = curr_time 
@@ -1226,12 +1238,9 @@ def main():
     Q_ekf = np.diag([0.1, 0.05, 0.1, 0.3, 0.3, 0.1]) ## plant disturbance
     R_ekf = np.diag([0.1, 0.135, 0.05, 0.05, 0.05])    ##sensor noise
 
-
+    counter = 0
 
     #### YAW CORRECTION ####
-    angle_temp = 0
-    angle_acc  = 0
-    direction  = 1.0
     angle_past = imu.yaw
 
     while not (rospy.is_shutdown()):
@@ -1241,7 +1250,7 @@ def main():
         # y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, fcam.yaw]).T  
         # y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, imu.yaw]).T 
 
-        print "fcam.yaw",fcam.yaw
+        # print "fcam.yaw",fcam.yaw
 
         curr_time = rospy.get_rostime().to_sec() - time0
     
@@ -1266,6 +1275,12 @@ def main():
 
         angle_past = angle_acc
 
+        if counter==1:
+            est_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, angle_acc ]).T
+
+            ol_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, angle_acc ]).T
+
+            ekf_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, angle_acc ]).T
 
         # y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, imu.yaw]).T 
         y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, angle_acc]).T 
@@ -1297,14 +1312,17 @@ def main():
             A_ekf, B_ekf = Continuous_AB_Comp(ekf_state[0], ekf_state[1], ekf_state[2], ekf_state[5], u[1])
             ekf_state, P_ekf = EKF_filter(P_ekf, Q_ekf, R_ekf, A_ekf, B_ekf, C, ekf_state, u, y_meas, dt)
 
-
+        # elif abs(enc.vx) < 0.01:
+        #     est_state[:3] = 0.000001             
+        #     ol_state[:3]  = 0.000001
 
         # est_state[5] = wrap(est_state[5])
         # ol_state[5] = wrap(ol_state[5])
         # est_state[5] = yaw_correction(est_state[5])
         # ol_state[5] = yaw_correction(ol_state[5])
-
+        counter += 1
         print ("est_state",est_state)
+        print ("ol_state",ol_state)
 
         # angle_acc =  tf.transformations.quaternion_from_euler(0, 0, y_meas[-1])
 

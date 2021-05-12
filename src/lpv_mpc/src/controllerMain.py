@@ -252,7 +252,7 @@ def main():
             print("vx vy w epsi s ey: ", LocalState)
             print("\n")
 
-            vel_ref         = np.ones([6,1])
+            vel_ref         = np.ones([N,1])
             curv_ref        = np.zeros(N) # This is not used, instead the map is employed to get the road curvature
 
             # Check if the lap has finished
@@ -282,9 +282,9 @@ def main():
         ###################################################################################################
         ###################################################################################################
 
-        if first_it < 15:
+        if first_it < 5:
 
-            accel_rate  = 0.15
+            accel_rate  = 0.0
             delta = 0.1
             # xx, uu      = predicted_vectors_generation(N, LocalState, accel_rate, dt)
             xx, uu      = predicted_vectors_generation_new(N, LocalState, accel_rate, delta, dt)

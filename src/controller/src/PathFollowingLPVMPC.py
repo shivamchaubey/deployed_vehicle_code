@@ -4,7 +4,6 @@ from scipy import linalg, sparse
 import numpy as np
 from cvxopt.solvers import qp
 from cvxopt import spmatrix, matrix, solvers
-from utilities import Curvature
 import datetime
 from numpy import linalg as la
 import pdb
@@ -24,144 +23,77 @@ class PathFollowingLPV_MPC:
     Attributes:
         solve: given x0 computes the control action
     """
-    def __init__(self, Q, R, dR, N, vt, dt, map, planning_mode, Solver, steeringDelay, velocityDelay):
+    def __init__(self, N, vx_ref, dt, map):
+
 
         # Vehicle parameters:
-        # self.lf             = rospy.get_param("lf")
-        # self.lr             = rospy.get_param("lr")
-        # self.m              = rospy.get_param("m")
-        # self.I              = rospy.get_param("Iz")
-        # self.Cf             = rospy.get_param("Cf")
-        # self.Cr             = rospy.get_param("Cr")
-        # self.mu             = rospy.get_param("mu")
+        self.m     = rospy.get_param("m")
+        self.rho   = rospy.get_param("rho")
+        self.lr    = rospy.get_param("lr")
+        self.lf    = rospy.get_param("lf")
+        self.Cm0   = rospy.get_param("Cm0")
+        self.Cm1   = rospy.get_param("Cm1")
+        self.C0    = rospy.get_param("C0")
+        self.C1    = rospy.get_param("C1")
+        self.Cd_A  = rospy.get_param("Cd_A")
+        self.Caf   = rospy.get_param("Caf")
+        self.Car   = rospy.get_param("Car")
+        self.Iz    = rospy.get_param("Iz")
+
+    
 
         self.slow_mode_th   = rospy.get_param("slow_mode_th")
 
-        # Vehicle variables limits:
-        self.max_vel        = rospy.get_param("max_vel")
-        self.min_vel        = rospy.get_param("min_vel")
-        self.accel_max      = rospy.get_param("dutycycle_max")
-        self.accel_min      = rospy.get_param("dutycycle_min")
-        self.steer_max      = rospy.get_param("steer_max")
-        self.steer_min      = rospy.get_param("steer_min")
 
- 
-        self.A    = []
-        self.B    = []
-        self.C    = []
+        #maximum values
+        self.vx_max              = rospy.get_param("max_vel")
+        self.vx_min              = rospy.get_param("min_vel")
+        self.duty_max            = rospy.get_param("dutycycle_max")
+        self.duty_min            = rospy.get_param("dutycycle_min")
+        self.str_max             = rospy.get_param("steer_max")
+        self.str_min             = rospy.get_param("steer_min")
+        self.ey_max              = rospy.get_param("lat_e_max")
+        self.etheta_max          = rospy.get_param("orient_e_max")
+
+        self.dstr_max            = self.str_max*0.5
+        self.dstr_min            = self.str_min*0.5
+        self.dduty_max           = self.duty_max*0.5
+        self.dduty_min           = self.duty_min*0.5
+
+        vx_scale            = 1/((self.vx_max-self.vx_min)**2)
+        duty_scale          = 1/((self.duty_max-self.duty_min)**2)
+        str_scale           = 1/((self.str_max-self.str_min)**2)
+        ey_scale            = 1/((self.ey_max+self.ey_max)**2)
+        etheta_scale        = 1/((self.etheta_max+self.etheta_max)**2)
+        dstr_scale          = 1/((self.dstr_max-self.dstr_min)**2)
+        dduty_scale         = 1/((self.dduty_max-self.dduty_min)**2)
+
+
+        self.Q  = 0.9 * np.array([0.6*vx_scale, 0.0, 0.001, 0.8*etheta_scale, 0.0, 0.1*ey_scale])
+        self.R  = 0.05 * np.array([0.1*str_scale,0.1*duty_scale])     # delta, a
+        self.dR = 0.1 * np.array([0.1*dstr_scale,0.1*dduty_scale])  # Input rate cost u
+        self.Qe = np.array([1, 1, 1, 1, 1, 1])*(0.0)
+        # Create an OSQP object
+        self.prob = osqp.OSQP()
         self.N    = N
-        self.n    = Q.shape[0]
-        self.d    = R.shape[0]
-        self.vt   = vt
-        self.Q    = Q
-        self.R    = R
-        self.dR   = dR              # Slew rate
-        self.LinPoints = np.zeros((self.N+2,self.n))
+        self.nx    = self.Q.shape[0]
+        self.nu    = self.R.shape[0]
+        self.vx_ref   = vx_ref
+
+        self.LinPoints = np.zeros((self.N+2,self.nx))
+        self.xPred = []
+        self.uPred = []
         self.dt = dt                # Sample time 33 ms
+
+        self.soft_constraints = False
+        self.uminus1 = np.array([0,0]).T
 
         self.map = map
         self.halfWidth = map.halfWidth
 
         self.first_it = 1
 
-        self.steeringDelay = steeringDelay
-        self.velocityDelay = velocityDelay
-
-        self.OldSteering = [0.0]*int(1 + steeringDelay)
-
-        self.OldAccelera = [0.0]*int(1)
-
-        self.OldPredicted = [0.0]*int(1 + steeringDelay + N)
-
-        self.uold_steer = 0.0
-        self.uold_duty  = 0.0
-
-        self.Solver = Solver
-
-        self.F, self.b = _buildMatIneqConst(self)
-
-        self.G = []
-        self.E = []
-        self.L = []
-        self.Eu =[]
-
         self.feasible = 1
-
-
-# Controller.solve(LPV_States_Prediction[0,:], LPV_States_Prediction, Controller.uPred, vel_ref, curv_ref, A_L, B_L, C_L, first_it)
-
-
-    def solve(self, x0, Last_xPredicted, uPred, vel_ref, curv_ref, A_L, B_L ,C_L, first_it):
-        """Computes control action
-        Arguments:
-            x0: current state position
-            EA: Last_xPredicted: it is just used for the warm up
-            EA: uPred: set of last predicted control inputs used for updating matrix A LPV
-            EA: A_L, B_L ,C_L: Set of LPV matrices
-        """
-        startTimer = datetime.datetime.now()
-
-
-        #Euge: No tengo claro por que hacia esto... repasar en algun momento
-        if first_it < 5:
-            self.A, self.B, self.C  = _EstimateABC(self, Last_xPredicted, uPred, curv_ref)
-        else:
-            self.A = A_L
-            self.B = B_L
-            self.C = C_L
-
-        self.G, self.E, self.L, self.Eu  = _buildMatEqConst(self) # It's been introduced the C matrix (L in the output)
-
-        self.M, self.q          = _buildMatCost(self, uPred[0,:], vel_ref)
-
-        endTimer                = datetime.datetime.now()
-        deltaTimer              = endTimer - startTimer
-        self.linearizationTime  = deltaTimer
-
-        M = self.M   #P
-        q = self.q   #q
-        G = self.G   #A,  A * x == b
-        E = self.E   #b, A * x == b
-        L = self.L
-        Eu= self.Eu
-        F = self.F   #G, G * x <= h
-        b = self.b   #h, G * x <= h
-        n = self.n
-        N = self.N
-        d = self.d
-
-        uOld  = [self.OldSteering[0], self.OldAccelera[0]]
-
-        startTimer = datetime.datetime.now()
-
-
-        # osqp_solve_qp(P, q, G=None, h=None, A=None, b=None, initvals=None):
-        """
-            Solve a Quadratic Program defined as:
-            minimize
-                (1/2) * x.T * P * x + q.T * x
-            subject to
-                G * x <= h
-                A * x == b
-        """
-
-        res_cons, self.feasible = osqp_solve_qp(sparse.csr_matrix(M), q, sparse.csr_matrix(F),
-         b, sparse.csr_matrix(G), np.add( np.dot(E,x0),L[:,0],np.dot(Eu,uOld) ) )
-
-        if self.feasible == 0:
-            print("QUIT...")
-
-        Solution = res_cons.x
-
-        endTimer = datetime.datetime.now(); deltaTimer = endTimer - startTimer
-        self.solverTime = deltaTimer
-        self.xPred = np.squeeze(np.transpose(np.reshape((Solution[np.arange(n * (N + 1))]), (N + 1, n))))
-        self.uPred = np.squeeze(np.transpose(np.reshape((Solution[n * (N + 1) + np.arange(d * N)]), (N, d))))
-
-        self.LinPoints = np.concatenate( (self.xPred.T[1:,:], np.array([self.xPred.T[-1,:]])), axis=0 )
-        self.xPred = self.xPred.T
-        self.uPred = self.uPred.T
-
 
 
     def MPC_solve(self, A_vec, B_vec, u, x0, vel_ref):
@@ -172,91 +104,27 @@ class PathFollowingLPV_MPC:
         ## we want the vehicle to follow some velocity v_x so the weight will be set for it and lateral error
         ## and deviation will also be given some weight as we want the vehicle to follow the track
         
-
-        uOld  = [self.OldSteering[0], self.OldAccelera[0]]
-
         [N,nx,nu] = B_vec.shape 
         
         N = self.N
-    #     ## Discretizing using Euler###
-    #     A_d =  sparse.eye(nx)+ sparse.csc_matrix(A_sys*dt)
-    #     B_d = sparse.csc_matrix(B_sys*dt)  
-        
-        ## States and control input limits ##
-        
-        # Objective function
-
-        
-        # #maximum values
-        v_max               = rospy.get_param("max_vel")
-        v_min               = rospy.get_param("min_vel")
-        ac_max              = rospy.get_param("dutycycle_max")
-        ac_min              = rospy.get_param("dutycycle_min")
-        str_max             = rospy.get_param("steer_max")
-        str_min             = rospy.get_param("steer_min")
-        ey_max              = rospy.get_param("lat_e_max")
-        etheta_max          = rospy.get_param("orient_e_max")
-
-        # v_max               = 5.
-        # v_min               = -5.
-        # ac_max              = 1.
-        # ac_min              = -1.
-        # str_max             = 0.25
-        # str_min             = -0.25
-        # ey_max              = 0.4
-        # etheta_max          = 0.4   
-
-        dstr_max            = str_max*0.1
-        dstr_min            = str_min*0.1
-        dac_max             = ac_max*0.1
-        dac_min             = ac_min*0.1
-
-        vx_scale            = 1/((v_max-v_min)**2)
-        acc_scale           = 1/((ac_max-ac_min)**2)
-        str_scale           = 1/((str_max-str_min)**2)
-        ey_scale            = 1/((ey_max+ey_max)**2)
-        etheta_scale        = 1/((etheta_max+etheta_max)**2)
-        dstr_scale          = 1/((dstr_max-dstr_min)**2)
-        dacc_scale          = 1/((dac_max-dac_min)**2)
-
-
 
         ## Steering, Dutycyle
-        umin = np.array([str_min, ac_min]) 
-        umax = np.array([str_max, ac_max])
+        umin = np.array([self.str_min, self.duty_min]) 
+        umax = np.array([self.str_max, self.duty_max])
 
-        # umin = np.array([-0.25, -1.]) 
-        # umax = np.array([0.25, 1.])
-                        
-        ## vx,vy,omega,theta deviation 15deg , distance,lateral error from the track:: no constraint on s
-        # xmin = np.array([-v_min, -10000, -30, -1000, -10000, -ey_max])
-        # xmax = np.array([v_max, 10000, 30, 1000, 10000, ey_max])
-        
-
-        # xmin = np.array([v_min, -3., -3., -etheta_max, -10000., -ey_max])
-        # xmax = np.array([v_max, 3., 3., etheta_max, 10000., ey_max])
-
-        xmin = np.array([v_min, -10., -10., -100, -10000., -ey_max])
-        xmax = np.array([v_max, 10., 10., 100, 10000., ey_max])
-
-        Q  = 0.9 * np.array([0.8*vx_scale, 0.0, 0.00, 0.6*etheta_scale, 0.0, 0.6*ey_scale])
-        R  = 0.1 * np.array([0.05*str_scale,0.05*acc_scale])     # delta, a
-
-
-
+        xmin = np.array([self.vx_min, -3., -3., -100, -10000., -self.ey_max])
+        xmax = np.array([self.vx_max, 3., 3., 100, 10000., self.ey_max])
 
         # Q = [5., 0., 0., 15., 0., 5.]
         # R = [1., 5.]
-        Q = sparse.diags(Q)
+        Q = sparse.diags(self.Q)
         QN = Q
-        R = sparse.diags(R)
+        R = sparse.diags(self.R)
 
         # Initial and reference states
     #     x0 = np.zeros(12)
         xr = np.array([vel_ref,0.,0.,0.,0.,0.])
 
-        # Prediction horizon
-    #     N = 10
 
         # Cast MPC problem to a QP: x = (x(0),x(1),...,x(N),u(0),...,u(N-1))
         # - quadratic objective
@@ -272,12 +140,10 @@ class PathFollowingLPV_MPC:
         # - linear dynamics
         A_tr = sparse.lil_matrix((nx*len(A_vec)+nx, nx*len(A_vec)+nx))
         for i in range(1,len(A_vec)+1):
-    #         print i, nx*i,nx*i+nx,(i-1)*nx,(i-1)*nx+ nx, A_vec[i-1]
             A_tr[nx*i:nx*i+nx,(i-1)*nx:(i-1)*nx+ nx] = A_vec[i-1]
 
         B_tr = sparse.lil_matrix((nx*len(B_vec)+nx, nu*len(B_vec)))
         for i in range(1,len(B_vec)+1):
-    #         print i, nx*i,nx*i+nx,(i-1)*nx,(i-1)*nx+ nx, A_vec[i-1]
             B_tr[nx*i:nx*i+nx,(i-1)*nu:(i-1)*nu+ nu] = B_vec[i-1]
         
         Ax = sparse.kron(sparse.eye(N+1),-sparse.eye(nx)) + A_tr
@@ -350,202 +216,233 @@ class PathFollowingLPV_MPC:
 
 
 
-    def MPC_solve_integral(self, A_vec, B_vec, u, x0, vel_ref):
-    
-        ## x0:: should be the inital state at i=0 horizon
-        ## xr:: = should be the reference, set Q = 0 weight for states which is not
-        ## required to be minimized in objective function such as v_y, s, omega
-        ## we want the vehicle to follow some velocity v_x so the weight will be set for it and lateral error
-        ## and deviation will also be given some weight as we want the vehicle to follow the track
-        
-
-        uOld  = [self.OldSteering[0], self.OldAccelera[0]]
+    def MPC_setup(self, A_vec, B_vec, u, x0, vel_ref):
 
         [N,nx,nu] = B_vec.shape 
-        
-        N = self.N
-    #     ## Discretizing using Euler###
-    #     A_d =  sparse.eye(nx)+ sparse.csc_matrix(A_sys*dt)
-    #     B_d = sparse.csc_matrix(B_sys*dt)  
-        
-        ## States and control input limits ##
-        
-        # Objective function
 
-        
-        # #maximum values
-        # v_max               = rospy.get_param("max_vel")
-        # v_min               = rospy.get_param("min_vel")
-        # ac_max              = rospy.get_param("dutycycle_max")
-        # ac_min              = rospy.get_param("dutycycle_min")
-        # str_max             = rospy.get_param("steer_max")
-        # str_min             = rospy.get_param("steer_min")
-        # ey_max              = rospy.get_param("lat_e_max")
-        # etheta_max          = rospy.get_param("orient_e_max")
-
-        v_max               = 5.
-        v_min               = -5.
-        ac_max              = 1.
-        ac_min              = -1.
-        str_max             = 0.25
-        str_min             = -0.25
-        ey_max              = 0.4
-        etheta_max          = 0.4   
-
-        dstr_max            = str_max*0.05
-        dstr_min            = str_min*0.05
-        dac_max             = ac_max*0.05
-        dac_min             = ac_min*0.05
-
-        vx_scale            = 1/((v_max-v_min)**2)
-        acc_scale           = 1/((ac_max-ac_min)**2)
-        str_scale           = 1/((str_max-str_min)**2)
-        ey_scale            = 1/((ey_max+ey_max)**2)
-        etheta_scale        = 1/((etheta_max+etheta_max)**2)
-        dstr_scale          = 1/((dstr_max-dstr_min)**2)
-        dacc_scale          = 1/((dac_max-dac_min)**2)
-
-
-
-        ## Steering, Dutycyle
-        umin = np.array([str_min, ac_min]) 
-        umax = np.array([str_max, ac_max])
-
-        dumin = np.array([dstr_min, dac_min]) 
-        dumax = np.array([dstr_max, dac_max])
-
-        # umin = np.array([-0.25, -1.]) 
-        # umax = np.array([0.25, 1.])
-                        
-        ## vx,vy,omega,theta deviation 15deg , distance,lateral error from the track:: no constraint on s
-        # xmin = np.array([-v_min, -10000, -30, -1000, -10000, -ey_max])
-        # xmax = np.array([v_max, 10000, 30, 1000, 10000, ey_max])
-        
-
-        # xmin = np.array([v_min, -3., -3., -etheta_max, -10000., -ey_max])
-        # xmax = np.array([v_max, 3., 3., etheta_max, 10000., ey_max])
-
-        xmin = np.array([v_min, -3., -3., -100, -10000., -ey_max])
-        xmax = np.array([v_max, 3., 3., 100, 10000., ey_max])
-
-        Q  = 0.9 * np.array([.1*vx_scale, 0.0, 0.00, 0.3*etheta_scale, 0.0, 0.3*ey_scale])
-        # R  = 0.05 * np.array([0.05*str_scale,0.1*acc_scale])     # delta, a
-        dR  = 0.05 * np.array([0.05*dstr_scale,0.1*dacc_scale])     # delta, a
-
-
-
-
-        # Q = [5., 0., 0., 15., 0., 5.]
-        # R = [1., 5.]
-        Q = sparse.diags(Q)
-        QN = Q
-        R = sparse.diags(dR)
-        O = np.zeros(R.shape)#zero matrix
-        # Initial and reference states
-    #     x0 = np.zeros(12)
         xr = np.array([vel_ref,0.,0.,0.,0.,0.])
+        u_ref = np.array([0.0,1.5])
 
-        # Prediction horizon
-    #     N = 10
+        umin = np.array([self.str_min, self.duty_min]) 
+        umax = np.array([self.str_max, self.duty_max])
 
-        # Cast MPC problem to a QP: x = (x(0),x(1),...,x(N),u(0),...,u(N-1))
-        # - quadratic objective
-        P = sparse.block_diag([sparse.kron(sparse.eye(N), Q), QN,
-                               sparse.kron(sparse.eye(N), R), sparse.kron(sparse.eye(N), O)], format='csc')
+        dumin = np.array([self.dstr_min, self.dduty_min]) 
+        dumax = np.array([self.dstr_max, self.dduty_max])
 
+        xmin = np.array([self.vx_min, -3., -3., -100., -10000., -self.ey_max])
+        xmax = np.array([self.vx_max, 3., 3., 100., 10000., self.ey_max])
+    
+        '''Objective function formulation for integral action as well as slack variables'''
+        #################### P formulation ################################
+        
+        Q  = sparse.diags(self.Q)
+        QN = Q
+        R  = sparse.diags(self.R)
+        dR = sparse.diags(self.dR)
+        
+        Qeps  = sparse.diags(self.Qe)
+        
 
-        print "shape qn",QN.shape,'xr',xr.shape,"-QN.dot(xr)",-QN.dot(xr)
-        # - linear objective
-        q = np.hstack([np.kron(np.ones(N), -Q.dot(xr)), -QN.dot(xr),
-                       np.zeros(N*nu), np.zeros(N*nu)])
+        PQx = sparse.block_diag([sparse.kron(sparse.eye(N), Q), QN], format='csc')
+        PQu = sparse.kron(sparse.eye(N), R)
+        idu = (2 * np.eye(N) - np.eye(N, k=1) - np.eye(N, k=-1))
+        PQdu = sparse.kron(idu, dR)
+        PQeps = sparse.kron(sparse.eye(N+1), Qeps)
+        
+            
+        #################### q formulation ################################
+        
 
-        # - linear dynamics
+        qQx  = np.hstack([np.kron(np.ones(N), -Q.dot(xr)), -QN.dot(xr)])
+        qQu  = np.kron(np.ones(N), -R.dot(u_ref))
+        qQdu = np.hstack([-dR.dot(self.uminus1), np.zeros((N - 1) * nu)])
+        qQeps = np.zeros((N+1)*nx)
+        
+        print "qQx.shape",qQx.shape, "qQu.shape", qQu.shape, 'qQdu.shape', qQdu.shape, 'qQeps.shape', qQeps.shape
+        if self.soft_constraints:
+            self.P = sparse.block_diag([PQx, PQu + PQdu, PQeps], format='csc')
+            self.q = np.hstack([qQx, qQu + qQdu, qQeps])
+        else:
+            self.P = sparse.block_diag([PQx, PQu + PQdu], format='csc')
+            self.q = np.hstack([qQx, qQu + qQdu])
+            
+        
+        '''Equality constraints'''
+        
+        # - LPV dynamics
         A_tr = sparse.lil_matrix((nx*len(A_vec)+nx, nx*len(A_vec)+nx))
         for i in range(1,len(A_vec)+1):
-    #         print i, nx*i,nx*i+nx,(i-1)*nx,(i-1)*nx+ nx, A_vec[i-1]
             A_tr[nx*i:nx*i+nx,(i-1)*nx:(i-1)*nx+ nx] = A_vec[i-1]
 
         B_tr = sparse.lil_matrix((nx*len(B_vec)+nx, nu*len(B_vec)))
         for i in range(1,len(B_vec)+1):
-    #         print i, nx*i,nx*i+nx,(i-1)*nx,(i-1)*nx+ nx, A_vec[i-1]
             B_tr[nx*i:nx*i+nx,(i-1)*nu:(i-1)*nu+ nu] = B_vec[i-1]
         
         Ax = sparse.kron(sparse.eye(N+1),-sparse.eye(nx)) + A_tr
         Bu = B_tr
-        Omat = np.zeros(Bu.shape)
-        Aeq = sparse.hstack([Ax, Omat, Bu])
-        leq = np.hstack([-x0, np.zeros(N*nx)])
-        ueq = leq
-
-        # - input and state constraints
-        Aineq = sparse.eye((N+1)*nx + N*nu + N*nu) 
-        lineq = np.hstack([np.kron(np.ones(N+1), xmin), np.kron(np.ones(N), dumin), np.kron(np.ones(N), umin)])
-        uineq = np.hstack([np.kron(np.ones(N+1), xmax), np.kron(np.ones(N), dumax), np.kron(np.ones(N), umax)])
-
-        # - OSQP constraints
-        A = sparse.vstack([Aeq, Aineq], format='csc')
-        l = np.hstack([leq, lineq])
-        u = np.hstack([ueq, uineq])
         
-        # Create an OSQP object
-        prob = osqp.OSQP()
+        n_eps = (N + 1) * nx
+        self.Aeq = sparse.hstack([Ax, Bu])
+        if self.soft_constraints:
+            self.Aeq = sparse.hstack([self.Aeq, sparse.csc_matrix((self.Aeq.shape[0], n_eps))])
+        
+        self.leq = np.hstack([-x0, np.zeros(N*nx)])
+        self.ueq = self.leq
 
+                                                      
+        '''Inequality constraints'''
+                             
+        Aineq_x = sparse.hstack([sparse.eye((N + 1) * nx), sparse.csc_matrix(((N+1)*nx, N*nu))])
+        if self.soft_constraints:
+            Aineq_x = sparse.hstack([Aineq_x, sparse.eye(n_eps)]) # For soft constraints slack variables
+        lineq_x = np.kron(np.ones(N + 1), xmin) # lower bound of inequalities
+        uineq_x = np.kron(np.ones(N + 1), xmax) # upper bound of inequalities
+
+        Aineq_u = sparse.hstack([sparse.csc_matrix((N*nu, (N+1)*nx)), sparse.eye(N * nu)])
+        if self.soft_constraints:
+            Aineq_u = sparse.hstack([Aineq_u, sparse.csc_matrix((Aineq_u.shape[0], n_eps))]) # For soft constraints slack variables
+        lineq_u = np.kron(np.ones(N), umin)     # lower bound of inequalities
+        uineq_u = np.kron(np.ones(N), umax)     # upper bound of inequalities
+
+
+        # - bounds on \Delta u
+        Aineq_du = sparse.vstack([sparse.hstack([np.zeros((nu, (N + 1) * nx)), sparse.eye(nu), np.zeros((nu, (N - 1) * nu))]),  # for u0 - u-1
+                                  sparse.hstack([np.zeros((N * nu, (N+1) * nx)), -sparse.eye(N * nu) + sparse.eye(N * nu, k=1)])  # for uk - uk-1, k=1...Np
+                                  ]
+                                 )
+        if self.soft_constraints:
+            Aineq_du = sparse.hstack([Aineq_du, sparse.csc_matrix((Aineq_du.shape[0], n_eps))])
+
+        uineq_du = np.kron(np.ones(N+1), dumax) #np.ones((Nc+1) * nu)*Dumax
+        uineq_du[0:nu] += self.uminus1[0:nu]
+
+        lineq_du = np.kron(np.ones(N+1), dumin) #np.ones((Nc+1) * nu)*Dumin
+        lineq_du[0:nu] += self.uminus1[0:nu] # works for nonscalar u?
+
+        self.A = sparse.vstack([self.Aeq, Aineq_x, Aineq_u, Aineq_du]).tocsc()
+        self.l = np.hstack([self.leq, lineq_x, lineq_u, lineq_du])
+        self.u = np.hstack([self.ueq, uineq_x, uineq_u, uineq_du])
+
+        print "self.P.shape", self.P.shape, 'self.q.shape', self.q.shape, 'self.l.shape', self.l.shape, 'self.u.shape' ,self.u.shape
         # Setup workspace
-        prob.setup(P, q, A, l, u, warm_start=True, polish=True)
-        
-        
-        startTimer = datetime.datetime.now()
-
-        # Solve
-        res = prob.solve()
-
-        # Check solver status
-        if res.info.status != 'solved':
-            print ('OSQP did not solve the problem!')
+        self.prob.setup(self.P, self.q, self.A, self.l, self.u, warm_start=True, polish=True)
         
 
-        Solution = res.x
+     
+    def MPC_update(self, A_vec, B_vec, u, x0, vel_ref):
+        [N,nx,nu] = B_vec.shape 
 
-        print "Solution shape", Solution.shape
-        endTimer = datetime.datetime.now(); deltaTimer = endTimer - startTimer
-        self.solverTime = deltaTimer
+
+        umin = np.array([self.str_min, self.duty_min]) 
+        umax = np.array([self.str_max, self.duty_max])
+
+        dumin = np.array([self.dstr_min, self.dduty_min]) 
+        dumax = np.array([self.dstr_max, self.dduty_max])
+
+        xmin = np.array([self.vx_min, -3., -3., -100, -10000., -self.ey_max])
+        xmax = np.array([self.vx_max, 3., 3., 100, 10000., self.ey_max])
+
+        '''Equality constraints'''
         
-        print "control to be applied",Solution[-N*nu:-(N-1)*nu] ### Delatu+u(k-1)
-        # print "control to be applied",Solution[-2*N*nu:-(2*N-1)*nu]   ### Deltau
+        # - LPV dynamics
+        A_tr = sparse.lil_matrix((nx*len(A_vec)+nx, nx*len(A_vec)+nx))
+        for i in range(1,len(A_vec)+1):
+            A_tr[nx*i:nx*i+nx,(i-1)*nx:(i-1)*nx+ nx] = A_vec[i-1]
 
-
-        self.xPred = np.squeeze(np.transpose(np.reshape((Solution[np.arange(nx * (N + 1))]), (N + 1, nx))))
-        self.uPred = np.squeeze(np.transpose(np.reshape((Solution[-N*nu:]), (N, nu))))
-
-        # self.uPred = np.squeeze(np.transpose(np.reshape((Solution[-2*N*nu:]), (2*N, nu))))
-
-        # self.LinPoints = np.concatenate( (self.xPred.T[1:,:], np.array([self.xPred.T[-1,:]])), axis=0 )
-        self.xPred = self.xPred.T
-        self.uPred = self.uPred.T
-
-
-
-        # self.xPred = Solution[:(N+1)*nx]
-        # self.xPred = self.xPred.reshape(nx,N+1) 
-        print "xppredshape", self.xPred.shape
-        # self.uPred = Solution[(N+1)*nx:]
-        # self.uPred = self.uPred.reshape(nu,N)
-        print "uppredshape", self.uPred.shape
-        # self.xPred = np.squeeze(np.transpose(np.reshape((Solution[np.arange(n * (N + 1))]), (N + 1, n))))
-        # self.uPred = np.squeeze(np.transpose(np.reshape((Solution[n * (N + 1) + np.arange(d * N)]), (N, d))))
-
-        # self.LinPoints = np.concatenate( (self.xPred.T[1:,:], np.array([self.xPred.T[-1,:]])), axis=0 )
-        # self.xPred = self.xPred.T
-        # self.uPred = self.uPred.T
-
-        print "\n self.uPred", self.uPred
-
-        print "\n self.xPred", self.xPred
-
+        B_tr = sparse.lil_matrix((nx*len(B_vec)+nx, nu*len(B_vec)))
+        for i in range(1,len(B_vec)+1):
+            B_tr[nx*i:nx*i+nx,(i-1)*nu:(i-1)*nu+ nu] = B_vec[i-1]
         
+        Ax = sparse.kron(sparse.eye(N+1),-sparse.eye(nx)) + A_tr
+        Bu = B_tr
+        
+        n_eps = (N + 1) * nx
+        self.Aeq = sparse.hstack([Ax, Bu])
+        if self.soft_constraints:
+            self.Aeq = sparse.hstack([self.Aeq, sparse.csc_matrix((self.Aeq.shape[0], n_eps))])
+        
+        self.A[:self.Aeq.shape[0], :self.Aeq.shape[1]] = self.Aeq
+        self.l[:nx] = -x0
+        self.u[:nx] = -x0
+
+        print "dumin + self.uminus1[0:nu]", (dumin , self.uminus1[0:nu])
+        print "self.l[(N+1)*nx + (N+1)*nx + (N)*nu:(N+1)*nx + (N+1)*nx + (N)*nu + nu]", self.l[(N+1)*nx + (N+1)*nx + (N)*nu:(N+1)*nx + (N+1)*nx + (N)*nu + nu].shape
+
+        self.l[(N+1)*nx + (N+1)*nx + (N)*nu:(N+1)*nx + (N+1)*nx + (N)*nu + nu] = dumin + self.uminus1[0:nu]  # update constraint on \Delta u0: Dumin <= u0 - u_{-1}
+        self.u[(N+1)*nx + (N+1)*nx + (N)*nu:(N+1)*nx + (N+1)*nx + (N)*nu + nu] = dumax + self.uminus1[0:nu]  # update constraint on \Delta u0: u0 - u_{-1} <= Dumax
+
+        self.prob.update( Ax = self.A.data, l= self.l, u= self.u)
 
 
-    def LPVPrediction(self, x, u, vel_ref, curv_ref, planning_mode):
+
+    def output(self, return_x_seq=False, return_u_seq=False, return_eps_seq=False, return_status=False, return_obj_val=False):
+        """ Return the MPC controller output uMPC, i.e., the first element of the optimal input sequence and assign is to self.uminus1_rh.
+        Parameters
+        ----------
+        return_x_seq : bool
+                       If True, the method also returns the optimal sequence of states in the info dictionary
+        return_u_seq : bool
+                       If True, the method also returns the optimal sequence of inputs in the info dictionary
+        return_eps_seq : bool
+                       If True, the method also returns the optimal sequence of epsilon in the info dictionary
+        return_status : bool
+                       If True, the method also returns the optimizer status in the info dictionary
+        return_obj_val : bool
+                       If True, the method also returns the objective function value in the info dictionary
+        Returns
+        -------
+        array_like (nu,)
+            The first element of the optimal input sequence uMPC to be applied to the system.
+        dict
+            A dictionary with additional infos. It is returned only if one of the input flags return_* is set to True
+        """
+        Nc = self.Nc
+        Np = self.Np
+        nx = self.nx
+        nu = self.nu
+
+        # Extract first control input to the plant
+        if self.res.info.status == 'solved':
+            uMPC = self.res.x[(Np+1)*nx:(Np+1)*nx + nu]
+        else:
+            uMPC = self.u_failure
+
+        # Return additional info?
+        info = {}
+        if return_x_seq:
+            seq_X = self.res.x[0:(Np+1)*nx]
+            seq_X = seq_X.reshape(-1,nx)
+            info['x_seq'] = seq_X
+
+        if return_u_seq:
+            seq_U = self.res.x[(Np+1)*nx:(Np+1)*nx + Nc*nu]
+            seq_U = seq_U.reshape(-1,nu)
+            info['u_seq'] = seq_U
+
+        if return_eps_seq:
+            seq_eps = self.res.x[(Np+1)*nx + Nc*nu : (Np+1)*nx + Nc*nu + (Np+1)*nx ]
+            seq_eps = seq_eps.reshape(-1,nx)
+            info['eps_seq'] = seq_eps
+
+        if return_status:
+            info['status'] = self.res.info.status
+
+        if return_obj_val:
+            obj_val = self.res.info.obj_val + self.J_CNST # constant of the objective value
+            info['obj_val'] = obj_val
+
+        self.uminus1_rh = uMPC
+
+        if len(info) == 0:
+            return uMPC
+
+        else:
+            return uMPC, info
+
+
+
+
+    def LPVPrediction(self, x, u, vel_ref):
         #############################################
         ## States:
         ##   long velocity    [vx]
@@ -563,27 +460,19 @@ class PathFollowingLPV_MPC:
         ##   vx, vy, epsi, ey, cur
         #############################################
 
-        # lf  = self.lf
-        # lr  = self.lr
-        # m   = self.m
-        # I   = self.I
-        # Cf  = self.Cf
-        # Cr  = self.Cr
-        # mu  = self.mu
 
-
-        m = 2.424;
-        rho = 1.225;
-        lr = 0.1203;
-        lf = 0.1377;
-        Cm0 = 10.1305;
-        Cm1 = 1.05294;
-        C0 = 3.68918;
-        C1 = 0.0306803;
-        Cd_A = -0.657645;
-        Caf = 1.3958;
-        Car = 1.6775;
-        Iz = 0.02;
+        m     = self.m;
+        rho   = self.rho;
+        lr    = self.lr;
+        lf    = self.lf;
+        Cm0   = self.Cm0;
+        Cm1   = self.Cm1;
+        C0    = self.C0;
+        C1    = self.C1;
+        Cd_A  = self.Cd_A;
+        Caf   = self.Caf;
+        Car   = self.Car;
+        Iz    = self.Iz;
 
         STATES_vec = np.zeros((self.N, 6))
 
@@ -607,14 +496,9 @@ class PathFollowingLPV_MPC:
             if s < 0:
                 s = 0
 
-            if planning_mode == 2:
-
-                PointAndTangent = self.map.PointAndTangent
-                cur     = Curvature(s, PointAndTangent) # From map
+            PointAndTangent = self.map.PointAndTangent
+            cur     = Curvature(s, PointAndTangent) # From map
                 # print "PointAndTangent",PointAndTangent,"s", s 
-
-            else:
-                cur     = float(curv_ref[i,0]) # From planner
 
             vx      = float(vel_ref[i,0])
 
@@ -725,7 +609,34 @@ class PathFollowingLPV_MPC:
 # =============================== Internal functions for MPC reformulation to QP =======================================
 # ======================================================================================================================
 # ======================================================================================================================
+def Curvature(s, PointAndTangent):
+    """curvature and desired velocity computation
+    s: curvilinear abscissa at which the curvature has to be evaluated
+    PointAndTangent: points and tangent vectors defining the map (these quantities are initialized in the map object)
+    """
+    TrackLength = PointAndTangent[-1,3]+PointAndTangent[-1,4]
 
+    # In case on a lap after the first one
+    while (s > TrackLength):
+        s = s - TrackLength
+    #     print(s)
+    #     print("\n")
+    # print(PointAndTangent)
+    # print("\n")
+
+    # Given s \in [0, TrackLength] compute the curvature
+    # Compute the segment in which system is evolving
+    index = np.all([[s >= PointAndTangent[:, 3]], [s < PointAndTangent[:, 3] + PointAndTangent[:, 4]]], axis=0)
+    # print("\n")
+    # print(index)
+    # print(np.where(np.squeeze(index))[0])
+    # print("\n")
+    i = int(np.where(np.squeeze(index))[0]) #EA: this works
+    #i = np.where(np.squeeze(index))[0]     #EA: this does not work
+
+    curvature = PointAndTangent[i, 5]
+
+    return curvature
 
 
 
