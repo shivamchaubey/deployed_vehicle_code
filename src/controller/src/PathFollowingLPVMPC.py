@@ -69,8 +69,8 @@ class PathFollowingLPV_MPC:
         dduty_scale         = 1/((self.dduty_max-self.dduty_min)**2)
 
 
-        self.Q  = 0.9 * np.array([0.6*vx_scale, 0.0, 0.001, 0.8*etheta_scale, 0.0, 0.1*ey_scale])
-        self.R  = 0.05 * np.array([0.1*str_scale,0.1*duty_scale])     # delta, a
+        self.Q  = 0.9 * np.array([0.4*vx_scale, 0.0, 0.001, 0.4*etheta_scale, 0.0, 0.8*ey_scale])
+        self.R  = 0.1 * np.array([0.1*str_scale,0.1*duty_scale])     # delta, a
         self.dR = 0.1 * np.array([0.1*dstr_scale,0.1*dduty_scale])  # Input rate cost u
         self.Qe = np.array([1, 1, 1, 1, 1, 1])*(0.0)
         # Create an OSQP object
@@ -112,8 +112,8 @@ class PathFollowingLPV_MPC:
         umin = np.array([self.str_min, self.duty_min]) 
         umax = np.array([self.str_max, self.duty_max])
 
-        xmin = np.array([self.vx_min, -3., -3., -100, -10000., -self.ey_max])
-        xmax = np.array([self.vx_max, 3., 3., 100, 10000., self.ey_max])
+        xmin = np.array([self.vx_min, -3., -3., -self.etheta_max, -10000., -self.ey_max])
+        xmax = np.array([self.vx_max, 3., 3., self.etheta_max, 10000., self.ey_max])
 
         # Q = [5., 0., 0., 15., 0., 5.]
         # R = [1., 5.]

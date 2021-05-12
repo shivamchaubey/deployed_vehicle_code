@@ -169,8 +169,8 @@ class vehicle_control_action(object):
 def main():
 
 
-    rospy.init_node('realtime_response', anonymous=True)
-    loop_rate       = 100
+    rospy.init_node('MPC_controller_plot', anonymous=True)
+    loop_rate       = 1000
     rate            = rospy.Rate(loop_rate)
 
     track_map = Map()
@@ -188,7 +188,7 @@ def main():
     vehicle_visualization = True
     states_visualization  = False
     error_visualization   = True
-    control_visualization = True
+    control_visualization  = True
     window_size = 100
     
     if vehicle_visualization == True:
@@ -240,7 +240,7 @@ def main():
         line_yaw_est_his     =  [0.0]*window_size
         line_yaw_meas_his    =  [0.0]*window_size
 
-    if control_visualization == True:    
+    if control_visualization  == True:    
         x_lim = 100
         y_lim = 1.2
         fig_cont, plt_cont, line_dutycycle, line_steer = plot_control(x_lim,y_lim)
@@ -409,19 +409,20 @@ def main():
             plt_dy.show()
 
 
-            if control_visualization == True:
-                line_dutycycle_his.append(vehicle_control.duty_cycle)
-                line_steer_his.append(vehicle_control.steer)
+        if control_visualization == True:
+            
+            line_dutycycle_his.append(vehicle_control.duty_cycle)
+            line_steer_his.append(vehicle_control.steer)
 
-                line_dutycycle_his.pop(0)
-                line_steer_his.pop(0)
+            line_dutycycle_his.pop(0)
+            line_steer_his.pop(0)
 
-                line_dutycycle.set_data(range(counter, counter + window_size ) ,line_dutycycle_his)
-                line_steer.set_data(range(counter, counter + window_size ) ,line_steer_his)
-                plt_cont.xlim(counter, counter + window_size)
+            line_dutycycle.set_data(range(counter, counter + window_size ) ,line_dutycycle_his)
+            line_steer.set_data(range(counter, counter + window_size ) ,line_steer_his)
+            plt_cont.xlim(counter, counter + window_size)
 
-                fig_cont.canvas.draw()
-                plt_cont.show()
+            fig_cont.canvas.draw()
+            plt_cont.show()
 
             
 

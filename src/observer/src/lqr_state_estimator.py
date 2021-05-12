@@ -1245,7 +1245,7 @@ def main():
 
     while not (rospy.is_shutdown()):
         
-
+        u = np.array([control_input.duty_cycle, control_input.steer]).T
         # y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, angle_acc]).T
         # y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, fcam.yaw]).T  
         # y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, imu.yaw]).T 
@@ -1286,9 +1286,9 @@ def main():
         y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, angle_acc]).T 
 
 
-        if abs(control_input.duty_cycle) > 0.08:
+
+        if abs(u[0]) > 0.08:
             dt = curr_time - prev_time 
-            u = np.array([control_input.duty_cycle, control_input.steer]).T
             # print ("u",u)
             
             ####### LQR ESTIMATION ########
@@ -1312,6 +1312,12 @@ def main():
             A_ekf, B_ekf = Continuous_AB_Comp(ekf_state[0], ekf_state[1], ekf_state[2], ekf_state[5], u[1])
             ekf_state, P_ekf = EKF_filter(P_ekf, Q_ekf, R_ekf, A_ekf, B_ekf, C, ekf_state, u, y_meas, dt)
 
+        if abs(u[0]) <= 0.08:
+                #     # vehicle_sim.vehicle_model(u, simulator_dt)
+                    # if vehicle_sim.vx <= 0.01 :
+                    est_state[:-3] = 0.000001 
+                    ol_state[:-3] = 0.000001
+                    
         # elif abs(enc.vx) < 0.01:
         #     est_state[:3] = 0.000001             
         #     ol_state[:3]  = 0.000001

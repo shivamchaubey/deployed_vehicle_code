@@ -333,9 +333,9 @@ def main():
             line_meas.set_data(meas_x_his, meas_y_his)
 
             ############# Dynamic window size ##############
-            min_x_lim = min(min(ol_x_his) - margin*min(ol_x_his), min(meas_x_his) - margin*min(meas_x_his)) 
+            min_x_lim = min(min(ol_x_his) + margin*min(ol_x_his), min(meas_x_his) + margin*min(meas_x_his)) 
             max_x_lim = max(max(ol_x_his) + margin*max(ol_x_his), max(meas_x_his) + margin*max(meas_x_his))
-            min_y_lim = min(min(ol_y_his) - margin*min(ol_y_his), min(meas_y_his) - margin*min(meas_y_his))
+            min_y_lim = min(min(ol_y_his) + margin*min(ol_y_his), min(meas_y_his) + margin*min(meas_y_his))
             max_y_lim = max(max(ol_y_his) + margin*max(ol_y_his), max(meas_y_his) + margin*max(meas_y_his))
 
             if (x_lim_init_max < max_x_lim):
@@ -446,25 +446,22 @@ def main():
             line_yaw_est.set_data( range(counter, counter + window_size ) ,line_yaw_est_his)
             line_yaw_meas.set_data( range(counter, counter + window_size ) ,line_yaw_meas_his)
             axs_dy[2,1].set_xlim(counter, counter + window_size ) # FOR SETTING THE DYNAMIC AXES
-            axs_dy[2,1].set_ylim(min(min(line_yaw_meas_his) - margin*min(line_yaw_meas_his)\
-                , min(line_yaw_ol_his) - margin*min(line_yaw_ol_his)), \
+            axs_dy[2,1].set_ylim(min(min(line_yaw_meas_his) + margin*min(line_yaw_meas_his)\
+                , min(line_yaw_ol_his) + margin*min(line_yaw_ol_his)), \
             max(max(line_yaw_meas_his) + margin*max(line_yaw_meas_his), max(line_yaw_ol_his) + margin*max(line_yaw_ol_his))) # FOR SETTING THE DYNAMIC AXES
                 
 
-            if control_visualization == True:
+        if control_visualization == True:
 
-                print "vehicle_control.duty_cycle", vehicle_control.duty_cycle
-                line_dutycycle_his.append(vehicle_control.duty_cycle)
-                line_steer_his.append(vehicle_control.steer)
+            line_dutycycle_his.append(vehicle_control.duty_cycle)
+            line_steer_his.append(vehicle_control.steer)
 
-                # if counter >window_size:
+            line_dutycycle_his.pop(0)
+            line_steer_his.pop(0)
 
-                line_dutycycle_his.pop(0)
-                line_steer_his.pop(0)
-
-                line_dutycycle.set_data(range(counter, counter + window_size ) ,line_dutycycle_his)
-                line_steer.set_data(range(counter, counter + window_size ) ,line_steer_his)
-                plt_cont.xlim(counter, counter + window_size )
+            line_dutycycle.set_data(range(counter, counter + window_size ) ,line_dutycycle_his)
+            line_steer.set_data(range(counter, counter + window_size ) ,line_steer_his)
+            plt_cont.xlim(counter, counter + window_size )
 
 
         fig_dy.canvas.draw()
