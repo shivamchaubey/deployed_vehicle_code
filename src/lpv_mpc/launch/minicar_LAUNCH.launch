@@ -46,7 +46,7 @@
     <node pkg="lpv_mpc"         type="controllerMain.py"    name="control" output="screen">
         <param name="vel_th"    type="double"   value="0.7" />
         <param name="N"         type="int"      value="8" />
-        <param name="Hz"        type="double"   value="30" />
+        <param name="Hz"        type="double"   value="50" />
         <param name="vel_ref"   type="double"   value="0.6"/>
     </node>
 

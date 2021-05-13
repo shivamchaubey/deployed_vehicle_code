@@ -27,6 +27,29 @@ from math import pi
 np.set_printoptions(formatter={'float': lambda x: "{0:0.3f}".format(x)})
 
 
+
+
+
+
+class EstimatorData(object):
+    """Data from estimator"""
+    def __init__(self):
+
+        rospy.Subscriber("est_state_info", sensorReading, self.estimator_callback)
+        self.CurrentState = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        print "Subscribed to observer"
+    
+    def estimator_callback(self, msg):
+        """
+        Unpack the messages from the estimator
+        """
+        self.CurrentState = np.array([msg.vx, msg.vy, msg.yaw_rate, msg.X, msg.Y, msg.yaw]).T
+
+
+
+
+
+
 def main():
 
     rospy.init_node("LPV_MPC")
@@ -84,14 +107,14 @@ def main():
 
         # Read Measurements
         GlobalState[:] = estimatorData.CurrentState  # The current estimated state vector [vx vy w x y psi]
-        GlobalState[5] = (GlobalState[5] + pi) % (2 * pi) - pi #wrap(GlobalState[5] - 2 * np.pi * LapNumber)
+        GlobalState[5] =  wrap(GlobalState[5] - 2 * np.pi * LapNumber) #(GlobalState[5] + pi) % (2 * pi) - pi
         LocalState[:]  = estimatorData.CurrentState  # [vx vy w x y psi]
 
         if test_gen == 2:
 
             # OUT: s, ey, epsi       IN: x, y, psi
             LocalState[4], LocalState[5], LocalState[3], insideTrack = map.getLocalPosition(
-                GlobalState[3], GlobalState[4], (GlobalState[5] + pi) % (2 * pi) - pi )
+                GlobalState[3], GlobalState[4], wrap(GlobalState[5]))
 
             print("\n")
             print("vx vy w x y yaw: ", GlobalState)
@@ -125,29 +148,40 @@ def main():
 
         if first_it < 5:
 
-            accel_rate  = 0.0
+            duty_cycle  = 0.0
             delta = 0.01
             # xx, uu      = predicted_vectors_generation(N, LocalState, accel_rate, dt)
-            xx, uu      = predicted_vectors_generation_new(N, LocalState, accel_rate, delta, dt)
+            xx, uu      = predicted_vectors_generation_new(N, LocalState, duty_cycle, delta, dt)
             
             Controller.uPred = uu
-            LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction(LocalState[0:6], Controller.uPred, vel_ref*0.0)
-            # if first_it == 0:
-            #     Controller.MPC_setup(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref) 
-            #     [N,nx,nu] = B_L.shape 
-
+            
+            first_it    = first_it + 1
+            Controller.uminus1 = Controller.uPred[0,:]
 
         else:
 
+            print "Controller.uminus1", Controller.uminus1
+
+            LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction(LocalState[0:6], Controller.uPred, vel_ref)
+
+            # if first_it == 5:
+            #     print "MPC setup"
+            #     Controller.simple_MPC_setup(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref) 
+            #     Controller.simple_MPC_solve()
+            #     first_it    = first_it + 1
+            # else:
             # print ("Controller.uPred shape", Controller.uPred.shape)
             #Controller.solve(LPV_States_Prediction[0,:], LPV_States_Prediction, Controller.uPred, vel_ref, curv_ref, A_L, B_L, C_L, first_it)
 
 
             # print "LPV_States_Prediction",LPV_States_Prediction.shape 
-            print "LocalState[0:6]",LocalState[0:6]
+            # print "LocalState[0:6]",LocalState[0:6]
             # print (B_L.shape)
-            Controller.MPC_solve(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref)
-            # Controller.MPC_solve_integral(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref)
+                # Controller.simple_MPC_update(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref)
+                # Controller.simple_MPC_solve()
+
+
+            Controller.MPC_integral_solve(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref)
 
                         # Solve
             # res = Controller.prob.solve()
@@ -168,8 +202,14 @@ def main():
             # Controller.uPred = np.squeeze(np.transpose(np.reshape((Solution[nx * (N + 1) + np.arange(nu * N)]), (N, nu)))).T
 
             # print "Controller.uPred", Controller.uPred
-            # Controller.uminus1 = Controller.uPred[0,:]            
-            LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction(LocalState[0:6], Controller.uPred, vel_ref*0.0)
+            if Controller.uPred[0,0]  == None:
+                Controller.uPred[0,0] = 0.0
+            if Controller.uPred[0,1]  == None:  
+                Controller.uPred[0,1] = 0.0
+
+            Controller.uminus1 = Controller.uPred[0,:] 
+            print 'Controller.uminus1', Controller.uminus1, 'Controller.uPred[0,:]', Controller.uPred[0,:]            
+            # LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction(LocalState[0:6], Controller.uPred, vel_ref*0.0)
 
             # Controller.MPC_update(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref)
 
@@ -185,11 +225,11 @@ def main():
             #     controller_Flag_msg.data = False
             #     controller_Flag.publish(controller_Flag_msg)
 
-
+        print "TimeCounter", TimeCounter
         print('control actions',"delta", Controller.uPred[0,0],"dutycycle", Controller.uPred[0,1])
         print('\n')
 
-        first_it    = first_it + 1
+        # first_it    = first_it + 1
         ## Publish input simulation ##
         cmd_servo = Controller.uPred[0,0]
         cmd_motor = Controller.uPred[0,1]
@@ -207,20 +247,6 @@ def main():
 # ===============================================================================================================================
 # ==================================================== END OF MAIN ==============================================================
 # ===============================================================================================================================
-
-class EstimatorData(object):
-    """Data from estimator"""
-    def __init__(self):
-
-        rospy.Subscriber("est_state_info", sensorReading, self.estimator_callback)
-        self.CurrentState = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        print "Subscribed to observer"
-    
-    def estimator_callback(self, msg):
-        """
-        Unpack the messages from the estimator
-        """
-        self.CurrentState = np.array([msg.vx, msg.vy, msg.yaw_rate, msg.X, msg.Y, msg.yaw]).T
 
 
 def Body_Frame_Errors (x, y, psi, xd, yd, psid, s0, vx, vy, curv, dt):

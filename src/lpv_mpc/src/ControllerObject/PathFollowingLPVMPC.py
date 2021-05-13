@@ -4,7 +4,7 @@ from scipy import linalg, sparse
 import numpy as np
 from cvxopt.solvers import qp
 from cvxopt import spmatrix, matrix, solvers
-from utilities import Curvature
+# from utilities import Curvature
 import datetime
 from numpy import linalg as la
 import pdb
@@ -239,7 +239,7 @@ class PathFollowingLPV_MPC:
         xmin = np.array([v_min, -10., -100., -100, -10000., -ey_max])
         xmax = np.array([v_max, 10., 100., 100, 10000., ey_max])
 
-        Q  = 0.9 * np.array([0.4*vx_scale, 0.0, 0.00, 0.6*etheta_scale, 0.0, 0.4*ey_scale])
+        Q  = 0.9 * np.array([0.4*vx_scale, 0.0, 0.00, 0.1*etheta_scale, 0.0, 0.8*ey_scale])
         R  = 0.1 * np.array([0.05*str_scale,0.05*acc_scale])     # delta, a
 
 
@@ -630,7 +630,7 @@ class PathFollowingLPV_MPC:
             delta = float(u[i,0])
             dutycycle = float(u[i,1])
 
-            if abs(dutycycle) < 0.8:
+            if abs(dutycycle) <= 0.08:
                 u[i,1] = 0.             
 
             F_flat = 0;
@@ -704,7 +704,8 @@ class PathFollowingLPV_MPC:
 
             print "np.transpose(np.reshape(u[i,:],(1,2)))",np.transpose(np.reshape(u[i,:],(1,2)))
             states_new = np.dot(Ai, states) + np.dot(Bi, np.transpose(np.reshape(u[i,:],(1,2))))
-
+            print "states_new", states_new
+            
             STATES_vec[i] = np.reshape(states_new, (6,))
 
             states = states_new
@@ -1111,3 +1112,33 @@ def _EstimateABC(Controller, Last_xPredicted, uPredicted, curv_ref):
 
     return np.array(Atv), np.array(Btv), np.array(Ctv)
 
+
+# EA: Modified for taking also the desired velocity
+def Curvature(s, PointAndTangent):
+    """curvature and desired velocity computation
+    s: curvilinear abscissa at which the curvature has to be evaluated
+    PointAndTangent: points and tangent vectors defining the map (these quantities are initialized in the map object)
+    """
+    TrackLength = PointAndTangent[-1,3]+PointAndTangent[-1,4]
+
+    # In case on a lap after the first one
+    while (s > TrackLength):
+        s = s - TrackLength
+    #     print(s)
+    #     print("\n")
+    # print(PointAndTangent)
+    # print("\n")
+
+    # Given s \in [0, TrackLength] compute the curvature
+    # Compute the segment in which system is evolving
+    index = np.all([[s >= PointAndTangent[:, 3]], [s < PointAndTangent[:, 3] + PointAndTangent[:, 4]]], axis=0)
+    # print("\n")
+    # print(index)
+    # print(np.where(np.squeeze(index))[0])
+    # print("\n")
+    i = int(np.where(np.squeeze(index))[0]) #EA: this works
+    #i = np.where(np.squeeze(index))[0]     #EA: this does not work
+
+    curvature = PointAndTangent[i, 5]
+
+    return curvature
