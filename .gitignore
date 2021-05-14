@@ -1,5 +1,4 @@
 *.npy
-*.bag
 *.pdf
 *.odt
 build
