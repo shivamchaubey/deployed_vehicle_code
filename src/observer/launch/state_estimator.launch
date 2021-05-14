@@ -51,17 +51,17 @@
         <param name="init_yaw"  type="double" value="0.01" />
 
 
-        <?ignore
         <!-- If transformation needed from estamed frame of reference to another -->
-        <param name="x_tf"      type="double" value="0.42998579" />
-        <param name="y_tf"      type="double" value="-1.1021565" />
+        <param name="x_tf"      type="double" value="$(eval 0.42998579 + 0.44111128)" />
+        <param name="y_tf"      type="double" value="$(eval -1.1021565 + 0.27882835)" />
         <!-- Map rotation -->
         <param name="theta_tf"  type="double" value="-90.0" />
         <!-- Vehicle orientation-->
         <param name="yaw_tf"    type="double" value="-90.0" />
-        ?>
-
         
+          
+
+        <?ignore
         <!-- FOR TESTING PUSPOSE -->
         <param name="x_tf"      type="double" value="0.0" />
         <param name="y_tf"      type="double" value="0.0" />
@@ -69,7 +69,7 @@
         <param name="theta_tf"  type="double" value="0.0" />
         <!-- Vehicle orientation-->
         <param name="yaw_tf"    type="double" value="0.0" />
-        
+        ?>        
 
 
 
@@ -105,7 +105,7 @@
         <param name="init_y"    type="double" value="0.005" />
         <param name="init_yaw"  type="double" value="0.01" />
 
-        <?ignore
+
         <!-- If transformation needed from estamed frame of reference to another -->
         <param name="x_tf"      type="double" value="0.42998579" />
         <param name="y_tf"      type="double" value="-1.1021565" />
@@ -113,9 +113,9 @@
         <param name="theta_tf"  type="double" value="-90.0" />
         <!-- Vehicle orientation-->
         <param name="yaw_tf"    type="double" value="-90.0" />
-        ?>
-
         
+
+        <?ignore        
         <!-- FOR TESTING PUSPOSE -->
         <param name="x_tf"      type="double" value="0.0" />
         <param name="y_tf"      type="double" value="0.0" />
@@ -123,7 +123,7 @@
         <param name="theta_tf"  type="double" value="0.0" />
         <!-- Vehicle orientation-->
         <param name="yaw_tf"    type="double" value="0.0" />
-        
+        ?>
 
 
         </node>
