@@ -18,6 +18,12 @@ solvers.options['show_progress'] = False
 
 np.set_printoptions(formatter={'float': lambda x: "{0:0.3f}".format(x)})
 
+
+'''
+Important issue OSQP: https://groups.google.com/g/osqp/c/ZFvblAQdUxQ
+'''
+
+
 class PathFollowingLPV_MPC:
     """Create the Path Following LMPC controller with LTV model
     Attributes:
@@ -74,7 +80,7 @@ class PathFollowingLPV_MPC:
         self.Qe = np.array([1, 1, 1, 1, 1, 1])*(10.0e4)
         
         # Create an OSQP object
-        # self.prob = osqp.OSQP()
+        self.prob = osqp.OSQP()
         self.N    = N
         self.nx    = self.Q.shape[0]
         self.nu    = self.R.shape[0]
@@ -257,7 +263,7 @@ class PathFollowingLPV_MPC:
 
 
 
-    def MPC_integral_solve(self, A_vec, B_vec, u, x0, vel_ref):
+    def MPC_integral_solve2(self, A_vec, B_vec, u, x0, vel_ref):
 
         [N,nx,nu] = self.N, self.nx, self.nu 
 
@@ -419,7 +425,7 @@ class PathFollowingLPV_MPC:
 
 
 
-    def MPC_setup(self, A_vec, B_vec, u, x0, vel_ref):
+    def MPC_integral_setup(self, A_vec, B_vec, u, x0, vel_ref):
 
         [N,nx,nu] = self.N, self.nx, self.nu 
 
@@ -432,8 +438,9 @@ class PathFollowingLPV_MPC:
         dumin = np.array([self.dstr_min, self.dduty_min]) 
         dumax = np.array([self.dstr_max, self.dduty_max])
 
-        xmin = np.array([self.vx_min, -3., -3., -100., -10000., -self.ey_max])
-        xmax = np.array([self.vx_max, 3., 3., 100., 10000., self.ey_max])
+        xmin = np.array([self.vx_min, -10., -100., -100, -10000., -self.ey_max])
+        xmax = np.array([self.vx_max, 10., 100., 100, 10000., self.ey_max])
+
     
         '''Objective function formulation for integral action as well as slack variables'''
         #################### P formulation ################################
@@ -462,12 +469,23 @@ class PathFollowingLPV_MPC:
         qQeps = np.zeros((N+1)*nx)
         
         print "qQx.shape",qQx.shape, "qQu.shape", qQu.shape, 'qQdu.shape', qQdu.shape, 'qQeps.shape', qQeps.shape
-        if self.soft_constraints:
+        
+
+        if self.soft_constraints_on and self.slew_rate_on:
             self.P = sparse.block_diag([PQx, PQu + PQdu, PQeps], format='csc')
             self.q = np.hstack([qQx, qQu + qQdu, qQeps])
-        else:
+
+        elif self.slew_rate_on:
             self.P = sparse.block_diag([PQx, PQu + PQdu], format='csc')
             self.q = np.hstack([qQx, qQu + qQdu])
+
+        elif self.soft_constraints_on:
+            self.P = sparse.block_diag([PQx, PQu, PQeps], format='csc')
+            self.q = np.hstack([qQx, qQu, qQeps])
+
+        else:
+            self.P = sparse.block_diag([PQx, PQu], format='csc')
+            self.q = np.hstack([qQx, qQu])
             
         
         '''Equality constraints'''
@@ -485,55 +503,99 @@ class PathFollowingLPV_MPC:
         Bu = B_tr
         
         n_eps = (N + 1) * nx
-        self.Aeq = sparse.hstack([Ax, Bu])
-        if self.soft_constraints:
+        self.Aeq = sparse.hstack([Ax, Bu]).tocsc()
+        
+
+
+        # Aeqt = self.Aeq.transpose(copy=True) # Have to copy or it transposes in place
+
+        # Aeqt.sort_indices()
+
+        # # note that col,row are transposed
+
+        # (self.col_indices, self.row_indices) = Aeqt.nonzero()
+
+        # print 'row_indices, col_indices',self.row_indices, self.col_indices
+        # print(self.Aeq[self.row_indices, self.col_indices].A1)
+
+        if self.soft_constraints_on:
             self.Aeq = sparse.hstack([self.Aeq, sparse.csc_matrix((self.Aeq.shape[0], n_eps))])
         
+        # print ('self.Aeq',self.Aeq.toarray()[:2*nx,:])
+        # print ('self.Aeq',self.Aeq.data)
+
         self.leq = np.hstack([-x0, np.zeros(N*nx)])
         self.ueq = self.leq
 
                                                       
         '''Inequality constraints'''
                              
-        Aineq_x = sparse.hstack([sparse.eye((N + 1) * nx), sparse.csc_matrix(((N+1)*nx, N*nu))])
-        if self.soft_constraints:
-            Aineq_x = sparse.hstack([Aineq_x, sparse.eye(n_eps)]) # For soft constraints slack variables
-        lineq_x = np.kron(np.ones(N + 1), xmin) # lower bound of inequalities
-        uineq_x = np.kron(np.ones(N + 1), xmax) # upper bound of inequalities
+        self.Aineq_x = sparse.hstack([sparse.eye((N + 1) * nx), sparse.csc_matrix(((N+1)*nx, N*nu))])
+        if self.soft_constraints_on:
+            self.Aineq_x = sparse.hstack([self.Aineq_x, sparse.eye(n_eps)]) # For soft constraints slack variables
+        self.lineq_x = np.kron(np.ones(N + 1), xmin) # lower bound of inequalities
+        self.uineq_x = np.kron(np.ones(N + 1), xmax) # upper bound of inequalities
 
-        Aineq_u = sparse.hstack([sparse.csc_matrix((N*nu, (N+1)*nx)), sparse.eye(N * nu)])
-        if self.soft_constraints:
-            Aineq_u = sparse.hstack([Aineq_u, sparse.csc_matrix((Aineq_u.shape[0], n_eps))]) # For soft constraints slack variables
-        lineq_u = np.kron(np.ones(N), umin)     # lower bound of inequalities
-        uineq_u = np.kron(np.ones(N), umax)     # upper bound of inequalities
+        self.Aineq_u = sparse.hstack([sparse.csc_matrix((N*nu, (N+1)*nx)), sparse.eye(N * nu)])
+        if self.soft_constraints_on:
+            self.Aineq_u = sparse.hstack([self.Aineq_u, sparse.csc_matrix((self.Aineq_u.shape[0], n_eps))]) # For soft constraints slack variables
+        self.lineq_u = np.kron(np.ones(N), umin)     # lower bound of inequalities
+        self.uineq_u = np.kron(np.ones(N), umax)     # upper bound of inequalities
 
 
         # - bounds on \Delta u
-        Aineq_du = sparse.vstack([sparse.hstack([np.zeros((nu, (N + 1) * nx)), sparse.eye(nu), np.zeros((nu, (N - 1) * nu))]),  # for u0 - u-1
-                                  sparse.hstack([np.zeros((N * nu, (N+1) * nx)), -sparse.eye(N * nu) + sparse.eye(N * nu, k=1)])  # for uk - uk-1, k=1...Np
-                                  ]
-                                 )
-        if self.soft_constraints:
-            Aineq_du = sparse.hstack([Aineq_du, sparse.csc_matrix((Aineq_du.shape[0], n_eps))])
+        if self.slew_rate_on == True:
+            self.Aineq_du = sparse.vstack([sparse.hstack([np.zeros((nu, (N + 1) * nx)), sparse.eye(nu), np.zeros((nu, (N - 1) * nu))]),  # for u0 - u-1
+                                      sparse.hstack([np.zeros((N * nu, (N+1) * nx)), -sparse.eye(N * nu) + sparse.eye(N * nu, k=1)])  # for uk - uk-1, k=1...Np
+                                      ]
+                                     )
+            if self.soft_constraints_on:
+                self.Aineq_du = sparse.hstack([self.Aineq_du, sparse.csc_matrix((self.Aineq_du.shape[0], n_eps))])
 
-        uineq_du = np.kron(np.ones(N+1), dumax) #np.ones((Nc+1) * nu)*Dumax
-        uineq_du[0:nu] += self.uminus1[0:nu]
+            self.uineq_du = np.kron(np.ones(N+1), dumax) #np.ones((Nc+1) * nu)*Dumax
+            self.uineq_du[0:nu] += self.uminus1[0:nu]
 
-        lineq_du = np.kron(np.ones(N+1), dumin) #np.ones((Nc+1) * nu)*Dumin
-        lineq_du[0:nu] += self.uminus1[0:nu] # works for nonscalar u?
+            self.lineq_du = np.kron(np.ones(N+1), dumin) #np.ones((Nc+1) * nu)*Dumin
+            self.lineq_du[0:nu] += self.uminus1[0:nu] # works for nonscalar u?
 
-        self.A = sparse.vstack([self.Aeq, Aineq_x, Aineq_u, Aineq_du]).tocsc()
-        self.l = np.hstack([self.leq, lineq_x, lineq_u, lineq_du])
-        self.u = np.hstack([self.ueq, uineq_x, uineq_u, uineq_du])
 
-        print "self.P.shape", self.P.shape, 'self.q.shape', self.q.shape, 'self.l.shape', self.l.shape, 'self.u.shape' ,self.u.shape
+
+        if self.slew_rate_on: 
+
+            self.A = sparse.vstack([self.Aeq, self.Aineq_x, self.Aineq_u, self.Aineq_du]).tocsc()
+            self.l = np.hstack([self.leq, self.lineq_x, self.lineq_u, self.lineq_du])
+            self.u = np.hstack([self.ueq, self.uineq_x, self.uineq_u, self.uineq_du])
+
+        else:
+
+            self.A = sparse.vstack([self.Aeq, self.Aineq_x, self.Aineq_u]).tocsc()
+            self.l = np.hstack([self.leq, self.lineq_x, self.lineq_u])
+            self.u = np.hstack([self.ueq, self.uineq_x, self.uineq_u])
+
+
+        At = self.A.transpose(copy=True) # Have to copy or it transposes in place
+
+        At.sort_indices()
+
+        # note that col,row are transposed
+
+        (self.col_indices, self.row_indices) = At.nonzero()
+        # print "self.P.shape", self.P.shape, 'self.q.shape', self.q.shape, 'self.l.shape', self.l.shape, 'self.u.shape' ,self.u.shape
+        
         # Setup workspace
+        # self.prob = osqp.OSQP()
+        
+        print ('self.A',self.A)
+        print ('self.A',self.A.data)
+
+        print ('slef Aeq', self.Aeq)
+        #self.
         self.prob.setup(self.P, self.q, self.A, self.l, self.u, warm_start=True, polish=True)
         
 
      
-    def MPC_update(self, A_vec, B_vec, u, x0, vel_ref):
-        [N,nx,nu] = B_vec.shape 
+    def MPC_integral_update(self, A_vec, B_vec, u, x0, vel_ref):
+        [N,nx,nu] = self.N, self.nx, self.nu 
 
 
         umin = np.array([self.str_min, self.duty_min]) 
@@ -559,23 +621,61 @@ class PathFollowingLPV_MPC:
         Ax = sparse.kron(sparse.eye(N+1),-sparse.eye(nx)) + A_tr
         Bu = B_tr
         
-        n_eps = (N + 1) * nx
-        self.Aeq = sparse.hstack([Ax, Bu])
-        if self.soft_constraints:
-            self.Aeq = sparse.hstack([self.Aeq, sparse.csc_matrix((self.Aeq.shape[0], n_eps))])
+
+        self.Aeq = sparse.hstack([Ax, Bu]).tocsc()
+        print ('self.Aeq',self.Aeq)
+        print ('self.Aeq',self.Aeq.data)
+
+        if self.soft_constraints_on:
+            self.Aeq = sparse.hstack([self.Aeq, sparse.csc_matrix((self.Aeq.shape[0], (N + 1) * nx))])
         
         self.A[:self.Aeq.shape[0], :self.Aeq.shape[1]] = self.Aeq
+
+
         self.l[:nx] = -x0
         self.u[:nx] = -x0
 
-        print "dumin + self.uminus1[0:nu]", (dumin , self.uminus1[0:nu])
-        print "self.l[(N+1)*nx + (N+1)*nx + (N)*nu:(N+1)*nx + (N+1)*nx + (N)*nu + nu]", self.l[(N+1)*nx + (N+1)*nx + (N)*nu:(N+1)*nx + (N+1)*nx + (N)*nu + nu].shape
 
-        self.l[(N+1)*nx + (N+1)*nx + (N)*nu:(N+1)*nx + (N+1)*nx + (N)*nu + nu] = dumin + self.uminus1[0:nu]  # update constraint on \Delta u0: Dumin <= u0 - u_{-1}
-        self.u[(N+1)*nx + (N+1)*nx + (N)*nu:(N+1)*nx + (N+1)*nx + (N)*nu + nu] = dumax + self.uminus1[0:nu]  # update constraint on \Delta u0: u0 - u_{-1} <= Dumax
+        if self.slew_rate_on == True:
 
-        self.prob.update( Ax = self.A.data, l= self.l, u= self.u)
+            self.l[(N+1)*nx + (N+1)*nx + (N)*nu:(N+1)*nx + (N+1)*nx + (N)*nu + nu] = dumin + self.uminus1[0:nu]  # update constraint on \Delta u0: Dumin <= u0 - u_{-1}
+            self.u[(N+1)*nx + (N+1)*nx + (N)*nu:(N+1)*nx + (N+1)*nx + (N)*nu + nu] = dumax + self.uminus1[0:nu]  # update constraint on \Delta u0: u0 - u_{-1} <= Dumax
 
+
+        # self.prob.setup(self.P, self.q, self.A, self.l, self.u, warm_start=True, polish=True)
+        # print ('self.A',self.A)
+        # print ('self.A',self.A.data)
+
+        indices = np.array(zip(self.row_indices, self.col_indices))
+        
+        Ax_value = self.A[self.row_indices, self.col_indices].A1
+
+
+        self.prob.update( Ax = Ax_value , l= self.l, u= self.u)
+
+        # print 'len(indices)', len(indices)
+        # print 'self.Aeq[self.row_indices, self.col_indices].A1',self.Aeq[self.row_indices, self.col_indices].A1.shape
+        # self.prob.update( Ax = self.Aeq[self.row_indices, self.col_indices].A1, Ax_idx = indices , l= self.l, u= self.u)
+
+    def MPC_integral_solve(self):
+        [N,nx,nu] = self.N, self.nx, self.nu 
+
+        res = self.prob.solve()
+        # Check solver status
+        if res.info.status != 'solved':
+            print ('OSQP did not solve the problem!')
+        
+
+        Solution = res.x
+
+        print "controller to be applied", Solution[(N+1)*nx:(N+1)*nx + nu]
+        print "Solution shape", Solution.shape
+        
+
+        self.xPred = np.squeeze(np.transpose(np.reshape((Solution[np.arange(nx * (N + 1))]), (N + 1, nx)))).T
+        self.uPred = np.squeeze(np.transpose(np.reshape((Solution[nx * (N + 1) + np.arange(nu * N)]), (N, nu)))).T
+
+        print 'Solution', Solution
 
 
     def output(self, return_x_seq=False, return_u_seq=False, return_eps_seq=False, return_status=False, return_obj_val=False):
@@ -699,7 +799,7 @@ class PathFollowingLPV_MPC:
             if i==0:
                 states  = np.reshape(x, (6,1))
 
-            # vx      = float(states[0])
+            vx      = float(states[0])
             vy      = float(states[1])
             omega   = float(states[2])
             epsi    = float(states[3])
@@ -718,7 +818,7 @@ class PathFollowingLPV_MPC:
             else:
                 cur     = float(curv_ref[i,0]) # From planner
 
-            vx      = float(vel_ref[i,0])
+            # vx      = float(vel_ref[i,0])
 
             # print "vx",vx
             # print "delta", u[i,0] 
@@ -821,6 +921,75 @@ class PathFollowingLPV_MPC:
         return STATES_vec, np.array(Atv), np.array(Btv), np.array(Ctv)
 
 
+    def LPVPrediction_setup(self, x, u, vel_ref):
+        #############################################
+        ## States:
+        ##   long velocity    [vx]
+        ##   lateral velocity [vy]
+        ##   angular velocity [wz]
+        ##   theta error      [epsi]
+        ##   distance traveled[s]
+        ##   lateral error    [ey]
+        ##
+        ## Control actions:
+        ##   Steering angle   [delta]
+        ##   Acceleration     [a]
+        ##
+        ## Scheduling variables:
+        ##   vx, vy, epsi, ey, cur
+        #############################################
+
+
+        STATES_vec = np.zeros((self.N, 6))
+
+        Atv = []
+        Btv = []
+        Ctv = []
+
+        u = np.array([1, 1]).T
+        states = np.array([1,1,1,1,1,1]).T
+        for i in range(0, self.N):
+
+
+            Ai = np.array([ [1.0    ,  1.0 ,   0. ,  0., 0., 0.],  # [vx]
+                            [1.0    ,  1.0 ,   0  ,  0., 0., 0.],  # [vy]
+                            [1.0    ,   0 ,    0  ,  0., 0., 0.],  # [wz]
+                            [1.0    ,  1.0 ,   1. ,  0., 0., 0.],  # [epsi]
+                            [1.0    ,  1.0 ,   0. ,  0., 0., 0.],  # [s]
+                            [1.0     ,   1.0 ,   0. ,  0., 0., 0.]]) # [ey]
+
+            Bi  = np.array([[ 1.0, 1.0 ], #[delta, a]
+                            [ 1.0, 0 ],
+                            [ 1.0, 0 ],
+                            [ 0,   0 ],
+                            [ 0,   0 ],
+                            [ 0,   0 ]])
+
+            Ci  = np.array([[ 0 ],
+                            [ 0 ],
+                            [ 0 ],
+                            [ 0 ],
+                            [ 0 ],
+                            [ 0 ]])
+
+
+            Ai = np.eye(len(Ai)) + self.dt * Ai
+            Bi = self.dt * Bi
+            Ci = self.dt * Ci
+
+            states_new = np.dot(Ai, states) + np.dot(Bi,u)
+
+
+            STATES_vec[i] = np.reshape(states_new, (6,))
+
+            states = states_new
+
+            Atv.append(Ai)
+            Btv.append(Bi)
+            Ctv.append(Ci)
+
+
+        return STATES_vec, np.array(Atv), np.array(Btv), np.array(Ctv)
 
 
 

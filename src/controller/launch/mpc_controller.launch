@@ -45,9 +45,9 @@
     
     <node pkg="controller"         type="controllerMain.py"    name="control" output="screen">
         <param name="vel_th"    type="double"   value="0.7" />
-        <param name="Horizon"   type="int"      value="20" />
+        <param name="Horizon"   type="int"      value="25" />
         <param name="Hz"        type="double"   value="50" />
-        <param name="vel_ref"   type="double"   value="0.6"/>
+        <param name="vel_ref"   type="double"   value="1.5"/>
     </node>
 
 </launch>
