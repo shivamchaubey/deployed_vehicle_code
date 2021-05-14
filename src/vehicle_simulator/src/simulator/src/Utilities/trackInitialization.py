@@ -18,7 +18,7 @@ class Map():
 
         # self.halfWidth  = rospy.get_param("halfWidth")
 
-        self.halfWidth  = 0.4
+        self.halfWidth  = 0.8
         self.slack      = 0.15
         # selectedTrack   = rospy.get_param("trackShape")
         selectedTrack   =  'oval_iri'
@@ -238,7 +238,7 @@ class Map():
                 angle + direction * spanAng)  # y coordinate of the last point of the segment
             theta = ang + direction * spanAng
 
-        return x, y, theta
+        return np.squeeze(x), np.squeeze(y), np.squeeze(theta)
 
 
 

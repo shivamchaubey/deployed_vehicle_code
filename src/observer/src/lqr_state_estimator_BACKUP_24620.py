@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from math import tan, atan, cos, sin, pi, atan2, fmod
+from math import tan, atan, cos, sin, pi, atan2
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
@@ -16,7 +16,8 @@ from numpy import linalg as LA
 import datetime
 import os
 import sys
-import scipy.io as sio 
+import scipy.io as sio
+    
 
 ################## LQR GAIN PATH ####################
 gain_path = rospy.get_param("lqr_observer/lqr_gain_path")
@@ -27,7 +28,9 @@ class vehicle_control(object):
     """ Object collecting CMD command data
     Attributes:
         Input command:
-            1.duty_cycle 2.steer
+            1.a 2.df
+        Time stamp
+            1.t0  2.curr_time
     """
     def __init__(self,t0):
         """ Initialization
@@ -228,7 +231,7 @@ class IMU():
         # self.t0     = time.time()
         self.t0     = t0
 
-        # print  "yaw_offset", self.yaw_offset
+        print  "yaw_offset", self.yaw_offset
 
 
         # Time for yawDot integration
@@ -361,7 +364,7 @@ class IMU():
         self.roll   = data.orientation.x 
         self.pitch  = data.orientation.y 
 
-        # print "data.orientation.z", data.orientation.z, "yaw_offset", self.yaw_offset
+        print "data.orientation.z", data.orientation.z, "yaw_offset", self.yaw_offset
 
         self.yaw    = wrap(data.orientation.z - (self.yaw_offset))
 
@@ -833,11 +836,14 @@ def Continuous_AB_Comp(vx, vy, omega, theta, delta):
     A11 = 0.0;
     A31 = 0.0;
     
-    eps = 0.0
+    eps = 0.00000
     
     if abs(vx)>0.0:
         F_flat = 2*Caf*(delta- atan((vy+lf*omega)/(vx+eps)));
-        Fry = -2*Car*atan((vy - lr*omega)/(vx+eps));
+    
+    
+    
+        Fry = -2*Car*atan((vy - lr*omega)/(vx+eps)) ;
         A11 = -(1/m)*(C0 + C1/(vx+eps) + Cd_A*rho*vx/2);
         A31 = -Fry*lr/((vx+eps)*Iz);
             
@@ -882,22 +888,7 @@ def Continuous_AB_Comp(vx, vy, omega, theta, delta):
                     [ 0 ,  0 ],\
                     [ 0 ,  0 ]])
 
-
-    # Construct the controllability matrix
-    n = A_obs.shape[0]
-    # ctrb = B_obs
-    # for i in range(1, n):
-    #     ctrb = np.hstack((ctrb, A_obs**i*B_obs))
-
-
-    ctrb = np.hstack(
-        [B_obs] + [np.dot(np.linalg.matrix_power(A_obs, i), B_obs)
-                  for i in range(1, n)])
-
-    print "A_obs", A_obs, "B_obs", B_obs
-    print "ctrb",ctrb, 'ctrb.shape', ctrb.shape, "matrix_rank", LA.matrix_rank(ctrb)
-    # obsv = np.vstack([cmat] + [np.dot(cmat, np.linalg.matrix_power(amat, i))
-    #                            for i in range(1, n)])    
+    
     # print ('self.A_obs',self.A_obs,'self.B_obs',self.B_obs)
     
     return A_obs, B_obs
@@ -968,31 +959,7 @@ def data_retrive(msg, est_msg):
 
     return msg
 
-def meas_retrive(msg, est_msg):
-
-    msg.timestamp_ms = 0
-    msg.X  = est_msg[2]
-    msg.Y  = est_msg[3]
-    msg.roll  = 0
-    msg.yaw  = est_msg[4]
-    msg.pitch  = 0
-    msg.vx  = est_msg[0]
-    msg.vy  = 0
-    msg.yaw_rate  = est_msg[1]
-    msg.ax  = 0
-    msg.ay  = 0
-    msg.s  = 0
-    msg.x  = 0
-    msg.y  = 0
-
-    return msg
-
 def data_retrive_est(msg, est_msg, yaw_measured):
-
-    # x = yaw_measured[0]
-    # y = yaw_measured[1]
-    # z = yaw_measured[2]
-    # w = yaw_measured[3]
 
     msg.timestamp_ms = 0
     msg.X  = est_msg[3]
@@ -1003,11 +970,11 @@ def data_retrive_est(msg, est_msg, yaw_measured):
     msg.vx  = est_msg[0]
     msg.vy  = est_msg[1]
     msg.yaw_rate  = est_msg[2]
-    msg.ax  = 0#w
+    msg.ax  = 0
     msg.ay  = 0
-    msg.s  = yaw_measured#z
-    msg.x  = 0#x
-    msg.y  = 0#y
+    msg.s  = yaw_measured
+    msg.x  = 0
+    msg.y  = 0
 
     return msg
 
@@ -1048,30 +1015,6 @@ def wrap(angle):
 
     return w_angle
 
-
-def constrainAngle(x):
-    
-    x = fmod(x + pi,2*pi);
-    if (x < 0):
-        x += 2*pi;
-    return x - pi;
-
-# // convert to [-360,360]
-def angleConv(angle):
-    return fmod(constrainAngle(angle),2*pi);
-
-def angleDiff(a,b):
-    dif = fmod(b - a + pi,2*pi);
-    if (dif < 0):
-        dif += 2*pi;
-    return dif - pi;
-
-def unwrap(previousAngle,newAngle):
-    return previousAngle - angleDiff(newAngle,angleConv(previousAngle))
-
-
-
-
 def yaw_smooth(angle_cur, angle_past):
     
     eps = 0.05 ### Boundary near 0 and 2pi for considering the crossing of axis.
@@ -1095,6 +1038,7 @@ def main():
     rate        = rospy.Rate(loop_rate)
     time0       = rospy.get_rostime().to_sec()
     
+    counter     = 0
     record_data =    rospy.get_param("lqr_observer/record_data")
     visualization  = rospy.get_param("lqr_observer/visualization")
 
@@ -1165,8 +1109,9 @@ def main():
     lf = rospy.get_param("lf")
     beta = lr*tan(control_input.steer)/(lr+lf); ## slip angle
     vy = enc.vx*beta;
-    vy = 0
+
     # est_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, fcam.yaw ]).T
+
     # est_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, yaw_correction(fcam.yaw) ]).T
     est_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, imu.yaw ]).T
 
@@ -1179,6 +1124,7 @@ def main():
     
 
     #### Open loop simulation ###
+    # ol_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, fcam.yaw ]).T
     # ol_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, yaw_correction(fcam.yaw) ]).T
     ol_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, imu.yaw ]).T
 
@@ -1187,9 +1133,6 @@ def main():
     
     ol_state_pub  = rospy.Publisher('ol_state_info', sensorReading, queue_size=1)
     ol_state_msg = sensorReading()
-
-    meas_state_pub  = rospy.Publisher('meas_state_info', sensorReading, queue_size=1)
-    meas_state_msg = sensorReading()
     
     # ekf_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, yaw_correction(fcam.yaw) ]).T
     ekf_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, imu.yaw ]).T
@@ -1198,37 +1141,37 @@ def main():
     ekf_state_msg = sensorReading()
     
 
-    # control_data = control()
-    # control_hist = {'timestamp_ms_dutycycle':[],'timestamp_ms_steer':[],'steering':[], 'duty_cycle':[]}
+    control_data = control()
+    control_hist = {'timestamp_ms_dutycycle':[],'timestamp_ms_steer':[],'steering':[], 'duty_cycle':[]}
 
-    # enc_pub  = rospy.Publisher('encoder_fused', sensorReading, queue_size=1)
-    # enc_data = sensorReading()
-    # enc_hist = {'timestamp_ms':[], 'X':[], 'Y':[], 'roll':[], 'yaw':[], 'pitch':[], 'vx':[], 'vy':[], 'yaw_rate':[], 'ax':[], 'ay':[], 's':[], 'x':[], 'y':[]}
+    enc_pub  = rospy.Publisher('encoder_fused', sensorReading, queue_size=1)
+    enc_data = sensorReading()
+    enc_hist = {'timestamp_ms':[], 'X':[], 'Y':[], 'roll':[], 'yaw':[], 'pitch':[], 'vx':[], 'vy':[], 'yaw_rate':[], 'ax':[], 'ay':[], 's':[], 'x':[], 'y':[]}
         
-    # imu_pub  = rospy.Publisher('imu_fused', sensorReading, queue_size=1)
-    # imu_data = sensorReading()
-    # imu_hist = {'timestamp_ms':[], 'X':[], 'Y':[], 'roll':[], 'yaw':[], 'pitch':[], 'vx':[], 'vy':[], 'yaw_rate':[], 'ax':[], 'ay':[], 's':[], 'x':[], 'y':[]}
+    imu_pub  = rospy.Publisher('imu_fused', sensorReading, queue_size=1)
+    imu_data = sensorReading()
+    imu_hist = {'timestamp_ms':[], 'X':[], 'Y':[], 'roll':[], 'yaw':[], 'pitch':[], 'vx':[], 'vy':[], 'yaw_rate':[], 'ax':[], 'ay':[], 's':[], 'x':[], 'y':[]}
         
-    # fcam_pub  = rospy.Publisher('fcam_fused', sensorReading, queue_size=1)
-    # fcam_data = sensorReading()
-    # fcam_hist = {'timestamp_ms':[], 'X':[], 'Y':[], 'roll':[], 'yaw':[], 'pitch':[], 'vx':[], 'vy':[], 'yaw_rate':[], 'ax':[], 'ay':[], 's':[], 'x':[], 'y':[]}
+    fcam_pub  = rospy.Publisher('fcam_fused', sensorReading, queue_size=1)
+    fcam_data = sensorReading()
+    fcam_hist = {'timestamp_ms':[], 'X':[], 'Y':[], 'roll':[], 'yaw':[], 'pitch':[], 'vx':[], 'vy':[], 'yaw_rate':[], 'ax':[], 'ay':[], 's':[], 'x':[], 'y':[]}
         
 
         
-    # enc_MA_pub  = rospy.Publisher('encoder_MA_fused', sensorReading, queue_size=1)
-    # enc_MA_data = sensorReading()
-    # enc_MA_hist = {'timestamp_ms':[], 'X':[], 'Y':[], 'roll':[], 'yaw':[], 'pitch':[], 'vx':[], 'vy':[], 'yaw_rate':[], 'ax':[], 'ay':[], 's':[], 'x':[], 'y':[]}
+    enc_MA_pub  = rospy.Publisher('encoder_MA_fused', sensorReading, queue_size=1)
+    enc_MA_data = sensorReading()
+    enc_MA_hist = {'timestamp_ms':[], 'X':[], 'Y':[], 'roll':[], 'yaw':[], 'pitch':[], 'vx':[], 'vy':[], 'yaw_rate':[], 'ax':[], 'ay':[], 's':[], 'x':[], 'y':[]}
         
-    # imu_MA_pub  = rospy.Publisher('imu_MA_fused', sensorReading, queue_size=1)
-    # imu_MA_data = sensorReading()
-    # imu_MA_hist = {'timestamp_ms':[], 'X':[], 'Y':[], 'roll':[], 'yaw':[], 'pitch':[], 'vx':[], 'vy':[], 'yaw_rate':[], 'ax':[], 'ay':[], 's':[], 'x':[], 'y':[]}
+    imu_MA_pub  = rospy.Publisher('imu_MA_fused', sensorReading, queue_size=1)
+    imu_MA_data = sensorReading()
+    imu_MA_hist = {'timestamp_ms':[], 'X':[], 'Y':[], 'roll':[], 'yaw':[], 'pitch':[], 'vx':[], 'vy':[], 'yaw_rate':[], 'ax':[], 'ay':[], 's':[], 'x':[], 'y':[]}
         
-    # fcam_MA_pub  = rospy.Publisher('fcam_MA_fused', sensorReading, queue_size=1)
-    # fcam_MA_data = sensorReading()
-    # fcam_MA_hist = {'timestamp_ms':[], 'X':[], 'Y':[], 'roll':[], 'yaw':[], 'pitch':[], 'vx':[], 'vy':[], 'yaw_rate':[], 'ax':[], 'ay':[], 's':[], 'x':[], 'y':[]}
+    fcam_MA_pub  = rospy.Publisher('fcam_MA_fused', sensorReading, queue_size=1)
+    fcam_MA_data = sensorReading()
+    fcam_MA_hist = {'timestamp_ms':[], 'X':[], 'Y':[], 'roll':[], 'yaw':[], 'pitch':[], 'vx':[], 'vy':[], 'yaw_rate':[], 'ax':[], 'ay':[], 's':[], 'x':[], 'y':[]}
 
     
-    # yaw_check = wrap(fcam.yaw)
+    yaw_check = wrap(fcam.yaw)
     curr_time = rospy.get_rostime().to_sec() - time0
      
     prev_time = curr_time 
@@ -1238,57 +1181,45 @@ def main():
     Q_ekf = np.diag([0.1, 0.05, 0.1, 0.3, 0.3, 0.1]) ## plant disturbance
     R_ekf = np.diag([0.1, 0.135, 0.05, 0.05, 0.05])    ##sensor noise
 
-    counter = 0
+
 
     #### YAW CORRECTION ####
-    angle_past = imu.yaw
+    angle_temp = 0
+    angle_acc  = 0
+    direction  = 1.0
+    angle_past = yaw_correction(fcam.yaw)
 
     while not (rospy.is_shutdown()):
         
-        u = np.array([control_input.duty_cycle, control_input.steer]).T
+
         # y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, angle_acc]).T
         # y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, fcam.yaw]).T  
-        # y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, imu.yaw]).T 
+        y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, imu.yaw]).T 
 
-        # print "fcam.yaw",fcam.yaw
+        print "fcam.yaw",fcam.yaw
 
         curr_time = rospy.get_rostime().to_sec() - time0
     
         ######### YAW CALCULATION ########
-        angle_cur = imu.yaw
+        angle_cur = yaw_correction(fcam.yaw)
 
-        # CC, AC = yaw_smooth(angle_cur, angle_past)
+        CC, AC = yaw_smooth(angle_cur, angle_past)
 
-        # if AC == True:
-        #     angle_temp += angle_past
-        #     direction = 1.0
-        #     # print ("anticlockwise crossed")
+        if AC == True:
+            angle_temp += angle_past
+            direction = 1.0
+            # print ("anticlockwise crossed")
 
-        # if CC == True:
-        #     angle_temp += angle_cur
-        #     direction = -1.0
-        #     # print ("clockwise crossed")
+        if CC == True:
+            angle_temp += angle_cur
+            direction = -1.0
+            # print ("clockwise crossed")
 
-        # angle_acc = angle_cur + direction*angle_temp  
-        
-        angle_acc = unwrap(angle_past, angle_cur)  
+        angle_acc = angle_cur + direction*angle_temp  
 
-        angle_past = angle_acc
-
-        if counter==1:
-            est_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, angle_acc ]).T
-
-            ol_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, angle_acc ]).T
-
-            ekf_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, angle_acc ]).T
-
-        # y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, imu.yaw]).T 
-        y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, angle_acc]).T 
-
-
-
-        if abs(u[0]) > 0.08:
+        if abs(control_input.duty_cycle) > 0.08:
             dt = curr_time - prev_time 
+            u = np.array([control_input.duty_cycle, control_input.steer]).T
             # print ("u",u)
             
             ####### LQR ESTIMATION ########
@@ -1312,42 +1243,25 @@ def main():
             A_ekf, B_ekf = Continuous_AB_Comp(ekf_state[0], ekf_state[1], ekf_state[2], ekf_state[5], u[1])
             ekf_state, P_ekf = EKF_filter(P_ekf, Q_ekf, R_ekf, A_ekf, B_ekf, C, ekf_state, u, y_meas, dt)
 
-        if abs(u[0]) <= 0.08:
-                #     # vehicle_sim.vehicle_model(u, simulator_dt)
-                    # if vehicle_sim.vx <= 0.01 :
-                    est_state[:-3] = 0.000001 
-                    ol_state[:-3] = 0.000001
-                    
-        # elif abs(enc.vx) < 0.01:
-        #     est_state[:3] = 0.000001             
-        #     ol_state[:3]  = 0.000001
 
-        # est_state[5] = wrap(est_state[5])
-        # ol_state[5] = wrap(ol_state[5])
+
+        est_state[5] = wrap(est_state[5])
+        ol_state[5] = wrap(ol_state[5])
         # est_state[5] = yaw_correction(est_state[5])
         # ol_state[5] = yaw_correction(ol_state[5])
-        counter += 1
-        print ("est_state",est_state)
-        print ("ol_state",ol_state)
 
-        # angle_acc =  tf.transformations.quaternion_from_euler(0, 0, y_meas[-1])
+        print ("est_state",est_state)
 
         est_state_pub.publish(data_retrive_est(est_state_msg, est_state, angle_acc)) ## remember we want to check the transformed yaw angle for debugging that's why 
                                                                                     ##publishing this information in the topic of "s" which is not used for any purpose. 
-        # est_state_hist.append(est_state)  
+        est_state_hist.append(est_state)  
         
         ol_state_pub.publish(data_retrive(ol_state_msg, ol_state))
-        # ol_state_hist.append(ol_state)
+        ol_state_hist.append(ol_state)
 
-        meas_pub = meas_retrive(meas_state_msg, y_meas)
-
-        print "meas_pub", meas_pub
-
-        meas_state_pub.publish(meas_pub)
-        
         ekf_state_pub.publish(data_retrive(ekf_state_msg, ekf_state))
 
-        # angle_past = angle_cur
+        angle_past = angle_cur
 
         # control_msg = control_input.data_retrive(control_data)        
         # append_control_data(control_hist, control_msg)
@@ -1363,9 +1277,9 @@ def main():
         # append_sensor_data(enc_MA_hist, enc_MA_msg)
 
 
-        # imu_msg = imu.data_retrive(imu_data)
-        # imu_pub.publish(imu_msg)
-        # append_sensor_data(imu_hist, imu_msg)
+        imu_msg = imu.data_retrive(imu_data)
+        imu_pub.publish(imu_msg)
+        append_sensor_data(imu_hist, imu_msg)
 
 
         # imu_MA_msg = imu.data_retrive_MA(imu_MA_data)
@@ -1373,9 +1287,9 @@ def main():
         # append_sensor_data(imu_MA_hist, imu_MA_msg)
 
 
-        # fcam_msg = fcam.data_retrive(fcam_data)
-        # fcam_pub.publish(fcam_msg)
-        # append_sensor_data(fcam_hist, fcam_msg)
+        fcam_msg = fcam.data_retrive(fcam_data)
+        fcam_pub.publish(fcam_msg)
+        append_sensor_data(fcam_hist, fcam_msg)
 
 
         # fcam_MA_msg = fcam.data_retrive_MA(fcam_MA_data)

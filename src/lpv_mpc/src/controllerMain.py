@@ -17,20 +17,26 @@ import scipy.io as sio
 import pdb
 import pickle
 import matplotlib.pyplot as plt
+from sensor_fusion.msg import sensorReading
 
-sys.path.append(sys.path[0]+'/ControllerObject')
-sys.path.append(sys.path[0]+'/Utilities')
-sys.path.append(sys.path[0]+'/data')
+# sys.path.append(sys.path[0]+'/ControllerObject')
+# sys.path.append(sys.path[0]+'/Utilities')
+# sys.path.append(sys.path[0]+'/data')
+
+sys.path.append(('/').join(sys.path[0].split('/')[:-2])+'/planner/src/')
+
+
 
 from lpv_mpc.msg import control_actions
 from std_msgs.msg import Bool, Float32
-from utilities import wrap
-from dataStructures import EstimatorData
+# from utilities import wrap
+# from dataStructures import EstimatorData
 from PathFollowingLPVMPC import PathFollowingLPV_MPC
 from trackInitialization import Map
 
 
 np.set_printoptions(formatter={'float': lambda x: "{0:0.3f}".format(x)})
+
 
 
 def main():
@@ -252,7 +258,7 @@ def main():
             print("vx vy w epsi s ey: ", LocalState)
             print("\n")
 
-            vel_ref         = np.ones([6,1])
+            vel_ref         = np.ones([N,1])
             curv_ref        = np.zeros(N) # This is not used, instead the map is employed to get the road curvature
 
             # Check if the lap has finished
@@ -282,9 +288,9 @@ def main():
         ###################################################################################################
         ###################################################################################################
 
-        if first_it < 15:
+        if first_it < 5:
 
-            accel_rate  = 0.1
+            accel_rate  = 0.0
             delta = 0.01
             # xx, uu      = predicted_vectors_generation(N, LocalState, accel_rate, dt)
             xx, uu      = predicted_vectors_generation_new(N, LocalState, accel_rate, delta, dt)
@@ -302,7 +308,7 @@ def main():
             print "LocalState[0:6]",LocalState[0:6]
             # print (B_L.shape)
             Controller.MPC_solve(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref)
-            #Controller.MPC_solve_integral(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref)
+            # Controller.MPC_solve_integral(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref)
 
 
             if Controller.feasible == 0:
@@ -468,6 +474,32 @@ def predicted_vectors_generation_V2(Hp, x0, accel_rate, dt):
     xx  = np.hstack([ Vx, Vy, W, Epsi ,S ,Ey]) # [vx vy omega theta_e s y_e]
     uu = np.zeros(( Hp, 1 ))
     return xx, uu
+
+
+class EstimatorData(object):
+    """Data from estimator"""
+    def __init__(self):
+
+        rospy.Subscriber("est_state_info", sensorReading, self.estimator_callback)
+        self.CurrentState = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        print "Subscribed to observer"
+    
+    def estimator_callback(self, msg):
+        """
+        Unpack the messages from the estimator
+        """
+        self.CurrentState = np.array([msg.vx, msg.vy, msg.yaw_rate, msg.X, msg.Y, msg.yaw]).T
+
+def wrap(angle):
+    if angle < -np.pi:
+        w_angle = 2 * np.pi + angle
+    elif angle > np.pi:
+        w_angle = angle - 2 * np.pi
+    else:
+        w_angle = angle
+
+    return w_angle
+
 
 
 if __name__ == "__main__":

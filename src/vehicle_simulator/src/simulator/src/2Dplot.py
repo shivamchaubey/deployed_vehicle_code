@@ -129,6 +129,59 @@ def unityTestChangeOfCoordinates(map, ClosedLoopData):
         print ("Change of coordinates test passed!")
 
 
+
+from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+
+def plot_vehicle(x_lim,y_lim):
+
+    xdata = []; ydata = []
+    fig = plt.figure(figsize=(10,8))
+    plt.ion()
+    plt.xlim([-1*x_lim,x_lim])
+    plt.ylim([-1*y_lim,y_lim])
+
+    axtr = plt.axes()
+
+
+    im = plt.imread('/home/auto/Desktop/autonomus_vehicle_project/project/deployement/deployed_vehicle_code/pics/vehicle.png')
+    oi = OffsetImage(im, zoom = 0.05)
+
+    box = AnnotationBbox(oi, (px, py), frameon=False)
+    
+    line_ol,        = axtr.plot(xdata, ydata, '-k', label = 'Open loop simulation')
+    # line_est,    = axtr.plot(xdata, ydata, '-r', label = 'Estimated states')  # Plots the traveled positions
+    # line_meas,    = axtr.plot(xdata, ydata, '-b', label = 'Measured position camera')  # Plots the traveled positions
+    # line_tr,        = axtr.plot(xdata, ydata, '-r', linewidth = 6, alpha = 0.5)       # Plots the current positions
+    # line_SS,        = axtr.plot(xdata, ydata, '-g', , linewidth = 10, alpha = 0.5)
+    # line_pred,      = axtr.plot(xdata, ydata, '-or')
+    # line_planning,  = axtr.plot(xdata, ydata, '-ok')
+    
+    l = 0.4; w = 0.2 #legth and width of the car
+
+    v = np.array([[ 1,  1],
+                  [ 1, -1],
+                  [-1, -1],
+                  [-1,  1]])
+
+    # Estimated states:
+    rec_est = patches.Polygon(v, alpha=0.7, closed=True, fc='r', ec='k', zorder=10)
+    axtr.add_patch(rec_est)
+
+    # Open loop simulation:
+    rec_ol = patches.Polygon(v, alpha=0.7, closed=True, fc='k', ec='k', zorder=10)
+    axtr.add_patch(rec_ol)
+
+    # Open loop simulation:
+    rec_meas = patches.Polygon(v, alpha=0.7, closed=True, fc='b', ec='k', zorder=10)
+    axtr.add_patch(rec_meas)
+
+
+    plt.legend()
+    return fig, axtr, line_est, line_ol, line_meas, rec_est, rec_ol, rec_meas
+
+
+
+
 def _initializeFigure_xy(map):
     xdata = []; ydata = []
     fig = plt.figure(figsize=(10,8))
