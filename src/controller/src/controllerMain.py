@@ -23,6 +23,7 @@ from std_msgs.msg import Bool, Float32
 from PathFollowingLPVMPC import PathFollowingLPV_MPC
 from trackInitialization import Map
 from math import pi 
+import time
 
 np.set_printoptions(formatter={'float': lambda x: "{0:0.3f}".format(x)})
 
@@ -155,7 +156,7 @@ def main():
             
             Controller.uPred = uu
             
-            first_it    = first_it + 1
+            # first_it    = first_it + 1
             Controller.uminus1 = Controller.uPred[0,:]
 
         else:
@@ -164,14 +165,29 @@ def main():
 
             LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction(LocalState[0:6], Controller.uPred, vel_ref)
 
-            # if first_it == 5:
-            #     print "MPC setup"
-            #     Controller.simple_MPC_setup(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref) 
-            #     Controller.simple_MPC_solve()
-            #     first_it    = first_it + 1
-            # else:
+            if first_it == 5:
+                print "MPC setup"
+                # Controller.simple_MPC_setup(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref) 
+                # Controller.simple_MPC_solve()
+
+                LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction_setup(LocalState[0:6], Controller.uPred, vel_ref)
+
+                Controller.MPC_integral_setup(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref) 
+                # Controller.MPC_integral_solve()
+
+
+            # if 5 < first_it < 7:
+            else:
+    
+                t1 = time.time() 
+                print "MPC update"
+                Controller.MPC_integral_update(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref) 
+                Controller.MPC_integral_solve()
+                print "time taken to solve", time.time() - t1
+
+
             # print ("Controller.uPred shape", Controller.uPred.shape)
-            #Controller.solve(LPV_States_Prediction[0,:], LPV_States_Prediction, Controller.uPred, vel_ref, curv_ref, A_L, B_L, C_L, first_it)
+            # Controller.solve(LPV_States_Prediction[0,:], LPV_States_Prediction, Controller.uPred, vel_ref, curv_ref, A_L, B_L, C_L, first_it)
 
 
             # print "LPV_States_Prediction",LPV_States_Prediction.shape 
@@ -181,7 +197,7 @@ def main():
                 # Controller.simple_MPC_solve()
 
 
-            Controller.MPC_integral_solve(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref)
+            # Controller.MPC_integral_solve2(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref)
 
                         # Solve
             # res = Controller.prob.solve()
@@ -224,6 +240,11 @@ def main():
             # else:
             #     controller_Flag_msg.data = False
             #     controller_Flag.publish(controller_Flag_msg)
+
+            # if first_it ==7:
+            #     break
+        
+        first_it    = first_it + 1
 
         print "TimeCounter", TimeCounter
         print('control actions',"delta", Controller.uPred[0,0],"dutycycle", Controller.uPred[0,1])
