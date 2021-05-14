@@ -234,7 +234,7 @@ class Map():
                 angle + direction * spanAng)  # y coordinate of the last point of the segment
             theta = ang + direction * spanAng
 
-        return x, y, theta
+        return np.squeeze(x), np.squeeze(y), np.squeeze(theta)
 
 
 

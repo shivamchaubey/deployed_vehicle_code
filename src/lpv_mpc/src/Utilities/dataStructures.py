@@ -27,7 +27,7 @@ class LMPCprediction():
 '''
 
 
-class EstimatorData(object):
+class EstimatorData2(object):
     """Data from estimator"""
     def __init__(self):
         """Subscriber to estimator"""
@@ -45,6 +45,24 @@ class EstimatorData(object):
         self.CurrentState = np.array([msg.vx, msg.vy, msg.yaw_rate, msg.X, msg.Y, msg.yaw + self.offset_yaw]).T
         self.CurrentState[3:5] = np.dot(self.R,self.CurrentState[3:5])
         self.CurrentState[3:5] = self.CurrentState[3:5] - np.array([self.offset_x, self.offset_y]).T
+
+
+class EstimatorData(object):
+    """Data from estimator"""
+    def __init__(self):
+        """Subscriber to estimator"""
+        rospy.Subscriber("est_state_info", sensorReading, self.estimator_callback)
+        self.CurrentState = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    
+    def estimator_callback(self, msg):
+        """
+        Unpack the messages from the estimator
+        """
+        self.CurrentState = np.array([msg.vx, msg.vy, msg.yaw_rate, msg.X, msg.Y, msg.yaw]).T
+    
+
+
+
 
 '''
 

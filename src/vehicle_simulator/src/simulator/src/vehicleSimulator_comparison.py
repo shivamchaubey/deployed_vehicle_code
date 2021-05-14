@@ -45,6 +45,10 @@ import pdb
 from trackInitialization import Map
 from utilities import wrap, Curvature
 from sensor_fusion.msg import sensorReading
+from numpy import linalg as LA
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+
 
 
 def main():
@@ -53,7 +57,8 @@ def main():
     imu_freq_update = rospy.get_param("simulator/imu_freq_update")
     enc_freq_update = rospy.get_param("simulator/enc_freq_update")
 
-    simulator_dt    = rospy.get_param("simulator/dt")
+    rate       = rospy.get_param("simulator/publish_frequency")
+    simulator_dt    = 1.0/rate
     lowLevelDyn     = rospy.get_param("simulator/lowLevelDyn")
     # pub_rate   = rospy.get_param("simulator/pub_rate")
 
@@ -79,6 +84,18 @@ def main():
         pacejka(ang):
             Pacejka lateral tire modeling
     """
+    visualization  = rospy.get_param("simulator/visualization")
+    if visualization == True:
+        x_lim = 10
+        y_lim = 10
+        (fig, axtr, line_lpverr, line_lpv, line_nl, rec_lpverr, rec_lpv, rec_nl) = _initializeFigure_xy(x_lim,y_lim)
+
+        lpv_x_his       = []
+        lpv_y_his       = []
+        lpverr_x_his    = []
+        lpverr_y_his    = []
+        nl_x_his        = []
+        nl_y_his        = []
 
     time0 = rospy.get_rostime().to_sec()
 
@@ -108,9 +125,6 @@ def main():
     link_msg.twist.angular.y = 0
     link_msg.twist.angular.z = 0
 
-    #  what are these variables??
-    a_his   = [0.0]*int(rospy.get_param("simulator/delay_a")/rospy.get_param("simulator/dt"))
-    df_his  = [0.0]*int(rospy.get_param("simulator/delay_df")/rospy.get_param("simulator/dt"))
 
     #  what are these variables??
     vehicle_sim_offset_x    = rospy.get_param("simulator/init_x")
@@ -147,7 +161,6 @@ def main():
 
     track_map = Map()
 
-    dt  = rospy.get_param("simulator/dt")
 
     lpv_x      = rospy.get_param("simulator/init_x")
     lpv_y      = rospy.get_param("simulator/init_y")
@@ -180,28 +193,91 @@ def main():
         #   u = [a_his.pop(0), df_his.pop(0)] # EA: remove the first element of the array and return it to you.
             #print "Applyied the first of this vector: ",df_his ,"\n "
 
+        u = np.array([ecu.duty_cycle, ecu.steer])
 
         if abs(ecu.duty_cycle) > 0.1:
-            u = np.array([ecu.duty_cycle, ecu.steer])
         
-            # vehicle_sim.vehicle_model(u)
-            nl_states = vehicle_NLmodel(nl_states, u, dt)
-            LPVerr_states = LPVPrediction(LPVerr_states, u, dt, track_map) ### ERROR MPC model
-            LPV_states = LPV_model(LPV_states,u, dt)
+            vehicle_sim.vehicle_model(u)
+            nl_states = vehicle_NLmodel(nl_states, u, simulator_dt)
+            # if counter == 2:
+            LPVerr_states = LPVPrediction(LPVerr_states, u, simulator_dt, track_map) ### ERROR MPC model
+            LPV_states = LPV_model(LPV_states,u, simulator_dt)
 
-        # simStates.x      = vehicle_sim.x 
-        # simStates.y      = vehicle_sim.y 
-        # simStates.vx     = vehicle_sim.vx
-        # simStates.vy     = vehicle_sim.vy
-        # simStates.yaw    = vehicle_sim.yaw
-        # simStates.omega  = vehicle_sim.omega
+        # else:
+            # u = np.array([0, ecu.steer])
+                        # vehicle_sim.vehicle_model(u)
+            # nl_states = vehicle_NLmodel(nl_states, u, simulator_dt)
+            # LPVerr_states = LPVPrediction(LPVerr_states, u, simulator_dt, track_map) ### ERROR MPC model
+            # LPV_states = LPV_model(LPV_states,u, simulator_dt)
 
-        simStates.x      = nl_states[3] 
-        simStates.y      = nl_states[4] 
-        simStates.vx     = nl_states[0]
-        simStates.vy     = nl_states[1]
-        simStates.yaw    = nl_states[5]
-        simStates.omega  = nl_states[2] 
+
+            # if enc.vx == 0.0:
+            #     nl_states[0] = 0.0
+            #     LPVerr_states[0]  = 0.0
+            #     LPV_states[0]  = 0.0
+                
+            #     nl_states[1] = 0.0
+            #     LPVerr_states[1]  = 0.0
+            #     LPV_states[1]  = 0.0
+                
+            # if imu.yaw_rate <= 0.018:    
+            #     nl_states[1] = 0.0
+            #     LPVerr_states[1]  = 0.0
+            #     LPV_states[1]  = 0.0
+        simStates.x      = vehicle_sim.x 
+        simStates.y      = vehicle_sim.y 
+        simStates.vx     = vehicle_sim.vx
+        simStates.vy     = vehicle_sim.vy
+        simStates.yaw    = vehicle_sim.yaw
+        simStates.omega  = vehicle_sim.omega
+
+        # simStates.x      = nl_states[3] 
+        # simStates.y      = nl_states[4] 
+        # simStates.vx     = nl_states[0]
+        # simStates.vy     = nl_states[1]
+        # simStates.yaw    = nl_states[5]
+        # simStates.omega  = nl_states[2] 
+
+
+
+
+
+        simLPVerrStates.x, simLPVerrStates.y, simLPVerrStates.yaw = track_map.getGlobalPosition(LPVerr_states[4], LPVerr_states[5]) #s, ey
+
+
+        if visualization == True:
+
+            l = 0.42; w = 0.19
+
+            (x_lpv , y_lpv , yaw_lpv )  = LPV_states[-3:]
+            (x_lpverr  , y_lpverr  , yaw_lpverr  )  = simStates.x, simStates.y, simStates.yaw
+            (x_nl, y_nl, yaw_nl)  = nl_states[-3:]
+
+            lpv_x_his.append(x_lpv)
+            lpv_y_his.append(y_lpv)
+
+            lpverr_x_his.append(x_lpverr)
+            lpverr_y_his.append(y_lpverr)
+                        
+            nl_x_his.append(x_nl)
+            nl_y_his.append(y_nl)
+
+            car_lpv_x, car_lpv_y = getCarPosition(x_lpv, y_lpv, yaw_lpv, w, l)
+            rec_lpv.set_xy(np.array([car_lpv_x, car_lpv_y]).T)
+
+            car_lpverr_x, car_lpverr_y = getCarPosition(x_lpverr, y_lpverr, yaw_lpverr, w, l)
+            rec_lpverr.set_xy(np.array([car_lpverr_x, car_lpverr_y]).T)
+
+            car_nl_x, car_nl_y = getCarPosition(x_nl, y_nl, yaw_nl, w, l)
+            rec_nl.set_xy(np.array([car_nl_x, car_nl_y]).T)
+
+            line_lpv.set_data(lpv_x_his, lpv_y_his)
+            line_lpverr.set_data(lpverr_x_his, lpverr_y_his)
+            line_nl.set_data(nl_x_his, nl_y_his)
+
+            fig.canvas.draw()
+            plt.show()
+            plt.pause(1.0/3000)
 
 
         est_state_msg.X      = nl_states[3] 
@@ -226,10 +302,6 @@ def main():
         simLPVStates.yaw    = LPV_states[5]
 
 
-
-        simLPVerrStates.x, simLPVerrStates.y, simLPVerrStates.yaw = track_map.getGlobalPosition(LPVerr_states[4], LPVerr_states[5]) #s, ey
-
-
         # print "LPVerr_states[4]", LPVerr_states[4], "LPVerr_states[5]", LPVerr_states[5], "track_map.getGlobalPosition(LPVerr_states[4], LPVerr_states[5])", track_map.getGlobalPosition(LPVerr_states[4], LPVerr_states[5])
 
         # simLPVerrStates.yaw = wrap(simLPVerrStates.yaw)
@@ -250,7 +322,12 @@ def main():
 
         pub_vehicle_simulatorStates.publish(simStates)
 
-        print "\n LPV error model state", 'vx', LPVerr_states[0], 'vy', LPVerr_states[1], 'omega', LPVerr_states[2], 'epsi', LPVerr_states[3], 's', LPVerr_states[4], 'ey', LPVerr_states[5] 
+        # print "\n LPV error model state", 'vx', LPVerr_states[0], 'vy', LPVerr_states[1], 'omega', LPVerr_states[2], 'epsi', LPVerr_states[3], 's', LPVerr_states[4], 'ey', LPVerr_states[5] 
+
+        print "\n <<<< STATS >>>>"
+        print "u", u
+        print "LPV model states", simLPVStates
+        print "nl model states", nl_states
 
         # print "simLPVerrStates", simLPVerrStates
 
@@ -308,6 +385,18 @@ def main():
         #time_since_last_callback = rospy.get_time() - callback_time
 
         #print time_since_last_callback
+
+
+
+
+
+
+
+
+
+
+
+
         vehicle_sim.rate.sleep()
 
     # str         = 'test2'    
@@ -324,6 +413,54 @@ def main():
     # np.save(newpath+'NoiseU', ecu.hist_noise)
     # quit()
 
+def getCarPosition(x, y, psi, w, l):
+    car_x = [ x + l * np.cos(psi) - w * np.sin(psi), x + l * np.cos(psi) + w * np.sin(psi),
+              x - l * np.cos(psi) + w * np.sin(psi), x - l * np.cos(psi) - w * np.sin(psi)]
+    car_y = [ y + l * np.sin(psi) + w * np.cos(psi), y + l * np.sin(psi) - w * np.cos(psi),
+              y - l * np.sin(psi) - w * np.cos(psi), y - l * np.sin(psi) + w * np.cos(psi)]
+    return car_x, car_y
+
+
+def _initializeFigure_xy(x_lim,y_lim):
+
+    xdata = []; ydata = []
+    fig = plt.figure(figsize=(10,8))
+    plt.ion()
+    plt.xlim([-1*x_lim,x_lim])
+    plt.ylim([-1*y_lim,y_lim])
+
+    axtr = plt.axes()
+
+    line_lpv,        = axtr.plot(xdata, ydata, '-k', label = 'LPV simulation')
+    line_lpverr,    = axtr.plot(xdata, ydata, '-r', label = 'LPV error and inverse states')  # Plots the traveled positions
+    line_nl,    = axtr.plot(xdata, ydata, '-b', label = 'Non linear model')  # Plots the traveled positions
+    # line_tr,        = axtr.plot(xdata, ydata, '-r', linewidth = 6, alpha = 0.5)       # Plots the current positions
+    # line_SS,        = axtr.plot(xdata, ydata, '-g', , linewidth = 10, alpha = 0.5)
+    # line_pred,      = axtr.plot(xdata, ydata, '-or')
+    # line_planning,  = axtr.plot(xdata, ydata, '-ok')
+    
+    l = 0.4; w = 0.2 #legth and width of the car
+
+    v = np.array([[ 1,  1],
+                  [ 1, -1],
+                  [-1, -1],
+                  [-1,  1]])
+
+    # Estimated states:
+    rec_lpverr = patches.Polygon(v, alpha=0.7, closed=True, fc='r', ec='k', zorder=10)
+    axtr.add_patch(rec_lpverr)
+
+    # Open loop simulation:
+    rec_lpv = patches.Polygon(v, alpha=0.7, closed=True, fc='k', ec='k', zorder=10)
+    axtr.add_patch(rec_lpv)
+
+    # Open loop simulation:
+    rec_nl = patches.Polygon(v, alpha=0.7, closed=True, fc='b', ec='k', zorder=10)
+    axtr.add_patch(rec_nl)
+
+
+    plt.legend()
+    return fig, axtr, line_lpverr, line_lpv, line_nl, rec_lpverr, rec_lpv, rec_nl
 
 
 def  LPV_model(states,u, dt):
@@ -381,8 +518,7 @@ def  LPV_model(states,u, dt):
     B32 = 0;
     B22 = 0;
     
-    # if abs(delta) > 0:
-    eps = 0.000001
+
     B12 = -F_flat*sin(delta)/(m*(delta+eps));
     B22 = F_flat*cos(delta)/(m*(delta+eps));    
     B32 = F_flat*cos(delta)*lf/(Iz*(delta+eps));
@@ -398,6 +534,8 @@ def  LPV_model(states,u, dt):
                   [A51, A52, 0,  0,   0,  0],\
                   [ 0 ,  0 , 1,  0,   0,  0]])
     
+    print "A = {}".format(A), "Det A = {}".format(LA.det(A))
+
     B = np.array([[B11, B12],\
                   [ 0,  B22],\
                   [ 0,  B32],\
@@ -408,6 +546,8 @@ def  LPV_model(states,u, dt):
     A = np.eye(len(A)) + dt * A
     B = dt * B
     
+    # print "B = {}".format(B), "Det B = {}".format(LA.det(B))
+
     states_new = np.dot(A, states) + np.dot(B, np.array([u[0], u[1]]).T)
 
     return states_new
@@ -498,7 +638,7 @@ def LPVPrediction(states, u, dt, track_map):
         A31 = 0;
         A11 = 0;
 
-        eps = 0.000001
+        eps = 0.0000001
         # if abs(vx)> 0.0:
         F_flat = 2*Caf*(delta- atan((vy+lf*omega)/(vx+eps)));        
         Fry = -2*Car*atan((vy - lr*omega)/(vx+eps)) ;
@@ -596,9 +736,13 @@ def vehicle_NLmodel(states, u, dt):
     F_flat = 0
     Fry    = 0
     Frx    = (cm0 - cm1*vx)*D - C0*vx - C1 - (Cd_A*rho*vx**2)/2;
-    if abs(vx)>0:
-        Fry = -2.0*Car*atan((vy - lr*omega)/vx) ;
-        F_flat = 2.0*Caf*(delta - atan((vy+lf*omega)/vx));
+    eps = 0.0000001
+    # Fry = -2.0*Car*atan((vy - lr*omega)/(vx+eps)) ;
+    # F_flat = 2.0*Caf*(delta - atan((vy+lf*omega)/(vx+eps)));
+
+    Fry = -2.0*Car*atan((vy - lr*omega)/(abs(vx)+eps)) ;
+    F_flat = 2.0*Caf*(delta - atan((vy+lf*omega)/(abs(vx)+eps)));
+
 
     dvx = (1.0/m)*(Frx - F_flat*sin(delta) + m*vy*omega);
 
@@ -683,9 +827,8 @@ class Vehicle_Simulator(object):
         self.omega_his  = []
         self.noise_hist = []
 
-        self.dt         = rospy.get_param("simulator/dt")
-        self.rate       = rospy.Rate(1.0/self.dt)
-        # self.rate         = rospy.Rate(1.0)
+        self.rate       = rospy.Rate(rospy.get_param("simulator/publish_frequency"))
+        self.dt         = 1.0/rospy.get_param("simulator/publish_frequency")
         self.time_his   = []
 
         # Get process noise limits
@@ -738,7 +881,7 @@ class Vehicle_Simulator(object):
         self.x      += self.dt*(dX + n4)
 
         n5 = max(-self.y_std*self.n_bound, min(self.y_std*0.66*(randn()), self.y_std*self.n_bound))
-        n4 = 0.
+        n5 = 0.
         self.y      += self.dt*(dY + n5)
 
         n1 = max(-self.vx_std*self.n_bound, min(self.vx_std*0.66*(randn()), self.vx_std*self.n_bound))

@@ -421,6 +421,10 @@ class KeyTeleop():
         self.steering_commands  = rospy.Publisher('control/steering', Float32, queue_size=1)
         self.controller_Flag    = rospy.Publisher('controller_flag', Bool, queue_size=1)
 
+        self.past_linear = 0.0 
+        self.past_angular = 0.0 
+        
+
         # self.imu_vx  = rospy.Publisher('imu_vx', Float32, queue_size=1)
         # self.imu_vy  = rospy.Publisher('imu_vy', Float32, queue_size=1)
 
@@ -549,14 +553,23 @@ class KeyTeleop():
         self._interface.write_line(5, 'Use arrow keys to move, space to stop, q to exit.')
         self._interface.refresh()
 
+
         twist = self._get_twist(self._linear, self._angular)
         # self._pub_cmd.publish(twist)
         
         self.time1 = rospy.get_time()
         # print ("time at start publishing",self.time1-self.time0)
-        self.accel_commands.publish(self._linear)
-        self.steering_commands.publish(self._angular)
 
+        if  (self.past_linear != self._linear): 
+        
+            self.accel_commands.publish(self._linear)
+
+        if (self.past_angular != self._angular): 
+ 
+            self.steering_commands.publish(self._angular)
+
+        self.past_linear = self._linear 
+        self.past_angular = self._angular 
         
         # self.imu_vx.publish(self.imu_enc.vx)
         # self.imu_vy.publish(self.imu_enc.vy)

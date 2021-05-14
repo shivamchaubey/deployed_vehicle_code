@@ -30,18 +30,19 @@
 
 
     <!-- SIMULATOR -->
-    <!--<node pkg="simulator" type="vehicleSimulator.py" name="simulator" output="screen">-->
-    <node pkg="simulator" type="vehicleSimulator_comparison.py" name="simulator" output="screen">
+    <node pkg="simulator" type="vehicleSimulator.py" name="simulator" output="screen">
+    <!--node pkg="simulator" type="vehicleSimulator_comparison.py" name="simulator" output="screen"-->
 
         <param name="publish_frequency" type="double" value="100.0" />
-        <param name="dt"          type="double" value="0.005" />
         
+        <param name="visualization"    type="bool"      value="False" />
+
         <!-- sensor freq update -->
         <!-- Generally 1 per second or 1 Hz not more than 10Hz in case of advanced gps made for UAV/AGV?? -->         
         <param name="gps_freq_update" type="double" value="1000.0" />
-        <param name="fcam_freq_update" type="double" value="45" />
-        <param name="imu_freq_update" type="double" value="100.0" />
-        <param name="enc_freq_update" type="double" value="100.0" />
+        <param name="fcam_freq_update" type="double" value="40" />
+        <param name="imu_freq_update" type="double" value="150.0" />
+        <param name="enc_freq_update" type="double" value="150.0" />
 
 
         <!-- delay in the simulator -->
@@ -52,28 +53,24 @@
 
         <!-- simulator sensor noise -->
         <param name="n_bound_pr"     type="double" value="2.0" />
-        <param name="x_std_pr"       type="double" value="0.0034" />
-        <param name="y_std_pr"       type="double" value="0.0034" />
-        <param name="psi_std_pr"     type="double" value="0.005" />
+        <param name="x_std_pr"       type="double" value="0.034" />
+        <param name="y_std_pr"       type="double" value="0.034" />
+        <param name="psi_std_pr"     type="double" value="0.05" />
 
-        !--<param name="vx_std_pr"       type="double" value="0.005" />
-        <param name="vy_std_pr"       type="double" value="0.0045" />
-        <param name="psiDot_std_pr"  type="double" value="0.0035" /> -->
-
-        <param name="vx_std_pr"       type="double" value="0.0" />
-        <param name="vy_std_pr"       type="double" value="0.0" />
-        <param name="psiDot_std_pr"  type="double" value="0.0" />
+        !--<param name="vx_std_pr"       type="double" value="0.05" />
+        <param name="vy_std_pr"       type="double" value="0.045" />
+        <param name="psiDot_std_pr"  type="double" value="0.035" /> -->
 
 
 
-        <param name="n_bound"     type="double" value="2.0" />
-        <param name="x_std"       type="double" value="0.035" />
-        <param name="y_std"       type="double" value="0.035" />
-        <param name="yaw_std"     type="double" value="0.087" />
-        <param name="vx_std"       type="double" value="0.008" />
+        <param name="n_bound"     type="double" value="1.0" />
+        <param name="x_std"       type="double" value="0.01" />
+        <param name="y_std"       type="double" value="0.01" />
+        <param name="yaw_std"     type="double" value="0.0001" />
+        <param name="vx_std"       type="double" value="0.1" />
         <param name="vy_std"       type="double" value="0.08" />
-        <param name="omega_std"  type="double" value="0.03" />
-        <param name="du_0"        type="double" value="0.1" />
+        <param name="omega_std"  type="double" value="0.1" />
+        <param name="du_0"        type="double" value="0.01" />
         <param name="du_1"        type="double" value="0.05" />
         <param name="u_bound"     type="double" value="1.0" />
 
@@ -86,9 +83,15 @@
         <param name="Cd"         type="double"   value="0.020"/>
         <param name="A_car"      type="double"   value="0.03"/>  
 
-        <param name="init_x"    type="double" value="0.15" />
-        <param name="init_y"    type="double" value="0.005" />
-        <param name="init_yaw"  type="double" value="0.01" />
+        <?ignore
+        <param name="init_x"    type="double" value="1.16713867" />
+        <param name="init_y"    type="double" value="0.34539007" />
+        <param name="init_yaw"  type="double" value="0" />
+        ?>
+
+        <param name="init_x"    type="double" value="0.3" />
+        <param name="init_y"    type="double" value="0.1" />
+        <param name="init_yaw"  type="double" value="0" />
 
     </node>
 
@@ -130,7 +133,7 @@
         <param name="N"           type="int"     value="20" />
         <param name="Hz"          type="double"  value="30" />
         <param name="vel_ref"     type="double"  value="2.5"/>
-        <param name="vel_th"      type="double"  value="0.8" />
+        <param name="vel_th"      type="double"  value="0.4" />
     </node>
     ?>
 

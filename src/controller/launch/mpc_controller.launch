@@ -20,8 +20,8 @@
     <!-- Variables limits-->
     <param name="max_vel"           type="double"   value="2.0" />
     <param name="min_vel"           type="double"   value="-2.0" />
-    <param name="dutycycle_max"     type="double"   value="0.5" />
-    <param name="dutycycle_min"     type="double"   value="0.081" />
+    <param name="dutycycle_max"     type="double"   value="1.0" />
+    <param name="dutycycle_min"     type="double"   value="-0.01" />
     <param name="steer_max"         type="double"   value="0.249" />
     <param name="steer_min"         type="double"   value="-0.249" />
     <param name="lat_e_max"         type="double"   value="0.4" />   <!-- like halfWidth-->
@@ -43,11 +43,11 @@
 
     <!-- CONTROL -->
     
-    <node pkg="lpv_mpc"         type="controllerMain.py"    name="control" output="screen">
+    <node pkg="controller"         type="controllerMain.py"    name="control" output="screen">
         <param name="vel_th"    type="double"   value="0.7" />
-        <param name="N"         type="int"      value="8" />
+        <param name="Horizon"   type="int"      value="25" />
         <param name="Hz"        type="double"   value="50" />
-        <param name="vel_ref"   type="double"   value="0.6"/>
+        <param name="vel_ref"   type="double"   value="1.5"/>
     </node>
 
 </launch>
