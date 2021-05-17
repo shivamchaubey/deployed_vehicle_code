@@ -504,7 +504,7 @@ class KeyTeleop():
         return twist
 
     def _key_pressed(self, keycode):
-        dt = 0.001
+        dt = 0.01
         movement_bindings = {
             curses.KEY_UP:    ( 1.0,  0.0),
             curses.KEY_DOWN:  (-1.0,  0.0),
