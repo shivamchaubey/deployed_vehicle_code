@@ -149,7 +149,7 @@ def main():
 
         if first_it < 5:
 
-            duty_cycle  = 0.0
+            duty_cycle  = 0.1
             delta = 0.01
             # xx, uu      = predicted_vectors_generation(N, LocalState, accel_rate, dt)
             xx, uu      = predicted_vectors_generation_new(N, LocalState, duty_cycle, delta, dt)
