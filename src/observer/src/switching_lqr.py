@@ -1483,7 +1483,7 @@ def main():
 
         dt = curr_time - prev_time 
         
-        if u[0] > 0.15:
+        if u[0] > 0.05:
 
 
             # yaw_trans = wrap(yaw_correction(y_meas[-1]))
@@ -1566,11 +1566,11 @@ def main():
             ol_state = ol_state + dt*(np.dot(A_sim,ol_state) + np.dot(B_sim,u)) 
             # yaw_check += wrap(fcam.yaw)
 
-            if abs(u[0]) <= 0.15:
+        if abs(u[0]) <= 0.05:
                 #     # vehicle_sim.vehicle_model(u, simulator_dt)
                     # if vehicle_sim.vx <= 0.01 :
-                    est_state[:-3] = 0.000001 
-                    ol_state[:-3] = 0.000001
+            est_state[:-3] = 0.000001 
+            ol_state[:-3] = 0.000001
 
         # else:
         #     if enc.vx == 0.0:
