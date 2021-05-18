@@ -1483,11 +1483,7 @@ def main():
 
         dt = curr_time - prev_time 
         
-<<<<<<< HEAD
         if u[0] > 0.05:
-=======
-        if abs(control_input.duty_cycle) > 0.08:
->>>>>>> 5af11286a568ea568ffc95a8eea421807d02e0c8
 
 
             # yaw_trans = wrap(yaw_correction(y_meas[-1]))
@@ -1570,19 +1566,12 @@ def main():
             ol_state = ol_state + dt*(np.dot(A_sim,ol_state) + np.dot(B_sim,u)) 
             # yaw_check += wrap(fcam.yaw)
 
-<<<<<<< HEAD
         if abs(u[0]) <= 0.05:
                 #     # vehicle_sim.vehicle_model(u, simulator_dt)
                     # if vehicle_sim.vx <= 0.01 :
             est_state[:-3] = 0.000001 
             ol_state[:-3] = 0.000001
-=======
-            if abs(u[0]) <= 0.08:
-                #     # vehicle_sim.vehicle_model(u, simulator_dt)
-                    # if vehicle_sim.vx <= 0.01 :
-                    est_state[:-3] = 0.000001 
-                    ol_state[:-3] = 0.000001
->>>>>>> 5af11286a568ea568ffc95a8eea421807d02e0c8
+
 
         # else:
         #     if enc.vx == 0.0:

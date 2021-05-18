@@ -74,17 +74,11 @@ class PathFollowingLPV_MPC:
         dstr_scale          = 1/((self.dstr_max-self.dstr_min)**2)
         dduty_scale         = 1/((self.dduty_max-self.dduty_min)**2)
 
-<<<<<<< HEAD
         self.Q  = 0.5 * np.array([0.4*vx_scale, 0.0, 0.00, 0.2*etheta_scale, 0.0, 0.8*ey_scale])
         self.R  = 0.1 * np.array([0.05*str_scale, 0.05*duty_scale])     # delta, a
         self.dR = 0.4 * np.array([0.2*dstr_scale,0.2*dduty_scale])  # Input rate cost u
         self.Qe = np.array([1, 0, 0, 1, 0, 1])*(10.0e8)
-=======
-        self.Q  = 0.9 * np.array([0.4*vx_scale, 0.0, 0.00, 0.1*etheta_scale, 0.0, 0.8*ey_scale])
-        self.R  = 0.0 * np.array([0.05*str_scale, 0.05*duty_scale])     # delta, a
-        self.dR = 0.1 * np.array([0.05*dstr_scale,0.05*dduty_scale])  # Input rate cost u
-        self.Qe = np.array([1, 1, 1, 1, 1, 1])*(10.0e4)
->>>>>>> 5af11286a568ea568ffc95a8eea421807d02e0c8
+
         
         # Create an OSQP object
         self.prob = osqp.OSQP()
@@ -99,11 +93,7 @@ class PathFollowingLPV_MPC:
         self.dt = dt                # Sample time 33 ms
 
         self.slew_rate_on = True
-<<<<<<< HEAD
         self.soft_constraints_on = True
-=======
-        self.soft_constraints_on = False
->>>>>>> 5af11286a568ea568ffc95a8eea421807d02e0c8
         self.uminus1 = np.array([0,0]).T
 
         self.map = map
@@ -829,11 +819,9 @@ class PathFollowingLPV_MPC:
             else:
                 cur     = float(curv_ref[i,0]) # From planner
 
-<<<<<<< HEAD
             vx      = float(vel_ref[i,0])
-=======
-            # vx      = float(vel_ref[i,0])
->>>>>>> 5af11286a568ea568ffc95a8eea421807d02e0c8
+
+
 
             # print "vx",vx
             # print "delta", u[i,0] 
@@ -847,11 +835,8 @@ class PathFollowingLPV_MPC:
             delta = float(u[i,0])
             dutycycle = float(u[i,1])
 
-<<<<<<< HEAD
-            # if abs(dutycycle) <= 0.15:
-=======
-            # if abs(dutycycle) <= 0.08:
->>>>>>> 5af11286a568ea568ffc95a8eea421807d02e0c8
+            # if abs(dutycycle) <= 0.05:
+
             #     u[i,1] = 0.  
             #     vx = 0.0           
             #     vy = 0.0
