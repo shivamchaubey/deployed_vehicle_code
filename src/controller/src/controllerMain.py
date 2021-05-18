@@ -30,8 +30,6 @@ np.set_printoptions(formatter={'float': lambda x: "{0:0.3f}".format(x)})
 
 
 
-
-
 class EstimatorData(object):
     """Data from estimator"""
     def __init__(self):
@@ -45,7 +43,6 @@ class EstimatorData(object):
         Unpack the messages from the estimator
         """
         self.CurrentState = np.array([msg.vx, msg.vy, msg.yaw_rate, msg.X, msg.Y, msg.yaw]).T
-
 
 
 
@@ -153,7 +150,7 @@ def main():
 
             delta = 0.01
             # xx, uu      = predicted_vectors_generation(N, LocalState, accel_rate, dt)
-            xx, uu      = predicted_vectors_generation_new(N, LocalState, duty_cycle, delta, dt)
+            xx, uu      = predicted_vectors_generation(N, LocalState, duty_cycle, delta, dt)
             
             Controller.uPred = uu
             
@@ -266,11 +263,6 @@ def main():
     quit()
 
 
-# ===============================================================================================================================
-# ==================================================== END OF MAIN ==============================================================
-# ===============================================================================================================================
-
-
 def Body_Frame_Errors (x, y, psi, xd, yd, psid, s0, vx, vy, curv, dt):
 
     ex = (x-xd)*np.cos(psid) + (y-yd)*np.sin(psid)
@@ -284,39 +276,6 @@ def Body_Frame_Errors (x, y, psi, xd, yd, psid, s0, vx, vy, curv, dt):
     return s, ex, ey, epsi
 
 
-def predicted_vectors_generation(Hp, x0, accel_rate, dt):
-
-    Vx      = np.zeros((Hp+1, 1))
-    Vx[0]   = x0[0]
-    S       = np.zeros((Hp+1, 1))
-    S[0]    = 0
-    Vy      = np.zeros((Hp+1, 1))
-    Vy[0]   = x0[1]
-    W       = np.zeros((Hp+1, 1))
-    W[0]    = x0[2]
-    Ey      = np.zeros((Hp+1, 1))
-    Ey[0]   = x0[3]
-    Epsi    = np.zeros((Hp+1, 1))
-    Epsi[0] = x0[4]
-
-    for i in range(0, Hp):
-        Vy[i+1]      = x0[1]
-        W[i+1]       = x0[2]
-        Ey[i+1]      = x0[3]
-        Epsi[i+1]    = x0[4]
-
-    accel   = np.array([[accel_rate for i in range(0, Hp)]])
-    delta   = np.array([[ 0 for i in range(0, Hp)]])
-
-    for i in range(0, Hp):
-        Vx[i+1] = Vx[i] + accel[0,i] * dt
-        S[i+1]  = S[i] + Vx[i] * dt
-
-    xx  = np.hstack([ Vx, Vy, W, Epsi ,S ,Ey]) # [vx vy omega theta_e s y_e]
-
-    uu  = np.hstack([delta.transpose(),accel.transpose()])
-
-    return xx, uu
 
 def wrap(angle):
     if angle < -np.pi:
@@ -327,8 +286,9 @@ def wrap(angle):
         w_angle = angle
 
     return w_angle
+    
 
-def predicted_vectors_generation_new(Hp, x0, accel_rate, delta, dt):
+def predicted_vectors_generation(Hp, x0, accel_rate, delta, dt):
 
     Vx      = np.zeros((Hp+1, 1))
     Vx[0]   = x0[0]
@@ -362,39 +322,6 @@ def predicted_vectors_generation_new(Hp, x0, accel_rate, delta, dt):
 
     return xx, uu
 
-def predicted_vectors_generation_V2(Hp, x0, accel_rate, dt):
-
-    Vx      = np.zeros((Hp+1, 1))
-    Vx[0]   = x0[0]
-    S       = np.zeros((Hp+1, 1))
-    S[0]    = 0
-    Vy      = np.zeros((Hp+1, 1))
-    Vy[0]   = x0[1]
-    W       = np.zeros((Hp+1, 1))
-    W[0]    = x0[2]
-    Ey      = np.zeros((Hp+1, 1))
-    Ey[0]   = x0[3]
-    Epsi    = np.zeros((Hp+1, 1))
-    Epsi[0] = x0[4]
-
-    Accel   = 1.0
-    curv    = 0
-
-    for i in range(0, Hp):
-        Vy[i+1]      = x0[1]
-        W[i+1]       = x0[2]
-        Ey[i+1]      = x0[3]
-        Epsi[i+1]    = x0[4]
-
-    Accel   = Accel + np.array([ (accel_rate * i) for i in range(0, Hp)])
-
-    for i in range(0, Hp):
-        Vx[i+1]    = Vx[i] + Accel[i] * dt
-        S[i+1]      = S[i] + Vx[i] * dt
-
-    xx  = np.hstack([ Vx, Vy, W, Epsi ,S ,Ey]) # [vx vy omega theta_e s y_e]
-    uu = np.zeros(( Hp, 1 ))
-    return xx, uu
 
 
 if __name__ == "__main__":
