@@ -47,11 +47,11 @@ def main():
     fcam   = fiseye_cam(time0, N_fcam)
     imu    = IMU(time0, N_imu)
 
-    # time.sleep(3)
+    time.sleep(3)
     print  "yaw_offset", fcam.yaw
-    # imu.yaw_offset = imu.yaw - fcam.yaw
+    imu.yaw_offset = imu.yaw - fcam.yaw
     control_input = vehicle_control(time0)
-    # time.sleep(3)
+    time.sleep(3)
 
     print "fcam.yaw",fcam.yaw
     

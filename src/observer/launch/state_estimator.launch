@@ -19,11 +19,11 @@
 
     <arg name="SWITCHING_LQR" default="1"/>
 
-    <arg name="SIM" default="1"/>
+    <arg name="SIM" default="0"/>
 
     <!-- switching  LQR type --> 
     <group if="$(arg SWITCHING_LQR)">
-        <node pkg="observer" type="switching_lqr.py" name="switching_lqr_observer" output="screen">
+        <node pkg="observer" type="switching_lqr_old.py" name="switching_lqr_observer" output="screen">
         
 
         <!-- contained in observer/data/-->
@@ -48,9 +48,9 @@
         <param name="deadzone"    type="double" value="0.8" />
         
         <!-- Pure translation and rotation don't confuse with refence transformation -->
-        <param name="init_x"    type="double" value="0.15" />
-        <param name="init_y"    type="double" value="0.005" />
-        <param name="init_yaw"  type="double" value="0.01" />
+        <param name="init_x"    type="double" value="0.0" />
+        <param name="init_y"    type="double" value="0.0" />
+        <param name="init_yaw"  type="double" value="0.0" />
 
 
         <!-- FOR TESTING PUSPOSE -->
@@ -63,8 +63,9 @@
 
 
         <!-- If transformation needed from estamed frame of reference to another -->
-        <param name="x_tf"      type="double" value="0.42998579" unless="$(arg SIM)"/>
-        <param name="y_tf"      type="double" value="-1.1021565" unless="$(arg SIM)"/>
+        
+        <param name="x_tf"      type="double" value="0.85" unless="$(arg SIM)"/> <!--add x value if towards origin else subtract -->
+        <param name="y_tf"      type="double" value="-0.85" unless="$(arg SIM)"/> <!--subtract y value if towards origin else add -->
         <!-- Map rotation -->
         <param name="theta_tf"  type="double" value="-90.0" unless="$(arg SIM)"/>
         <!-- Vehicle orientation-->
