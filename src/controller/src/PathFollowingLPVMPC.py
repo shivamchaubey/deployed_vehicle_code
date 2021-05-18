@@ -74,13 +74,13 @@ class PathFollowingLPV_MPC:
         dstr_scale          = 1/((self.dstr_max-self.dstr_min)**2)
         dduty_scale         = 1/((self.dduty_max-self.dduty_min)**2)
 
-        self.Q  = 0.9 * np.array([0.4*vx_scale, 0.0, 0.00, 0.1*etheta_scale, 0.0, 0.8*ey_scale])
+        self.Q  = 0.9 * np.array([0.2*vx_scale, 0.0, 0.00, 0.3*etheta_scale, 0.0, 0.8*ey_scale])
         self.R  = 0.0 * np.array([0.05*str_scale, 0.05*duty_scale])     # delta, a
         self.dR = 0.1 * np.array([0.05*dstr_scale,0.05*dduty_scale])  # Input rate cost u
         self.Qe = np.array([1, 1, 1, 1, 1, 1])*(10.0e4)
         
         # Create an OSQP object
-        self.prob = osqp.OSQP()
+        #self.prob = osqp.OSQP()
         self.N    = N
         self.nx    = self.Q.shape[0]
         self.nu    = self.R.shape[0]
@@ -91,7 +91,7 @@ class PathFollowingLPV_MPC:
         self.uPred = []
         self.dt = dt                # Sample time 33 ms
 
-        self.slew_rate_on = True
+        self.slew_rate_on = False
         self.soft_constraints_on = False
         self.uminus1 = np.array([0,0]).T
 

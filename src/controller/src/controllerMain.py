@@ -165,25 +165,25 @@ def main():
 
             LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction(LocalState[0:6], Controller.uPred, vel_ref)
 
-            if first_it == 5:
-                print "MPC setup"
-                # Controller.simple_MPC_setup(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref) 
-                # Controller.simple_MPC_solve()
+            # if first_it == 5:
+            #     print "MPC setup"
+            #     # Controller.simple_MPC_setup(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref) 
+            #     # Controller.simple_MPC_solve()
 
-                LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction_setup(LocalState[0:6], Controller.uPred, vel_ref)
+            #     LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction_setup(LocalState[0:6], Controller.uPred, vel_ref)
 
-                Controller.MPC_integral_setup(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref) 
-                # Controller.MPC_integral_solve()
+            #     Controller.MPC_integral_setup(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref) 
+            #     # Controller.MPC_integral_solve()
 
 
-            # if 5 < first_it < 7:
-            else:
+            # # if 5 < first_it < 7:
+            # else:
     
-                t1 = time.time() 
-                print "MPC update"
-                Controller.MPC_integral_update(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref) 
-                Controller.MPC_integral_solve()
-                print "time taken to solve", time.time() - t1
+            #     t1 = time.time() 
+            #     print "MPC update"
+            #     Controller.MPC_integral_update(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref) 
+            #     Controller.MPC_integral_solve()
+            #     print "time taken to solve", time.time() - t1
 
 
             # print ("Controller.uPred shape", Controller.uPred.shape)
@@ -197,7 +197,7 @@ def main():
                 # Controller.simple_MPC_solve()
 
 
-            # Controller.MPC_integral_solve2(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref)
+            Controller.MPC_integral_solve2(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref)
 
                         # Solve
             # res = Controller.prob.solve()

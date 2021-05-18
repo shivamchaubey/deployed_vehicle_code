@@ -1381,31 +1381,31 @@ def main():
     control_data = control()
     control_hist = {'timestamp_ms_dutycycle':[],'timestamp_ms_steer':[],'steering':[], 'duty_cycle':[]}
 
-    # enc_pub  = rospy.Publisher('encoder_fused', sensorReading, queue_size=1)
-    # enc_data = sensorReading()
-    # enc_hist = {'timestamp_ms':[], 'X':[], 'Y':[], 'roll':[], 'yaw':[], 'pitch':[], 'vx':[], 'vy':[], 'yaw_rate':[], 'ax':[], 'ay':[], 's':[], 'x':[], 'y':[]}
+    enc_pub  = rospy.Publisher('encoder_fused', sensorReading, queue_size=1)
+    enc_data = sensorReading()
+    enc_hist = {'timestamp_ms':[], 'X':[], 'Y':[], 'roll':[], 'yaw':[], 'pitch':[], 'vx':[], 'vy':[], 'yaw_rate':[], 'ax':[], 'ay':[], 's':[], 'x':[], 'y':[]}
         
-    # imu_pub  = rospy.Publisher('imu_fused', sensorReading, queue_size=1)
-    # imu_data = sensorReading()
-    # imu_hist = {'timestamp_ms':[], 'X':[], 'Y':[], 'roll':[], 'yaw':[], 'pitch':[], 'vx':[], 'vy':[], 'yaw_rate':[], 'ax':[], 'ay':[], 's':[], 'x':[], 'y':[]}
+    imu_pub  = rospy.Publisher('imu_fused', sensorReading, queue_size=1)
+    imu_data = sensorReading()
+    imu_hist = {'timestamp_ms':[], 'X':[], 'Y':[], 'roll':[], 'yaw':[], 'pitch':[], 'vx':[], 'vy':[], 'yaw_rate':[], 'ax':[], 'ay':[], 's':[], 'x':[], 'y':[]}
         
-    # fcam_pub  = rospy.Publisher('fcam_fused', sensorReading, queue_size=1)
-    # fcam_data = sensorReading()
-    # fcam_hist = {'timestamp_ms':[], 'X':[], 'Y':[], 'roll':[], 'yaw':[], 'pitch':[], 'vx':[], 'vy':[], 'yaw_rate':[], 'ax':[], 'ay':[], 's':[], 'x':[], 'y':[]}
+    fcam_pub  = rospy.Publisher('fcam_fused', sensorReading, queue_size=1)
+    fcam_data = sensorReading()
+    fcam_hist = {'timestamp_ms':[], 'X':[], 'Y':[], 'roll':[], 'yaw':[], 'pitch':[], 'vx':[], 'vy':[], 'yaw_rate':[], 'ax':[], 'ay':[], 's':[], 'x':[], 'y':[]}
         
 
         
-    # enc_MA_pub  = rospy.Publisher('encoder_MA_fused', sensorReading, queue_size=1)
-    # enc_MA_data = sensorReading()
-    # enc_MA_hist = {'timestamp_ms':[], 'X':[], 'Y':[], 'roll':[], 'yaw':[], 'pitch':[], 'vx':[], 'vy':[], 'yaw_rate':[], 'ax':[], 'ay':[], 's':[], 'x':[], 'y':[]}
+    enc_MA_pub  = rospy.Publisher('encoder_MA_fused', sensorReading, queue_size=1)
+    enc_MA_data = sensorReading()
+    enc_MA_hist = {'timestamp_ms':[], 'X':[], 'Y':[], 'roll':[], 'yaw':[], 'pitch':[], 'vx':[], 'vy':[], 'yaw_rate':[], 'ax':[], 'ay':[], 's':[], 'x':[], 'y':[]}
         
-    # imu_MA_pub  = rospy.Publisher('imu_MA_fused', sensorReading, queue_size=1)
-    # imu_MA_data = sensorReading()
-    # imu_MA_hist = {'timestamp_ms':[], 'X':[], 'Y':[], 'roll':[], 'yaw':[], 'pitch':[], 'vx':[], 'vy':[], 'yaw_rate':[], 'ax':[], 'ay':[], 's':[], 'x':[], 'y':[]}
+    imu_MA_pub  = rospy.Publisher('imu_MA_fused', sensorReading, queue_size=1)
+    imu_MA_data = sensorReading()
+    imu_MA_hist = {'timestamp_ms':[], 'X':[], 'Y':[], 'roll':[], 'yaw':[], 'pitch':[], 'vx':[], 'vy':[], 'yaw_rate':[], 'ax':[], 'ay':[], 's':[], 'x':[], 'y':[]}
         
-    # fcam_MA_pub  = rospy.Publisher('fcam_MA_fused', sensorReading, queue_size=1)
-    # fcam_MA_data = sensorReading()
-    # fcam_MA_hist = {'timestamp_ms':[], 'X':[], 'Y':[], 'roll':[], 'yaw':[], 'pitch':[], 'vx':[], 'vy':[], 'yaw_rate':[], 'ax':[], 'ay':[], 's':[], 'x':[], 'y':[]}
+    fcam_MA_pub  = rospy.Publisher('fcam_MA_fused', sensorReading, queue_size=1)
+    fcam_MA_data = sensorReading()
+    fcam_MA_hist = {'timestamp_ms':[], 'X':[], 'Y':[], 'roll':[], 'yaw':[], 'pitch':[], 'vx':[], 'vy':[], 'yaw_rate':[], 'ax':[], 'ay':[], 's':[], 'x':[], 'y':[]}
 
     
     yaw_check = wrap(fcam.yaw)
@@ -1614,38 +1614,38 @@ def main():
         meas_state_pub.publish(meas_pub)
         # angle_past = angle_cur
 
-        # control_msg = control_input.data_retrive(control_data)        
-        # append_control_data(control_hist, control_msg)
+        control_msg = control_input.data_retrive(control_data)        
+        append_control_data(control_hist, control_msg)
 
 
-        # enc_msg = enc.data_retrive(enc_data)
-        # enc_pub.publish(enc_msg)
-        # append_sensor_data(enc_hist, enc_msg)
+        enc_msg = enc.data_retrive(enc_data)
+        enc_pub.publish(enc_msg)
+        append_sensor_data(enc_hist, enc_msg)
 
 
-        # enc_MA_msg = enc.data_retrive_MA(enc_MA_data)
-        # enc_MA_pub.publish(enc_MA_msg)
-        # append_sensor_data(enc_MA_hist, enc_MA_msg)
+        enc_MA_msg = enc.data_retrive_MA(enc_MA_data)
+        enc_MA_pub.publish(enc_MA_msg)
+        append_sensor_data(enc_MA_hist, enc_MA_msg)
 
 
-        # imu_msg = imu.data_retrive(imu_data)
-        # imu_pub.publish(imu_msg)
-        # append_sensor_data(imu_hist, imu_msg)
+        imu_msg = imu.data_retrive(imu_data)
+        imu_pub.publish(imu_msg)
+        append_sensor_data(imu_hist, imu_msg)
 
 
-        # imu_MA_msg = imu.data_retrive_MA(imu_MA_data)
-        # imu_MA_pub.publish(imu_MA_msg)
-        # append_sensor_data(imu_MA_hist, imu_MA_msg)
+        imu_MA_msg = imu.data_retrive_MA(imu_MA_data)
+        imu_MA_pub.publish(imu_MA_msg)
+        append_sensor_data(imu_MA_hist, imu_MA_msg)
 
 
-        # fcam_msg = fcam.data_retrive(fcam_data)
-        # fcam_pub.publish(fcam_msg)
-        # append_sensor_data(fcam_hist, fcam_msg)
+        fcam_msg = fcam.data_retrive(fcam_data)
+        fcam_pub.publish(fcam_msg)
+        append_sensor_data(fcam_hist, fcam_msg)
 
 
-        # fcam_MA_msg = fcam.data_retrive_MA(fcam_MA_data)
-        # fcam_MA_pub.publish(fcam_MA_msg)
-        # append_sensor_data(fcam_MA_hist, fcam_MA_msg)
+        fcam_MA_msg = fcam.data_retrive_MA(fcam_MA_data)
+        fcam_MA_pub.publish(fcam_MA_msg)
+        append_sensor_data(fcam_MA_hist, fcam_MA_msg)
 
         prev_time = curr_time 
 
@@ -1690,7 +1690,8 @@ def main():
 
     if record_data == True:
         path = ('/').join(__file__.split('/')[:-2]) + '/data/' 
-            
+        
+
         now = datetime.datetime.now()
         # path = path + now.strftime("d%d_m%m_y%Y/")
         path = path + now.strftime("d%d_m%m_y%Y_hr%H_min%M_sec%S")
@@ -1715,8 +1716,8 @@ def main():
 
         np.save(control_path,control_hist)
 
-        np.save(marvel_path,marvel_hist)
-        np.save(marvel_MA_path,marvel_MA_hist)
+        # np.save(marvel_path,marvel_hist)
+        # np.save(marvel_MA_path,marvel_MA_hist)
         
         np.save(imu_path,imu_hist)
         np.save(imu_MA_path,imu_MA_hist)
