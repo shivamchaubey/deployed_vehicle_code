@@ -1,7 +1,8 @@
 *.npy
 *.pdf
 *.odt
-*.bg
+*.bag
+record_data
 build
 logs
 devel
