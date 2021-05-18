@@ -559,6 +559,7 @@ class KeyTeleop():
         
         self.time1 = rospy.get_time()
         # print ("time at start publishing",self.time1-self.time0)
+<<<<<<< HEAD
 
         # if  (self.past_linear != self._linear): 
         
@@ -576,6 +577,19 @@ class KeyTeleop():
 
         # self.past_linear = self._linear 
         # self.past_angular = self._angular 
+=======
+
+        if  (self.past_linear != self._linear): 
+        
+            self.accel_commands.publish(self._linear)
+
+        if (self.past_angular != self._angular): 
+ 
+            self.steering_commands.publish(self._angular)
+
+        self.past_linear = self._linear 
+        self.past_angular = self._angular 
+>>>>>>> 5af11286a568ea568ffc95a8eea421807d02e0c8
         
         # self.imu_vx.publish(self.imu_enc.vx)
         # self.imu_vy.publish(self.imu_enc.vy)
