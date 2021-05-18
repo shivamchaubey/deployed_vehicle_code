@@ -5,6 +5,7 @@
 record_data
 ./src/plotter/data
 ./src/observer/datay
+./src/vehicle_sensors/rplidar_new
 build
 logs
 devel
