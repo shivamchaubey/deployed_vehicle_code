@@ -1,35 +1,38 @@
 #!/usr/bin/env python
 
-###############################################
-##      IRI 1:10 Autonomous Car              ##
-##      Supervisor: Puig Cayuela Vicenc      ##
-##      Author: Shivam Chaubey               ##
-##      Email: shivam.chaubey1006@gmail.com  ##
-##      Date: 11/03/2021                     ##
-###############################################
+##########################################################
+##           IRI 1:10 Autonomous Car                    ##
+##           ```````````````````````                    ##
+##      Supervisor: Puig Cayuela Vicenc                 ##
+##      Author:     Shivam Chaubey                      ##
+##      Email:      shivam.chaubey1006@gmail.com        ##
+##      Date:       18/05/2021                          ##
+##########################################################
+
+''' 
+state estimator subscriber and MPC controller input publisher: This file
+is to setup the MPC problem using the estimated states, previous input if
+weights on input rate is set, and initial constraints. The vehicle has to
+follow a track set on the map    
+
+'''
 
 
 import os
-import sys
 import datetime
 import rospy
 import numpy as np
-import scipy.io as sio
-import matplotlib.pyplot as plt
 from sensor_fusion.msg import sensorReading
-sys.path.append(('/').join(sys.path[0].split('/')[:-2])+'/planner/src/')
-
 from std_msgs.msg import Bool, Float32
 from PathFollowingLPVMPC import PathFollowingLPV_MPC
-from trackInitialization import Map
-from math import pi 
 import time
+import sys
+sys.path.append(('/').join(sys.path[0].split('/')[:-2])+'/planner/src/')
+from trackInitialization import Map
 
 np.set_printoptions(formatter={'float': lambda x: "{0:0.3f}".format(x)})
 
-
-
-
+########## Full state estimation from observer #############
 class EstimatorData(object):
     """Data from estimator"""
     def __init__(self):
@@ -44,7 +47,51 @@ class EstimatorData(object):
         """
         self.CurrentState = np.array([msg.vx, msg.vy, msg.yaw_rate, msg.X, msg.Y, msg.yaw]).T
 
+### wrap the angle between [-pi,pi] ###
+def wrap(angle):
+    if angle < -np.pi:
+        w_angle = 2 * np.pi + angle
+    elif angle > np.pi:
+        w_angle = angle - 2 * np.pi
+    else:
+        w_angle = angle
 
+    return w_angle
+
+######## state and input vector generation for MPC initial setup #########
+def predicted_vectors_generation(Hp, x0, accel_rate, delta, dt):
+
+    Vx      = np.zeros((Hp+1, 1))
+    Vx[0]   = x0[0]
+    S       = np.zeros((Hp+1, 1))
+    S[0]    = 0
+    Vy      = np.zeros((Hp+1, 1))
+    Vy[0]   = x0[1]
+    W       = np.zeros((Hp+1, 1))
+    W[0]    = x0[2]
+    Ey      = np.zeros((Hp+1, 1))
+    Ey[0]   = x0[3]
+    Epsi    = np.zeros((Hp+1, 1))
+    Epsi[0] = x0[4]
+
+    for i in range(0, Hp):
+        Vy[i+1]      = x0[1]
+        W[i+1]       = x0[2]
+        Ey[i+1]      = x0[3]
+        Epsi[i+1]    = x0[4]
+
+    accel   = np.array([[accel_rate for i in range(0, Hp)]])
+    delta   = np.array([[ delta for i in range(0, Hp)]])
+
+    for i in range(0, Hp):
+        Vx[i+1] = Vx[i] + accel[0,i] * dt
+        S[i+1]  = S[i] + Vx[i] * dt
+
+    xx  = np.hstack([ Vx, Vy, W, Epsi ,S ,Ey]) # [vx vy omega theta_e s y_e]
+
+    uu  = np.hstack([delta.transpose(),accel.transpose()])
+
+    return xx, uu
 
 
 
@@ -56,7 +103,7 @@ def main():
     dutycycle_commands  = rospy.Publisher('control/accel', Float32, queue_size=1)
     steering_commands   = rospy.Publisher('control/steering', Float32, queue_size=1)
 
-    dutycycle_thres     = rospy.get_param("/control/vel_th") # dutycycle Deadzone
+    dutycycle_thres     = rospy.get_param("/duty_th") # dutycycle Deadzone
     
     N                   = rospy.get_param("/control/Horizon")
     Vx_ref              = rospy.get_param("/control/vel_ref")
@@ -99,15 +146,27 @@ def main():
     rospy.sleep(1.2)
 
     print "controller initialized"
+
     while (not rospy.is_shutdown()):
 
         startTimer = datetime.datetime.now()
 
+        ''' 
+        The estimator provides 6 states of the vehicle  [vx, vy, omega, X,
+        Y, yaw] but the MPC uses error model for the optimization. We transformed 
+        [X, Y, yaw] states of global states to local states [s, ey, epsi] using the function 
+        map.getLocalPosition which provides error with respect to the track.
+        '''
+
         # Read Measurements
         GlobalState[:] = estimatorData.CurrentState  # The current estimated state vector [vx vy w x y psi]
-        GlobalState[5] =  wrap(GlobalState[5] - 2 * np.pi * LapNumber) #(GlobalState[5] + pi) % (2 * pi) - pi
+        GlobalState[5] =  wrap(GlobalState[5] - 2 * np.pi * LapNumber) 
+        '''
+        The above code converts the continuous yaw angle between [-pi,pi] because
+        the map.getLocalPosition function work in this domain.  '''
         LocalState[:]  = estimatorData.CurrentState  # [vx vy w x y psi]
 
+        ## This is for the map case you can add your own cases for example if you want the vehicle to follow other trajectory make another case.
         if test_gen == 2:
 
             # OUT: s, ey, epsi       IN: x, y, psi
@@ -115,9 +174,11 @@ def main():
                 GlobalState[3], GlobalState[4], wrap(GlobalState[5]))
 
             print("\n")
-            print("vx vy w x y yaw: ", GlobalState)
+            print("vx vy w: ", GlobalState[:3])
             print("\n")
-            print("vx vy w epsi s ey: ", LocalState)
+            print("x y yaw: ", GlobalState[3:])
+            print("\n")
+            print("epsi s ey: ", LocalState[3:])
             print("\n")
 
             vel_ref         = np.ones([N,1])
@@ -146,7 +207,7 @@ def main():
 
         if first_it < 5:
 
-            duty_cycle  = 0.1
+            duty_cycle  = 0.0
 
             delta = 0.01
             # xx, uu      = predicted_vectors_generation(N, LocalState, accel_rate, dt)
@@ -165,162 +226,34 @@ def main():
 
             if first_it == 5:
                 print "MPC setup"
-                # Controller.simple_MPC_setup(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref) 
-                # Controller.simple_MPC_solve()
 
-                LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction_setup(LocalState[0:6], Controller.uPred, vel_ref)
+                Controller.MPC_setup(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref) 
+                
 
-                Controller.MPC_integral_setup(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref) 
-                # Controller.MPC_integral_solve()
-
-
-            # if 5 < first_it < 7:
             else:
     
-                t1 = time.time() 
                 print "MPC update"
-                Controller.MPC_integral_update(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref) 
-                Controller.MPC_integral_solve()
+                t1 = time.time() 
+                Controller.MPC_update(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref) 
+                Controller.MPC_solve()
                 print "time taken to solve", time.time() - t1
 
-
-            # print ("Controller.uPred shape", Controller.uPred.shape)
-            # Controller.solve(LPV_States_Prediction[0,:], LPV_States_Prediction, Controller.uPred, vel_ref, curv_ref, A_L, B_L, C_L, first_it)
-
-
-            # print "LPV_States_Prediction",LPV_States_Prediction.shape 
-            # print "LocalState[0:6]",LocalState[0:6]
-            # print (B_L.shape)
-                # Controller.simple_MPC_update(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref)
-                # Controller.simple_MPC_solve()
-
-
-            # Controller.MPC_integral_solve2(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref)
-
-                        # Solve
-            # res = Controller.prob.solve()
-
-            # print "TimeCounter",TimeCounter
-            # # Check solver status
-            # if res.info.status != 'solved':
-            #     print ('OSQP did not solve the problem!')
-            
-
-            # Solution = res.x
-
-            # print "controller to be applied", Solution[(N+1)*nx:(N+1)*nx + nu]
-            # print "Solution shape", Solution.shape
-            
-
-            # Controller.xPred = np.squeeze(np.transpose(np.reshape((Solution[np.arange(nx * (N + 1))]), (N + 1, nx)))).T
-            # Controller.uPred = np.squeeze(np.transpose(np.reshape((Solution[nx * (N + 1) + np.arange(nu * N)]), (N, nu)))).T
-
-            # print "Controller.uPred", Controller.uPred
-            if Controller.uPred[0,0]  == None:
-                Controller.uPred[0,0] = 0.0
-            if Controller.uPred[0,1]  == None:  
-                Controller.uPred[0,1] = 0.0
-
             Controller.uminus1 = Controller.uPred[0,:] 
-            print 'Controller.uminus1', Controller.uminus1, 'Controller.uPred[0,:]', Controller.uPred[0,:]            
-            # LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction(LocalState[0:6], Controller.uPred, vel_ref*0.0)
 
-            # Controller.MPC_update(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref)
-
-
-            # self.LinPoints = np.concatenate( (self.xPred.T[1:,:], np.array([self.xPred.T[-1,:]])), axis=0 )
-
-
-
-            # if Controller.feasible == 0:
-            #     controller_Flag_msg.data = True
-            #     controller_Flag.publish(controller_Flag_msg)
-            # else:
-            #     controller_Flag_msg.data = False
-            #     controller_Flag.publish(controller_Flag_msg)
-
-            # if first_it ==7:
-            #     break
-        
         first_it    = first_it + 1
 
-        print "TimeCounter", TimeCounter
         print('control actions',"delta", Controller.uPred[0,0],"dutycycle", Controller.uPred[0,1])
         print('\n')
 
-        # first_it    = first_it + 1
-        ## Publish input simulation ##
+        ## Publish controls ##
         cmd_servo = Controller.uPred[0,0]
         cmd_motor = Controller.uPred[0,1]
         dutycycle_commands.publish(Controller.uPred[0,1])
         steering_commands.publish(Controller.uPred[0,0])
 
-
-        PlannerCounter  += 1
-        TimeCounter     += 1
         rate.sleep()
 
     quit()
-
-
-def Body_Frame_Errors (x, y, psi, xd, yd, psid, s0, vx, vy, curv, dt):
-
-    ex = (x-xd)*np.cos(psid) + (y-yd)*np.sin(psid)
-
-    ey = -(x-xd)*np.sin(psid) + (y-yd)*np.cos(psid)
-
-    epsi = wrap(psi - psid)
-
-    s = s0 + ( (vx*np.cos(epsi) - vy*np.sin(epsi)) / (1-ey*curv) ) * dt
-
-    return s, ex, ey, epsi
-
-
-
-def wrap(angle):
-    if angle < -np.pi:
-        w_angle = 2 * np.pi + angle
-    elif angle > np.pi:
-        w_angle = angle - 2 * np.pi
-    else:
-        w_angle = angle
-
-    return w_angle
-    
-
-def predicted_vectors_generation(Hp, x0, accel_rate, delta, dt):
-
-    Vx      = np.zeros((Hp+1, 1))
-    Vx[0]   = x0[0]
-    S       = np.zeros((Hp+1, 1))
-    S[0]    = 0
-    Vy      = np.zeros((Hp+1, 1))
-    Vy[0]   = x0[1]
-    W       = np.zeros((Hp+1, 1))
-    W[0]    = x0[2]
-    Ey      = np.zeros((Hp+1, 1))
-    Ey[0]   = x0[3]
-    Epsi    = np.zeros((Hp+1, 1))
-    Epsi[0] = x0[4]
-
-    for i in range(0, Hp):
-        Vy[i+1]      = x0[1]
-        W[i+1]       = x0[2]
-        Ey[i+1]      = x0[3]
-        Epsi[i+1]    = x0[4]
-
-    accel   = np.array([[accel_rate for i in range(0, Hp)]])
-    delta   = np.array([[ delta for i in range(0, Hp)]])
-
-    for i in range(0, Hp):
-        Vx[i+1] = Vx[i] + accel[0,i] * dt
-        S[i+1]  = S[i] + Vx[i] * dt
-
-    xx  = np.hstack([ Vx, Vy, W, Epsi ,S ,Ey]) # [vx vy omega theta_e s y_e]
-
-    uu  = np.hstack([delta.transpose(),accel.transpose()])
-
-    return xx, uu
 
 
 

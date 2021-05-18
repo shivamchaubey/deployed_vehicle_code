@@ -5,11 +5,11 @@
     <param name="rho"             type="double"   value="1.225" />    
     <param name="lr"            type="double"   value="0.1203" />
     <param name="lf"            type="double"   value="0.1377" />
-    <param name="Cm0"            type="double"   value="10.1305" />
-    <param name="Cm1"            type="double"   value="1.05294" />
-    <param name="C0"            type="double"   value="3.68918" />
-    <param name="C1"            type="double"   value="0.0306803" />
-    <param name="Cd_A"            type="double"   value="-0.657645" />
+    <param name="Cm0"            type="double"   value="9.46853" />
+    <param name="Cm1"            type="double"   value="0.667237" />
+    <param name="C0"            type="double"   value="2.61049" />
+    <param name="C1"            type="double"   value="-0.00213596" />
+    <param name="Cd_A"            type="double"   value="-0.466602" />
     <param name="Caf"            type="double"   value="1.3958" />
     <param name="Car"            type="double"   value="1.6775" />
     <param name="Iz"            type="double"   value="0.02" />
@@ -21,6 +21,7 @@
     <param name="init_vx"     type="double" value="0.1"/>
     <param name="halfWidth"     type="double"   value="0.4" />
     <param name="trackShape"  type="str"    value="oval_iri"/>
+    <param name="duty_th"       type="double"   value="0.05" />  <!-- deadzone where the wheel doesn't rotate -->
 
     <?ignore
     <node pkg="lpv_mpc" type="plotCarTrajectory.py" name="visualization" output="screen">
@@ -43,8 +44,7 @@
         <param name="fcam_freq_update" type="double" value="40" />
         <param name="imu_freq_update" type="double" value="150.0" />
         <param name="enc_freq_update" type="double" value="150.0" />
-
-
+        
         <!-- delay in the simulator -->
         <!-- why delay in simulator is needed?? -->
         <param name="lowLevelDyn" type="bool" value="false" />

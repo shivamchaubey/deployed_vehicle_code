@@ -106,7 +106,7 @@ def main():
     vehicle_sim_offset_x    = rospy.get_param("simulator/init_x")
     vehicle_sim_offset_y    = rospy.get_param("simulator/init_y")
     vehicle_sim_offset_yaw  = rospy.get_param("simulator/init_yaw")
-
+    duty_th                 = rospy.get_param("duty_th")
     pub_vehicle_simulatorStates = rospy.Publisher('vehicle_simulatorStates', simulatorStates, queue_size=1)
     # pub_simulatorStatesIDIADA = rospy.Publisher('vehicle_state', VehicleState, queue_size=1)
     pub_linkStates = rospy.Publisher('/gazebo/set_model_state', ModelState, queue_size=1)
@@ -154,7 +154,7 @@ def main():
 
         u = [ecu.duty_cycle, ecu.steer]
         # dt = curr_time - prev_time 
-        if abs(ecu.duty_cycle) > 0.08:
+        if u[0] > duty_th:
             
             vehicle_sim.vehicle_model(u, simulator_dt)
 
@@ -168,7 +168,7 @@ def main():
         
         (simStates.vx, simStates.vy, simStates.omega, simStates.x, simStates.y, simStates.yaw) = vehicle_sim.states
         
-        if abs(ecu.duty_cycle) <= 0.08:
+        if u[0] <= duty_th:
                 #     # vehicle_sim.vehicle_model(u, simulator_dt)
                     # if vehicle_sim.vx <= 0.01 :
                     vehicle_sim.vx = 0.000001 

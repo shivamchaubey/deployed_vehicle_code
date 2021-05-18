@@ -5,11 +5,11 @@
     <param name="rho"             type="double"   value="1.225" />    
     <param name="lr"            type="double"   value="0.1203" />
     <param name="lf"            type="double"   value="0.1377" />
-    <param name="Cm0"            type="double"   value="10.1305" />
-    <param name="Cm1"            type="double"   value="1.05294" />
-    <param name="C0"            type="double"   value="3.68918" />
-    <param name="C1"            type="double"   value="0.0306803" />
-    <param name="Cd_A"            type="double"   value="-0.657645" />
+    <param name="Cm0"            type="double"   value="9.46853" />
+    <param name="Cm1"            type="double"   value="0.667237" />
+    <param name="C0"            type="double"   value="2.61049" />
+    <param name="C1"            type="double"   value="-0.00213596" />
+    <param name="Cd_A"            type="double"   value="-0.466602" />
     <param name="Caf"            type="double"   value="1.3958" />
     <param name="Car"            type="double"   value="1.6775" />
     <param name="Iz"            type="double"   value="0.02" />
@@ -17,7 +17,7 @@
     
     <!-- LOAD ESTIMATOR TYPE -->
 
-    <arg name="SWITCHING_LQR" default="0"/>
+    <arg name="SWITCHING_LQR" default="1"/>
 
     <!-- switching  LQR type --> 
     <group if="$(arg SWITCHING_LQR)">
@@ -30,7 +30,7 @@
         <param name="lqr_gain_path"   type="string"  value="/data/LQR_16_04_2021/switching_LQR_gain.mat" if="$(arg SWITCHING_LQR)"/>
         
         <param name="visualization"    type="bool"      value="false" />
-        <param name="record_data"      type="bool"      value="False" />
+        <param name="record_data"      type="bool"      value="false" />
 
 
         <param name="publish_frequency" type="double" value="100.0" />
@@ -51,17 +51,17 @@
         <param name="init_yaw"  type="double" value="0.01" />
 
 
+        <?ignore
         <!-- If transformation needed from estamed frame of reference to another -->
-        <param name="x_tf"      type="double" value="$(eval 0.42998579 + 0.44111128)" />
-        <param name="y_tf"      type="double" value="$(eval -1.1021565 + 0.27882835)" />
+        <param name="x_tf"      type="double" value="0.42998579" />
+        <param name="y_tf"      type="double" value="-1.1021565" />
         <!-- Map rotation -->
         <param name="theta_tf"  type="double" value="-90.0" />
         <!-- Vehicle orientation-->
         <param name="yaw_tf"    type="double" value="-90.0" />
-        
-          
+        ?>
 
-        <?ignore
+        
         <!-- FOR TESTING PUSPOSE -->
         <param name="x_tf"      type="double" value="0.0" />
         <param name="y_tf"      type="double" value="0.0" />
@@ -69,7 +69,6 @@
         <param name="theta_tf"  type="double" value="0.0" />
         <!-- Vehicle orientation-->
         <param name="yaw_tf"    type="double" value="0.0" />
-        ?>        
 
 
 

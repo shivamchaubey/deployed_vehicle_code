@@ -1,25 +1,23 @@
 #!/usr/bin/env python
 
-from scipy import linalg, sparse
+
+##########################################################
+##      IRI 1:10 Autonomous Car                         ##
+##      Supervisor: Puig Cayuela Vicenc                 ##
+##      Author:     Shivam Chaubey                      ##
+##      Email:      shivam.chaubey1006@gmail.com        ##
+##      Date:       18/05/2021                          ##
+##########################################################
+
+from scipy import sparse
 import numpy as np
-from cvxopt.solvers import qp
-from cvxopt import spmatrix, matrix, solvers
-import datetime
-from numpy import linalg as la
-import pdb
 from numpy import hstack, inf, ones
-from scipy.sparse import vstack
-from osqp import OSQP
 import rospy
 from math import cos, sin, atan, pi
 import osqp
 
-solvers.options['show_progress'] = False
 
 np.set_printoptions(formatter={'float': lambda x: "{0:0.3f}".format(x)})
-
-
-
 
 class PathFollowingLPV_MPC:
     """Create the Path Following LMPC controller with LTV model
@@ -81,15 +79,15 @@ class PathFollowingLPV_MPC:
         ######################################## MPC parameter setup #####################################################
 
         # Introduce the integral action (slew_rate_on = True) and soft constraints (soft_constraints_on = True) if needed.
-        self.slew_rate_on = True
-        self.soft_constraints_on = True
+        self.slew_rate_on = rospy.get_param("/control/integral_action")
+        self.soft_constraints_on = rospy.get_param("/control/soft_constraints")
 
 
         # Assign the weight of objective function
-        self.Q  = 0.5 * np.array([0.4*vx_scale, 0.0, 0.00, 0.2*etheta_scale, 0.0, 0.8*ey_scale]) # penality on states 
-        self.R  = 0.1 * np.array([0.05*str_scale, 0.05*duty_scale])     # Penality on input (dutycycle, steer)
-        self.dR = 0.4 * np.array([0.2*dstr_scale,0.2*dduty_scale])  # Penality on Input rate 
-        self.Qe = np.array([1, 0, 0, 1, 0, 1])*(10.0e8) # Penality on soft constraints 
+        self.Q  = 0.6 * np.array([0.4*vx_scale, 0.0, 0.00, 0.05*etheta_scale, 0.0, 0.55*ey_scale]) # penality on states 
+        self.R  = 0.1 * np.array([0.0*str_scale, 0.05*duty_scale])     # Penality on input (dutycycle, steer)
+        self.dR = 0.3 * np.array([0.005*dstr_scale,0.1*dduty_scale])  # Penality on Input rate 
+        self.Qe = np.array([1, 0, 0, 0, 0, 0])*(10.0e8) # Penality on soft constraints 
 
         
         # Create an OSQP object
@@ -244,6 +242,12 @@ class PathFollowingLPV_MPC:
             self.u = np.hstack([self.ueq, self.uineq_x, self.uineq_u])
 
 
+        ##### vector of non zero element is needed to update the sparse matrix #####
+        At = self.A.transpose(copy=True) 
+        At.sort_indices()
+        (self.col_indices, self.row_indices) = At.nonzero()
+ 
+
         #################################### Problem Setup ###################################
         self.prob.setup(self.P, self.q, self.A, self.l, self.u, warm_start=True, polish=True)
         
@@ -277,7 +281,7 @@ class PathFollowingLPV_MPC:
         self.l[:nx] = -x0
         self.u[:nx] = -x0
 
-        ########### Update inequality constraint of slew_rate == on ##############
+        ########### Update inequality constraint if slew_rate == on with previous input (uminus_1)##############
         if self.slew_rate_on == True:
             self.l[(N+1)*nx + (N+1)*nx + (N)*nu:(N+1)*nx + (N+1)*nx + (N)*nu + nu] = self.dumin + self.uminus1[0:nu]  # update constraint on \Delta u0: Dumin <= u0 - u_{-1}
             self.u[(N+1)*nx + (N+1)*nx + (N)*nu:(N+1)*nx + (N+1)*nx + (N)*nu + nu] = self.dumax + self.uminus1[0:nu]  # update constraint on \Delta u0: u0 - u_{-1} <= Dumax
@@ -286,7 +290,10 @@ class PathFollowingLPV_MPC:
         self.prob.update( Ax = Ax_value , l= self.l, u= self.u)
 
 
-    def MPC_integral_solve(self):
+    def MPC_solve(self):
+        '''
+        Solve the QP problem 
+        '''
         [N,nx,nu] = self.N, self.nx, self.nu 
 
         res = self.prob.solve()
@@ -296,17 +303,19 @@ class PathFollowingLPV_MPC:
             self.feasible = 0
         Solution = res.x
 
-        print "controller to be applied", Solution[(N+1)*nx:(N+1)*nx + nu]
-        print "Solution shape", Solution.shape
+        # print "controller to be applied", Solution[(N+1)*nx:(N+1)*nx + nu]
+        # print "Solution shape", Solution.shape
         
-
         self.xPred = np.squeeze(np.transpose(np.reshape((Solution[np.arange(nx * (N + 1))]), (N + 1, nx)))).T
         self.uPred = np.squeeze(np.transpose(np.reshape((Solution[nx * (N + 1) + np.arange(nu * N)]), (N, nu)))).T
 
-        print 'Solution', Solution
+        # print 'Solution', Solution
 
 
     def LPVPrediction(self, x, u, vel_ref):
+        '''
+        Obtain the LPV model along the horizon (n) using the current state x(i) and set of predicted control input at previous step u(i-1)
+        '''
         #############################################
         ## States:
         ##   long velocity    [vx]
@@ -378,8 +387,8 @@ class PathFollowingLPV_MPC:
             # if abs(dutycycle) <= 0.05:
 
             #     u[i,1] = 0.  
-            #     vx = 0.0           
-            #     vy = 0.0
+                # vx = 0.0           
+                # vy = 0.0
 
             F_flat = 0;
             Fry = 0;
@@ -466,6 +475,9 @@ class PathFollowingLPV_MPC:
 
 
     def LPVPrediction_setup(self, x, u, vel_ref):
+        '''
+        Used for QP initial setup the element is set to '1' for possible position where value will change during the optimization 
+        '''
         #############################################
         ## States:
         ##   long velocity    [vx]
@@ -495,19 +507,19 @@ class PathFollowingLPV_MPC:
         for i in range(0, self.N):
 
 
-            Ai = np.array([ [1.0    ,  1.0 ,   0. ,  0., 0., 0.],  # [vx]
-                            [1.0    ,  1.0 ,   0  ,  0., 0., 0.],  # [vy]
-                            [1.0    ,   0 ,    0  ,  0., 0., 0.],  # [wz]
-                            [1.0    ,  1.0 ,   1. ,  0., 0., 0.],  # [epsi]
-                            [1.0    ,  1.0 ,   0. ,  0., 0., 0.],  # [s]
-                            [1.0     ,   1.0 ,   0. ,  0., 0., 0.]]) # [ey]
+            Ai = np.array([ [1.0    ,  1.0 ,   0.  ,  0., 0., 0.],  # [vx]
+                            [1.0    ,  1.0 ,   0   ,  0., 0., 0.],  # [vy]
+                            [1.0    ,   0  ,   0   ,  0., 0., 0.],  # [wz]
+                            [1.0    ,  1.0 ,   1.0 ,  0., 0., 0.],  # [epsi]
+                            [1.0    ,  1.0 ,   0.  ,  0., 0., 0.],  # [s]
+                            [1.0    ,  1.0 ,   0.  ,  0., 0., 0.]]) # [ey]
 
             Bi  = np.array([[ 1.0, 1.0 ], #[delta, a]
-                            [ 1.0, 0 ],
-                            [ 1.0, 0 ],
-                            [ 0,   0 ],
-                            [ 0,   0 ],
-                            [ 0,   0 ]])
+                            [ 1.0,  0  ],
+                            [ 1.0,  0  ],
+                            [  0 ,  0  ],
+                            [  0 ,  0  ],
+                            [  0 ,  0  ]])
 
             Ci  = np.array([[ 0 ],
                             [ 0 ],
@@ -522,7 +534,6 @@ class PathFollowingLPV_MPC:
             Ci = self.dt * Ci
 
             states_new = np.dot(Ai, states) + np.dot(Bi,u)
-
 
             STATES_vec[i] = np.reshape(states_new, (6,))
 
