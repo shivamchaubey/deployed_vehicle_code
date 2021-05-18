@@ -87,7 +87,7 @@ class PathFollowingLPV_MPC:
         self.Q  = 0.6 * np.array([0.4*vx_scale, 0.0, 0.00, 0.05*etheta_scale, 0.0, 0.55*ey_scale]) # penality on states 
         self.R  = 0.1 * np.array([0.0*str_scale, 0.05*duty_scale])     # Penality on input (dutycycle, steer)
         self.dR = 0.3 * np.array([0.009*dstr_scale,0.1*dduty_scale])  # Penality on Input rate 
-        self.Qe = np.array([1, 0, 0, 0, 0, 0])*(10.0e8) # Penality on soft constraints 
+        self.Qe = np.array([1, 0, 0, 1, 0, 1])*(10.0e8) # Penality on soft constraints 
 
         
         # Create an OSQP object
