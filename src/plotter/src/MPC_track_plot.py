@@ -12,6 +12,9 @@ from simulator.msg import simulatorStates
 from sensor_fusion.msg import sensorReading
 from trackInitialization import Map
 from std_msgs.msg import Bool, Float32
+from nav_msgs.msg import Path
+import tf
+from controller.msg import mpcPrediction
 
 
 #### plotter for control action ####
@@ -56,14 +59,16 @@ def plot_vehicle_global_position(map):
         Points0[i, :] = map.getGlobalPosition(i * 0.1, 0)
 
     plt.plot(map.PointAndTangent[:, 0], map.PointAndTangent[:, 1], 'o') #points on center track
-    plt.plot(Points1[:, 0], Points1[:, 1], '-b') # inner track
-    plt.plot(Points2[:, 0], Points2[:, 1], '-b') #outer track
-    plt.plot(Points0[:, 0], Points0[:, 1], '-y') #outer track
+    plt.plot(Points1[:, 0], Points1[:, 1], '-k' , linewidth  = 5) # inner track
+    plt.plot(Points2[:, 0], Points2[:, 1], '-k' , linewidth  = 5) #outer track
+    plt.plot(Points0[:, 0], Points0[:, 1], '--y' , linewidth  = 5) #outer track
 
 
     line_ol,        = axtr.plot(xdata, ydata, '-g', label = 'Vehicle model simulation')
     line_est,       = axtr.plot(xdata, ydata, '-b', label = 'Estimated states')  
     line_meas,      = axtr.plot(xdata, ydata, '-m', label = 'Measured position camera') 
+    line_lpv_pred,  = axtr.plot(xdata, ydata, '-o', color='orange' , label = 'Model prediction')
+    line_mpc_pred,  = axtr.plot(xdata, ydata, '-oc', label = 'MPC prediction', linewidth  = 5) 
 
     l = 0.4; w = 0.2
 
@@ -84,7 +89,7 @@ def plot_vehicle_global_position(map):
     plt.legend()
     plt.grid()
 
-    return fig, plt, axtr, line_est, line_ol, line_meas, rec_est, rec_ol, rec_meas
+    return fig, plt, axtr, line_est, line_ol, line_meas,  line_lpv_pred, line_mpc_pred , rec_est, rec_ol, rec_meas
 
 
 #### plot vehicle state error for the track ####
@@ -143,6 +148,78 @@ class Vehicle_ol(object):
         self.CurrentState = np.array([msg.vx, msg.vy, msg.yaw_rate, msg.X, msg.Y, msg.yaw]).T
 
 
+# class LPV_preditction(object):
+#     def __init__(self):
+#         print "subscribed to vehicle Vehicle model states"
+#         rospy.Subscriber('control/LPV_prediction', Path, self.vehicle_ol_state_callback, queue_size=1)
+#         self.x_list = []
+#         self.y_list = []
+#         self.yaw_list = []
+    
+#     def vehicle_ol_state_callback(self, msg):
+#         self.x_list = []
+#         self.y_list = []
+#         self.yaw_list = []
+        
+#         for i in range(len(msg.poses)):
+#             quaternion = msg.poses[i].pose.orientation
+#             # print "quaternion", quaternion
+#             (roll, pitch, yaw)  = tf.transformations.euler_from_quaternion([quaternion.x, quaternion.y, quaternion.z, quaternion.w])
+#             # print "yaw", yaw
+#             # print 'msg.poses[i].pose.position.x', msg.poses[i].pose.position.x
+#             # print 'msg.poses[i].pose.position.y', msg.poses[i].pose.position.y
+
+#             self.yaw_list.append(yaw)
+#             self.x_list.append(msg.poses[i].pose.position.x)
+#             self.y_list.append(msg.poses[i].pose.position.y)
+
+class MPC_prediction(object):
+    def __init__(self):
+        print "subscribed to vehicle Vehicle model states"
+        rospy.Subscriber('control/MPC_prediction', mpcPrediction, self.vehicle_ol_state_callback, queue_size=1)
+        
+        self.x_list = []
+        self.y_list = []
+        self.yaw_list = []
+        self.map      = Map()
+
+    def vehicle_ol_state_callback(self, msg):
+        self.x_list = []
+        self.y_list = []
+        self.yaw_list = []
+        
+        for i in range(len(msg.s)):
+            x, y, yaw = self.map.getGlobalPosition(msg.s[i], msg.ey[i])
+            # print "x, y, yaw", x, y, yaw
+            self.yaw_list.append(yaw)
+            self.x_list.append(x)
+            self.y_list.append(y)
+
+
+class LPV_prediction(object):
+    def __init__(self):
+        print "subscribed to vehicle Vehicle model states"
+        rospy.Subscriber('control/LPV_prediction', mpcPrediction, self.vehicle_ol_state_callback, queue_size=1)
+        
+        self.x_list = []
+        self.y_list = []
+        self.yaw_list = []
+        self.map      = Map()
+
+    def vehicle_ol_state_callback(self, msg):
+        self.x_list = []
+        self.y_list = []
+        self.yaw_list = []
+        
+        for i in range(len(msg.s)):
+            x, y, yaw = self.map.getGlobalPosition(msg.s[i], msg.ey[i])
+            # print "x, y, yaw", x, y, yaw
+            self.yaw_list.append(yaw)
+            self.x_list.append(x)
+            self.y_list.append(y)
+
+
+
 class vehicle_control_action(object):
     """ Object collecting CMD command data
     Attributes:
@@ -180,6 +257,8 @@ def main():
     vehicle_state_meas = Vehicle_measurement()
     vehicle_state_ol   = Vehicle_ol()
     vehicle_control    = vehicle_control_action()
+    lpv_pred_points    = LPV_prediction()
+    mpc_pred_points    = MPC_prediction()
 
     image_dy_his = []
     image_veh_his = []
@@ -202,7 +281,8 @@ def main():
 
 
         ### Vehicle kinematics
-        (fig_veh, plt_veh, axtr, line_est, line_ol, line_meas, rec_est, rec_ol, rec_meas) = plot_vehicle_global_position(track_map)
+
+        (fig_veh, plt_veh, axtr, line_est, line_ol, line_meas, line_lpv_pred, line_mpc_pred, rec_est, rec_ol, rec_meas) = plot_vehicle_global_position(track_map)
 
         ol_x_his     = []
         est_x_his    = []
@@ -259,6 +339,8 @@ def main():
         ( vx_ol   , vy_ol   , omega_ol   , X_ol   , Y_ol   , yaw_ol   )  = vehicle_state_ol.CurrentState
         ( vx_meas , vy_meas , omega_meas , X_meas , Y_meas , yaw_meas )  = vehicle_state_meas.CurrentState
 
+        (lpv_pred_x, lpv_pred_y)  =  lpv_pred_points.x_list, lpv_pred_points.y_list
+        (mpc_pred_x, mpc_pred_y)  =  mpc_pred_points.x_list, mpc_pred_points.y_list
         ########################################################################################################
 
 
@@ -290,6 +372,12 @@ def main():
             line_est.set_data(est_x_his, est_y_his)
             line_ol.set_data(ol_x_his, ol_y_his)
             line_meas.set_data(meas_x_his, meas_y_his)
+
+            if len(lpv_pred_x) > 0 and len(lpv_pred_x) == len(lpv_pred_y):
+                line_lpv_pred.set_data(lpv_pred_x, lpv_pred_y)
+
+            if len(mpc_pred_x) > 0 and len(mpc_pred_x) == len(mpc_pred_y):
+                line_mpc_pred.set_data(mpc_pred_x, mpc_pred_y)
 
             ############# Dynamic window size ##############
             min_x_lim = min(min(ol_x_his) - margin*min(ol_x_his), min(meas_x_his) - margin*min(meas_x_his)) 

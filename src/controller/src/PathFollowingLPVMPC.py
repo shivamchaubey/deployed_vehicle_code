@@ -86,7 +86,7 @@ class PathFollowingLPV_MPC:
         # Assign the weight of objective function
         self.Q  = 0.6 * np.array([0.4*vx_scale, 0.0, 0.00, 0.05*etheta_scale, 0.0, 0.55*ey_scale]) # penality on states 
         self.R  = 0.1 * np.array([0.0*str_scale, 0.05*duty_scale])     # Penality on input (dutycycle, steer)
-        self.dR = 0.3 * np.array([0.005*dstr_scale,0.1*dduty_scale])  # Penality on Input rate 
+        self.dR = 0.3 * np.array([0.009*dstr_scale,0.1*dduty_scale])  # Penality on Input rate 
         self.Qe = np.array([1, 0, 0, 0, 0, 0])*(10.0e8) # Penality on soft constraints 
 
         
@@ -249,7 +249,7 @@ class PathFollowingLPV_MPC:
  
 
         #################################### Problem Setup ###################################
-        self.prob.setup(self.P, self.q, self.A, self.l, self.u, warm_start=True, polish=True)
+        self.prob.setup(self.P, self.q, self.A, self.l, self.u, warm_start=True, polish=True, verbose = False)
         
 
      
@@ -380,6 +380,10 @@ class PathFollowingLPV_MPC:
                 cur     = float(curv_ref[i,0]) # From planner
 
             vx      = float(vel_ref[i,0])
+            
+            if i == (self.N - 1):
+                ey = 0
+                epsi = 0
 
             delta = float(u[i,0])
             dutycycle = float(u[i,1])

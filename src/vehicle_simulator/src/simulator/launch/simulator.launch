@@ -52,9 +52,9 @@
 
         <!-- simulator sensor noise -->
         <param name="n_bound_pr"     type="double" value="2.0" if="$(arg NOISE)"/>
-        <param name="x_std_pr"       type="double" value="0.05" if="$(arg NOISE)"/>
-        <param name="y_std_pr"       type="double" value="0.05" if="$(arg NOISE)"/>
-        <param name="psi_std_pr"     type="double" value="0.05" if="$(arg NOISE)"/>
+        <param name="x_std_pr"       type="double" value="0.02" if="$(arg NOISE)"/>
+        <param name="y_std_pr"       type="double" value="0.02" if="$(arg NOISE)"/>
+        <param name="psi_std_pr"     type="double" value="0.02" if="$(arg NOISE)"/>
         <param name="vx_std_pr"       type="double" value="0.1" if="$(arg NOISE)"/>
         <param name="vy_std_pr"       type="double" value="0.045" if="$(arg NOISE)"/>
         <param name="psiDot_std_pr"  type="double" value="0.035" if="$(arg NOISE)"/> -->
@@ -70,8 +70,8 @@
 
         <!-- simulator disturbance parameters -->
         <param name="n_bound"     type="double" value="1.0" if="$(arg DISTURBANCE)"/>
-        <param name="x_std"       type="double" value="0.1" if="$(arg DISTURBANCE)"/>
-        <param name="y_std"       type="double" value="0.1" if="$(arg DISTURBANCE)"/>
+        <param name="x_std"       type="double" value="0.05" if="$(arg DISTURBANCE)"/>
+        <param name="y_std"       type="double" value="0.05" if="$(arg DISTURBANCE)"/>
         <param name="yaw_std"     type="double" value="0.01" if="$(arg DISTURBANCE)"/>
         <param name="vx_std"       type="double" value="0.1" if="$(arg DISTURBANCE)"/>
         <param name="vy_std"       type="double" value="0.08" if="$(arg DISTURBANCE)"/>

@@ -32,7 +32,7 @@ import time
 import sys
 sys.path.append(('/').join(sys.path[0].split('/')[:-2])+'/planner/src/')
 from trackInitialization import Map
-
+from controller.msg import mpcPrediction
 np.set_printoptions(formatter={'float': lambda x: "{0:0.3f}".format(x)})
 
 ########## Full state estimation from observer #############
@@ -109,18 +109,26 @@ class predicted_states_msg():
         self.MPC_prediction_states = Path()
         self.pose_stamp = PoseStamped()
 
-    def LPV_update(self):
+    def LPV_msg_update(self, map, data):
+
 
         self.LPV_prediction_states.header.stamp = rospy.Time.now()
         self.LPV_prediction_states.header.frame_id = "/map" #"/lpv_predictions"
 
-        for i in range(msg):
+        for i in range(len(data)):
+            epsi, s, ey = data[i,3], data[i,4], data[i,5]
+
+            if abs(s) < 0.001:
+                s = 0
+            if abs(ey) < 0.001:
+                ey = 0
+            print "epsi, s, ey", epsi, s, ey
+            x, y, theta  = map.getGlobalPosition(s, ey)
+            print "x, y, theta", x, y, theta
+            quaternion   = tf.transformations.quaternion_from_euler(0, 0, theta)
             
-            quaternion = tf.transformations.quaternion_from_euler(
-                0, 0, wrap(yaw))
-            
-            self.pose_stamp.pose.position.x = 1.0
-            self.pose_stamp.pose.position.y = 2.1
+            self.pose_stamp.pose.position.x = x
+            self.pose_stamp.pose.position.y = y
             self.pose_stamp.pose.position.z = 0.0
 
             self.pose_stamp.pose.orientation.x = quaternion[0]
@@ -129,8 +137,9 @@ class predicted_states_msg():
             self.pose_stamp.pose.orientation.w = quaternion[3]
             self.LPV_prediction_states.poses.append(self.pose_stamp) 
 
-        self.LPV_prediction_state_pub.Publish(self.LPV_prediction_states)
+        self.LPV_prediction_state_pub.publish(self.LPV_prediction_states)
     # def MPC_update(self):
+
 
 
 
@@ -142,12 +151,18 @@ def main():
     dutycycle_commands  = rospy.Publisher('control/accel', Float32, queue_size=1)
     steering_commands   = rospy.Publisher('control/steering', Float32, queue_size=1)
 
-    predicted_points_pub_on = True:
+    predicted_points_pub_on = True
 
-    # if predicted_points_pub_on == True:
-    #     LPV_prediction_state_pub   = rospy.Publisher('control/LPV_prediction', Path, queue_size=1)
+    if predicted_points_pub_on == True:
+        # publish_predicted = predicted_states_msg()
+        LPV_prediction_state_pub   = rospy.Publisher('control/LPV_prediction', mpcPrediction, queue_size=1)
+        MPC_prediction_state_pub   = rospy.Publisher('control/MPC_prediction', mpcPrediction, queue_size=1)
+
     #     MPC_prection_state_pub     = rospy.Publisher('control/MPC_prection', Path, queue_size=1)
- 
+    
+    ### same message type used for both ##
+    lpvPrediction_msg = mpcPrediction()
+    mpcPrediction_msg = mpcPrediction()
 
     dutycycle_thres     = rospy.get_param("/duty_th") # dutycycle Deadzone
     
@@ -222,13 +237,13 @@ def main():
             LocalState[4], LocalState[5], LocalState[3], insideTrack = map.getLocalPosition(
                 GlobalState[3], GlobalState[4], wrap(GlobalState[5]))
 
-            print("\n")
-            print("vx vy w: ", GlobalState[:3])
-            print("\n")
-            print("x y yaw: ", GlobalState[3:])
-            print("\n")
-            print("epsi s ey: ", LocalState[3:])
-            print("\n")
+            # print("\n")
+            # print("vx vy w: ", GlobalState[:3])
+            # print("\n")
+            # print("x y yaw: ", GlobalState[3:])
+            # print("\n")
+            # print("epsi s ey: ", LocalState[3:])
+            # print("\n")
 
             vel_ref         = np.ones([N,1])
      
@@ -263,17 +278,17 @@ def main():
             xx, uu      = predicted_vectors_generation(N, LocalState, duty_cycle, delta, dt)
             
             Controller.uPred = uu
+            Controller.xPred = xx
             
             # first_it    = first_it + 1
             Controller.uminus1 = Controller.uPred[0,:]
 
         else:
 
-            print "Controller.uminus1", Controller.uminus1
+            # print "Controller.uminus1", Controller.uminus1
 
             LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction(LocalState[0:6], Controller.uPred, vel_ref)
-
-            print "LPV_States_Prediction", LPV_States_Prediction
+            # print "LPV_States_Prediction", LPV_States_Prediction
             
             if first_it == 5:
                 print "MPC setup"
@@ -282,12 +297,24 @@ def main():
                 
 
             else:
-    
+                # publish_predicted.LPV_msg_update(map, LPV_States_Prediction)
+                # publish_predicted.LPV_msg_update(map, Controller.xPred)
+
+                # print "Controller.xPred", Controller.xPred
                 print "MPC update"
                 t1 = time.time() 
                 Controller.MPC_update(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref) 
                 Controller.MPC_solve()
                 print "time taken to solve", time.time() - t1
+
+            lpvPrediction_msg.epsi = LPV_States_Prediction[:,3]
+            lpvPrediction_msg.s = LPV_States_Prediction[:,4]
+            lpvPrediction_msg.ey = LPV_States_Prediction[:,5]
+
+            mpcPrediction_msg.epsi = Controller.xPred[:,3]
+            mpcPrediction_msg.s = Controller.xPred[:,4]
+            mpcPrediction_msg.ey = Controller.xPred[:,5]
+
 
             Controller.uminus1 = Controller.uPred[0,:] 
 
@@ -296,11 +323,14 @@ def main():
         print('control actions',"delta", Controller.uPred[0,0],"dutycycle", Controller.uPred[0,1])
         print('\n')
 
+            
         ## Publish controls ##
         cmd_servo = Controller.uPred[0,0]
         cmd_motor = Controller.uPred[0,1]
         dutycycle_commands.publish(Controller.uPred[0,1])
         steering_commands.publish(Controller.uPred[0,0])
+        MPC_prediction_state_pub.publish(mpcPrediction_msg)
+        LPV_prediction_state_pub.publish(lpvPrediction_msg)
 
         rate.sleep()
 
