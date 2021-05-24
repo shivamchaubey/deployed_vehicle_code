@@ -3,6 +3,8 @@
 *.odt
 *.bag
 record_data
+./src/plotter/data
+./src/observer/datay
 build
 logs
 devel

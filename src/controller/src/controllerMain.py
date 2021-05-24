@@ -24,6 +24,9 @@ import rospy
 import numpy as np
 from sensor_fusion.msg import sensorReading
 from std_msgs.msg import Bool, Float32
+from nav_msgs.msg import Path
+from geometry_msgs.msg import PoseStamped
+import tf
 from PathFollowingLPVMPC import PathFollowingLPV_MPC
 import time
 import sys
@@ -95,6 +98,42 @@ def predicted_vectors_generation(Hp, x0, accel_rate, delta, dt):
 
 
 
+class predicted_states_msg():
+        
+    def __init__(self):
+        
+        self.LPV_prediction_state_pub   = rospy.Publisher('control/LPV_prediction', Path, queue_size=1)
+        self.MPC_prection_state_pub     = rospy.Publisher('control/MPC_prection', Path, queue_size=1)
+        
+        self.LPV_prediction_states = Path()
+        self.MPC_prediction_states = Path()
+        self.pose_stamp = PoseStamped()
+
+    def LPV_update(self):
+
+        self.LPV_prediction_states.header.stamp = rospy.Time.now()
+        self.LPV_prediction_states.header.frame_id = "/map" #"/lpv_predictions"
+
+        for i in range(msg):
+            
+            quaternion = tf.transformations.quaternion_from_euler(
+                0, 0, wrap(yaw))
+            
+            self.pose_stamp.pose.position.x = 1.0
+            self.pose_stamp.pose.position.y = 2.1
+            self.pose_stamp.pose.position.z = 0.0
+
+            self.pose_stamp.pose.orientation.x = quaternion[0]
+            self.pose_stamp.pose.orientation.y = quaternion[1]
+            self.pose_stamp.pose.orientation.z = quaternion[2]
+            self.pose_stamp.pose.orientation.w = quaternion[3]
+            self.LPV_prediction_states.poses.append(self.pose_stamp) 
+
+        self.LPV_prediction_state_pub.Publish(self.LPV_prediction_states)
+    # def MPC_update(self):
+
+
+
 def main():
 
     rospy.init_node("LPV_MPC")
@@ -102,6 +141,13 @@ def main():
     ########################## Control output ##################################
     dutycycle_commands  = rospy.Publisher('control/accel', Float32, queue_size=1)
     steering_commands   = rospy.Publisher('control/steering', Float32, queue_size=1)
+
+    predicted_points_pub_on = True:
+
+    # if predicted_points_pub_on == True:
+    #     LPV_prediction_state_pub   = rospy.Publisher('control/LPV_prediction', Path, queue_size=1)
+    #     MPC_prection_state_pub     = rospy.Publisher('control/MPC_prection', Path, queue_size=1)
+ 
 
     dutycycle_thres     = rospy.get_param("/duty_th") # dutycycle Deadzone
     
@@ -114,6 +160,9 @@ def main():
 
     cmd_servo           = Float32()
     cmd_motor           = Float32()
+    
+    LPV_prediction_states = Path()
+    MPC_prediction_states = Path()
 
     estimatorData       = EstimatorData()   # observer reading
     rospy.sleep(1.2)    # wait for observer initialization or make a flag in that node to know if the observer started.
@@ -224,6 +273,8 @@ def main():
 
             LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction(LocalState[0:6], Controller.uPred, vel_ref)
 
+            print "LPV_States_Prediction", LPV_States_Prediction
+            
             if first_it == 5:
                 print "MPC setup"
 

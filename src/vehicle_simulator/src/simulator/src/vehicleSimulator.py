@@ -109,7 +109,7 @@ def main():
     duty_th                 = rospy.get_param("duty_th")
     pub_vehicle_simulatorStates = rospy.Publisher('vehicle_simulatorStates', simulatorStates, queue_size=1)
     # pub_simulatorStatesIDIADA = rospy.Publisher('vehicle_state', VehicleState, queue_size=1)
-    pub_linkStates = rospy.Publisher('/gazebo/set_model_state', ModelState, queue_size=1)
+    # pub_linkStates = rospy.Publisher('/gazebo/set_model_state', ModelState, queue_size=1)
     # pub_sysOut = rospy.Publisher('sensorStates', simulatorStates, queue_size=1)
 
 
@@ -154,7 +154,7 @@ def main():
 
         u = [ecu.duty_cycle, ecu.steer]
         # dt = curr_time - prev_time 
-        if u[0] > duty_th:
+        if abs(u[0]) > duty_th:
             
             vehicle_sim.vehicle_model(u, simulator_dt)
 
@@ -168,7 +168,7 @@ def main():
         
         (simStates.vx, simStates.vy, simStates.omega, simStates.x, simStates.y, simStates.yaw) = vehicle_sim.states
         
-        if u[0] <= duty_th:
+        if abs(u[0]) <= duty_th:
                 #     # vehicle_sim.vehicle_model(u, simulator_dt)
                     # if vehicle_sim.vx <= 0.01 :
                     vehicle_sim.vx = 0.000001 
@@ -218,13 +218,13 @@ def main():
         sensor_sim.enc_pub()
 
 
-        if pub_linkStates.get_num_connections() > 0:
-            link_msg.pose.position.x = vehicle_sim.x + vehicle_sim_offset_x
-            link_msg.pose.position.y = -(vehicle_sim.y + vehicle_sim_offset_y)
-            link_msg.pose.orientation = Quaternion(*quaternion_from_euler(0, 0, -vehicle_sim.yaw))
-            pub_linkStates.publish(link_msg)
+        # if pub_linkStates.get_num_connections() > 0:
+        #     link_msg.pose.position.x = vehicle_sim.x + vehicle_sim_offset_x
+        #     link_msg.pose.position.y = -(vehicle_sim.y + vehicle_sim_offset_y)
+        #     link_msg.pose.orientation = Quaternion(*quaternion_from_euler(0, 0, -vehicle_sim.yaw))
+        #     pub_linkStates.publish(link_msg)
 
-            rospy.wait_for_service('/gazebo/set_model_state')
+        #     rospy.wait_for_service('/gazebo/set_model_state')
             #try:
             #   set_state = rospy.ServiceProxy('/gazebo/set_model_state', SetModelState)
             #   resp = set_state( link_msg )
@@ -372,11 +372,6 @@ class Vehicle_Simulator(object):
         self.ay     = 0.0
 
         self.yaw        = rospy.get_param("simulator/init_yaw")
-        # self.yaw        = 3.20797317234
-        self.dist_mode  = rospy.get_param("simulator/dist_mode")
-        self.mu_sf      = rospy.get_param("simulator/mu_sf")
-        self.Cd         = rospy.get_param("simulator/Cd")
-        self.A_car      = rospy.get_param("simulator/A_car")
 
 
         self.omega = 0.0
@@ -489,21 +484,21 @@ class Vehicle_Simulator(object):
         n3 = max(-self.yaw_std*self.n_bound, min(self.yaw_std*0.1*(randn()), self.yaw_std*self.n_bound))
         n3 = 0
         self.yaw    += self.dt*(omega + 0)
-        self.yaw     = wrap(self.yaw)   
+        # self.yaw     = wrap(self.yaw)   
 
         n6 = max(-self.omega_std*self.n_bound, min(self.omega_std*0.66*(randn()), self.omega_std*self.n_bound))
         n6 = 0
         self.omega     += self.dt*(domega + n6)
-        self.omega      = self.omega 
+        
 
 
         self.states          = np.array([self.vx, self.vy, self.omega, self.x, self.y, self.yaw])
 
-        self.w_vx    = max(-self.vx_std*self.n_bound, min(self.vx_std*0.66*(randn()), self.vx_std*self.n_bound))  
-        self.w_vy    = max(-self.vy_std*self.n_bound, min(self.vy_std*0.66*(randn()), self.vy_std*self.n_bound)) 
-        self.w_omega = max(-self.omega_std*self.n_bound, min(self.omega_std*0.66*(randn()), self.omega_std*self.n_bound)) 
-        self.w_X     = max(-self.x_std*self.n_bound, min(self.x_std*0.66*(randn()), self.x_std*self.n_bound))
-        self.W_Y     = max(-self.y_std*self.n_bound, min(self.y_std*0.66*(randn()), self.y_std*self.n_bound))
+        self.w_vx    = max(-self.vx_std*self.n_bound, min(self.vx_std*(randn()), self.vx_std*self.n_bound))  
+        self.w_vy    = max(-self.vy_std*self.n_bound, min(self.vy_std*(randn()), self.vy_std*self.n_bound)) 
+        self.w_omega = max(-self.omega_std*self.n_bound, min(self.omega_std*(randn()), self.omega_std*self.n_bound)) 
+        self.w_X     = max(-self.x_std*self.n_bound, min(self.x_std*(randn()), self.x_std*self.n_bound))
+        self.W_Y     = max(-self.y_std*self.n_bound, min(self.y_std*(randn()), self.y_std*self.n_bound))
         self.W_yaw   = max(-self.yaw_std*self.n_bound, min(self.yaw_std*0.1*(randn()), self.yaw_std*self.n_bound))
 
         self.disturbance    = np.array([self.w_vx,self.w_vy,self.w_omega,self.w_X,self.W_Y,self.W_yaw]).T

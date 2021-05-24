@@ -1,0 +1,10 @@
+<launch>
+  <node pkg="plotter" type="observer_plotter.py" name="observer_plotter" output="screen">
+  <param name="vehicle_visualization"    type="bool"      value="false" />
+  <param name="states_visualization"     type="bool"      value="false" />
+  <param name="control_visualization"    type="bool"      value="false" />
+  <param name="record_data"     		 type="bool"      value="true" />
+
+  </node>
+
+</launch>

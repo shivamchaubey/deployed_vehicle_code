@@ -1,0 +1,201 @@
+<launch>
+    
+    <!-- SYSTEM MODEL -->
+    <param name="m"             type="double"   value="2.424" />
+    <param name="rho"             type="double"   value="1.225" />    
+    <param name="lr"            type="double"   value="0.1203" />
+    <param name="lf"            type="double"   value="0.1377" />
+    <param name="Cm0"            type="double"   value="9.46853" />
+    <param name="Cm1"            type="double"   value="0.667237" />
+    <param name="C0"            type="double"   value="2.61049" />
+    <param name="C1"            type="double"   value="-0.00213596" />
+    <param name="Cd_A"            type="double"   value="-0.466602" />
+    <param name="Caf"            type="double"   value="1.3958" />
+    <param name="Car"            type="double"   value="1.6775" />
+    <param name="Iz"            type="double"   value="0.02" />
+    
+    
+    <!-- LOAD ESTIMATOR TYPE -->
+
+    <arg name="SWITCHING_LQR" default="1"/>
+    <arg name="SIM" default="1"/>
+
+    <node if="$(arg SWITCHING_LQR)"  pkg="observer" type="switching_lqr.py" name="switching_lqr_observer" output="screen"/>
+
+    <!-- contained in observer/data/-->
+    <param if="$(arg SWITCHING_LQR)" name="lqr_gain_path"   type="string"  value="/data/LQR_16_04_2021/switching_LQR_gain.mat"/>
+
+
+
+    <node unless="$(arg SWITCHING_LQR)" pkg="observer" type="lqr_state_estimator.py" name="lqr_observer" output="screen"/>
+    
+    <!-- contained in observer/data/-->
+    <param unless="$(arg SWITCHING_LQR)" name="lqr_gain_path"   type="string"  value="/data/LQR_16_04_2021/LQR_gain.mat"/>
+        
+        
+
+        
+
+
+        <param name="visualization"    type="bool"      value="false" />
+        <param name="record_data"      type="bool"      value="true" />
+
+
+        <param name="publish_frequency" type="double" value="100.0" />
+        
+
+        <!-- sensor Moving average -->
+        <param name="MA_status"      type="bool" value="True" />
+        <param name="fcam_MA_window" type="int" value="50" />
+        <param name="imu_MA_window"  type="int" value="50" />
+        <param name="enc_MA_window"  type="int" value="50" />
+
+        <!-- deadzone for the motor where it is stalled (-0.8 to 0.8)-->
+        <param name="deadzone"    type="double" value="0.8" />
+        
+        <!-- Pure translation and rotation don't confuse with refence transformation -->
+        <param name="init_x"    type="double" value="0.15" />
+        <param name="init_y"    type="double" value="0.005" />
+        <param name="init_yaw"  type="double" value="0.01" />
+
+        
+        <!-- FOR TESTING PUSPOSE -->
+        <param name="x_tf"      type="double" value="0.0" />
+        <param name="y_tf"      type="double" value="0.0" />
+        <!-- Map rotation -->
+        <param name="theta_tf"  type="double" value="0.0" />
+        <!-- Vehicle orientation-->
+        <param name="yaw_tf"    type="double" value="0.0" />
+        
+        <?ignore
+        <!-- If transformation needed from estamed frame of reference to another -->
+        <param name="x_tf"      type="double" value="0.42998579" />
+        <param name="y_tf"      type="double" value="-1.1021565" />
+        <!-- Map rotation -->
+        <param name="theta_tf"  type="double" value="-90.0" />
+        <!-- Vehicle orientation-->
+        <param name="yaw_tf"    type="double" value="-90.0" />
+        ?>
+
+        
+
+
+
+
+
+
+    <?ignore
+    <!-- switching  LQR type --> 
+    <group if="$(arg SWITCHING_LQR)">
+        <node pkg="observer" type="switching_lqr.py" name="switching_lqr_observer" output="screen">
+        
+
+        <!-- contained in observer/data/-->
+        
+
+        <param name="lqr_gain_path"   type="string"  value="/data/LQR_16_04_2021/switching_LQR_gain.mat" if="$(arg SWITCHING_LQR)"/>
+        
+        <param name="visualization"    type="bool"      value="false" />
+        <param name="record_data"      type="bool"      value="true" />
+
+
+        <param name="publish_frequency" type="double" value="100.0" />
+        
+
+        <!-- sensor Moving average -->
+        <param name="MA_status"      type="bool" value="True" />
+        <param name="fcam_MA_window" type="int" value="50" />
+        <param name="imu_MA_window"  type="int" value="50" />
+        <param name="enc_MA_window"  type="int" value="50" />
+
+        <!-- deadzone for the motor where it is stalled (-0.8 to 0.8)-->
+        <param name="deadzone"    type="double" value="0.8" />
+        
+        <!-- Pure translation and rotation don't confuse with refence transformation -->
+        <param name="init_x"    type="double" value="0.15" />
+        <param name="init_y"    type="double" value="0.005" />
+        <param name="init_yaw"  type="double" value="0.01" />
+
+        
+        <!-- FOR TESTING PUSPOSE -->
+        <group if="$(arg SIM)">
+        <param name="x_tf"      type="double" value="0.0" />
+        <param name="y_tf"      type="double" value="0.0" />
+        <!-- Map rotation -->
+        <param name="theta_tf"  type="double" value="0.0" />
+        <!-- Vehicle orientation-->
+        <param name="yaw_tf"    type="double" value="0.0" />
+        </group>
+
+
+        <group unless="$(arg SIM)">
+        <!-- If transformation needed from estamed frame of reference to another -->
+        <param name="x_tf"      type="double" value="0.42998579" />
+        <param name="y_tf"      type="double" value="-1.1021565" />
+        <!-- Map rotation -->
+        <param name="theta_tf"  type="double" value="-90.0" />
+        <!-- Vehicle orientation-->
+        <param name="yaw_tf"    type="double" value="-90.0" />
+        </group>
+
+
+        </node>
+    </group>
+
+    <!-- SIMPLE LQR --> 
+    <group unless="$(arg SWITCHING_LQR)">
+        <node pkg="observer" type="lqr_state_estimator.py" name="lqr_observer" output="screen">
+        
+
+
+        <!-- contained in observer/data/-->
+        <param name="lqr_gain_path"   type="string"  value="/data/LQR_16_04_2021/LQR_gain.mat" unless="$(arg SWITCHING_LQR)"/>
+        
+        <param name="visualization"    type="bool"      value="False" />
+        <param name="record_data"      type="bool"      value="False" />
+
+        <param name="publish_frequency" type="double" value="100.0" />
+        
+
+        <!-- sensor Moving average -->
+        <param name="MA_status"      type="bool" value="True" />
+        <param name="fcam_MA_window" type="int" value="50" />
+        <param name="imu_MA_window"  type="int" value="50" />
+        <param name="enc_MA_window"  type="int" value="50" />
+
+        <!-- deadzone for the motor where it is stalled (-0.8 to 0.8)-->
+        <param name="deadzone"    type="double" value="0.8" />
+        
+        <!-- Pure translation and rotation don't confuse with refence transformation -->
+        <param name="init_x"    type="double" value="0.15" />
+        <param name="init_y"    type="double" value="0.005" />
+        <param name="init_yaw"  type="double" value="0.01" />
+
+
+        <!-- FOR TESTING PUSPOSE -->
+        <group if="$(arg SIM)">
+        <param name="x_tf"      type="double" value="0.0" />
+        <param name="y_tf"      type="double" value="0.0" />
+        <!-- Map rotation -->
+        <param name="theta_tf"  type="double" value="0.0" />
+        <!-- Vehicle orientation-->
+        <param name="yaw_tf"    type="double" value="0.0" />
+        </group>
+
+
+        <group unless="$(arg SIM)">
+        <!-- If transformation needed from estamed frame of reference to another -->
+        <param name="x_tf"      type="double" value="0.42998579" />
+        <param name="y_tf"      type="double" value="-1.1021565" />
+        <!-- Map rotation -->
+        <param name="theta_tf"  type="double" value="-90.0" />
+        <!-- Vehicle orientation-->
+        <param name="yaw_tf"    type="double" value="-90.0" />
+        </group>
+
+
+        </node>
+
+    </group> 
+    ?>
+</launch>

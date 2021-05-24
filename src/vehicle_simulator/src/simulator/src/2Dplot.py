@@ -205,6 +205,8 @@ def _initializeFigure_xy(map):
     # np.save('inner_track',np.array([Points0[:, 0], Points0[:, 1]]))
     plt.plot(Points1[:, 0], Points1[:, 1], '-b') # inner track
     plt.plot(Points2[:, 0], Points2[:, 1], '-b') #outer track
+    plt.plot(Points0[:, 0], Points0[:, 1], '-y') #outer track
+    
 
 
 

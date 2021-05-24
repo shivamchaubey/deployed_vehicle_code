@@ -1,0 +1,7 @@
+<launch>
+  <node pkg="plotter" type="simulator_performance.py" name='simulator_plot' output="screen">
+  <param name="visualization"      type="bool"      value="true" />
+
+  </node>
+
+</launch>
