@@ -20,9 +20,12 @@ from math import pi, sin, cos, tan, atan
 import datetime
 import os
 import matplotlib.animation as animation
+import sys
+sys.path.append(('/').join(sys.path[0].split('/')[:-2])+'/planner/src/')
+from trackInitialization import Map
 
 #### plotter for visual sensor vs visual-inertial sensor ##########
-def plot_cam_pose(x_lim,y_lim):
+def plot_cam_pose(x_lim,y_lim, map, track_plot_on):
 
     xdata = []; ydata = []
     fig = plt.figure(figsize=(10,8))
@@ -31,6 +34,26 @@ def plot_cam_pose(x_lim,y_lim):
     plt.ylim([-1*y_lim,y_lim])
 
     axtr = plt.axes()
+
+    if track_plot_on == True:
+            Points = int(np.floor(10 * (map.PointAndTangent[-1, 3] + map.PointAndTangent[-1, 4])))
+            # Points1 = np.zeros((Points, 2))
+            # Points2 = np.zeros((Points, 2))
+            # Points0 = np.zeros((Points, 2))
+            Points1 = np.zeros((Points, 3))
+            Points2 = np.zeros((Points, 3))
+            Points0 = np.zeros((Points, 3))    
+
+            for i in range(0, int(Points)):
+                Points1[i, :] = map.getGlobalPosition(i * 0.1, map.halfWidth)
+                Points2[i, :] = map.getGlobalPosition(i * 0.1, -map.halfWidth)
+                Points0[i, :] = map.getGlobalPosition(i * 0.1, 0)
+
+            plt.plot(map.PointAndTangent[:, 0], map.PointAndTangent[:, 1], 'o') #points on center track
+            plt.plot(Points1[:, 0], Points1[:, 1], '-r' , linewidth  = 4) # inner track
+            plt.plot(Points2[:, 0], Points2[:, 1], '-r' , linewidth  = 4) #outer track
+            plt.plot(Points0[:, 0], Points0[:, 1], '--y' , linewidth  = 2) #outer track
+
 
     line_pure,        = axtr.plot(xdata, ydata, '-g', label = 'Localization using visual only', linewidth =2 )
     line_fused,       = axtr.plot(xdata, ydata, '-b', label = 'Localization using visual-inertial', linewidth =2)  
@@ -115,10 +138,18 @@ def main():
 
 
     rospy.init_node('fisheyecam_plotter', anonymous=True)
-    loop_rate       = 2000
+
+    loop_rate       = rospy.get_param("cam_pose_plotter/loop_rate")
     rate            = rospy.Rate(loop_rate)
 
+    track_visualization = rospy.get_param("cam_pose_plotter/track_visualization")
+    record_on = rospy.get_param("cam_pose_plotter/record_on")
+    pose_visualization = rospy.get_param("cam_pose_plotter/pose_visualization")
+
+
     cam_pose  = fiseye_cam()
+
+    track_map = Map()
 
     cam_pose_pure_x         = 0
     cam_pose_pure_y         = 0
@@ -133,9 +164,9 @@ def main():
     cam_pose_fused_y_hist   = []
 
     record_on = True
-    visualization  = True
+    pose_visualization  = True
 
-    if visualization == True:
+    if pose_visualization == True:
         x_lim = 3
         y_lim = 6
         fig, plt, line_pure, line_fused = plot_cam_pose(x_lim,y_lim)
@@ -157,7 +188,7 @@ def main():
         cam_pose_fused_x_hist.append(cam_fused_x)
         cam_pose_fused_y_hist.append(cam_fused_y)
 
-        if visualization == True:
+        if pose_visualization == True:
             line_pure.set_data(cam_pose_pure_x_hist ,cam_pose_pure_y_hist)
             line_fused.set_data(cam_pose_fused_x_hist ,cam_pose_fused_y_hist)
 

@@ -18,6 +18,9 @@ from PIL import Image
 from std_msgs.msg import Bool, Float32
 import datetime
 import os
+import sys
+sys.path.append(('/').join(sys.path[0].split('/')[:-2])+'/planner/src/')
+from trackInitialization import Map
 
 
 #### plotter for control action ####
@@ -41,7 +44,7 @@ def plot_control(x_lim,y_lim):
     return fig, plt, line_dutycycle, line_steer
 
 #### plotter for vehicle motion ####
-def plot_vehicle_kinematics(x_lim,y_lim):
+def plot_vehicle_kinematics(x_lim,y_lim, map, track_plot_on):
 
     xdata = []; ydata = []
     fig = plt.figure(figsize=(10,8))
@@ -50,6 +53,27 @@ def plot_vehicle_kinematics(x_lim,y_lim):
     plt.ylim([-1*y_lim,y_lim])
 
     axtr = plt.axes()
+
+
+    if track_plot_on == True:
+        Points = int(np.floor(10 * (map.PointAndTangent[-1, 3] + map.PointAndTangent[-1, 4])))
+        # Points1 = np.zeros((Points, 2))
+        # Points2 = np.zeros((Points, 2))
+        # Points0 = np.zeros((Points, 2))
+        Points1 = np.zeros((Points, 3))
+        Points2 = np.zeros((Points, 3))
+        Points0 = np.zeros((Points, 3))    
+
+        for i in range(0, int(Points)):
+            Points1[i, :] = map.getGlobalPosition(i * 0.1, map.halfWidth)
+            Points2[i, :] = map.getGlobalPosition(i * 0.1, -map.halfWidth)
+            Points0[i, :] = map.getGlobalPosition(i * 0.1, 0)
+
+        plt.plot(map.PointAndTangent[:, 0], map.PointAndTangent[:, 1], 'o') #points on center track
+        plt.plot(Points1[:, 0], Points1[:, 1], '-r' , linewidth  = 4) # inner track
+        plt.plot(Points2[:, 0], Points2[:, 1], '-r' , linewidth  = 4) #outer track
+        plt.plot(Points0[:, 0], Points0[:, 1], '--y' , linewidth  = 2) #outer track
+
 
     line_ol,        = axtr.plot(xdata, ydata, '-g', label = 'Vehicle model simulation')
     line_est,       = axtr.plot(xdata, ydata, '-b', label = 'Estimated states')  
@@ -231,9 +255,14 @@ def main():
 
 
     rospy.init_node('observer_performance_tester', anonymous=True)
-    loop_rate       = 150
+    
+    loop_rate       = rospy.get_param("observer/loop_rate")
     rate            = rospy.Rate(loop_rate)
 
+    track_visualization = rospy.get_param("observer_plotter/track_visualization")
+    track_map = Map()
+
+    
     vehicle_state_est  = EstimatorData()
     vehicle_state_meas = Vehicle_measurement()
     vehicle_state_ol   = Vehicle_ol()
@@ -262,7 +291,7 @@ def main():
 
 
         ### Vehicle kinematics
-        (fig_veh, plt_veh, axtr, line_est, line_ol, line_real, line_meas, rec_est, rec_ol, rec_meas, rec_real) = plot_vehicle_kinematics(x_lim_init_max,y_lim_init_max)
+        (fig_veh, plt_veh, axtr, line_est, line_ol, line_real, line_meas, rec_est, rec_ol, rec_meas, rec_real) = plot_vehicle_kinematics(x_lim_init_max,y_lim_init_max, track_map, track_visualization)
 
     ol_x_his     = []
     est_x_his    = []

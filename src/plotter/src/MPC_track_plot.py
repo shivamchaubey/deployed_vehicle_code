@@ -59,9 +59,9 @@ def plot_vehicle_global_position(map):
         Points0[i, :] = map.getGlobalPosition(i * 0.1, 0)
 
     plt.plot(map.PointAndTangent[:, 0], map.PointAndTangent[:, 1], 'o') #points on center track
-    plt.plot(Points1[:, 0], Points1[:, 1], '-k' , linewidth  = 5) # inner track
-    plt.plot(Points2[:, 0], Points2[:, 1], '-k' , linewidth  = 5) #outer track
-    plt.plot(Points0[:, 0], Points0[:, 1], '--y' , linewidth  = 5) #outer track
+    plt.plot(Points1[:, 0], Points1[:, 1], '-r' , linewidth  = 4) # inner track
+    plt.plot(Points2[:, 0], Points2[:, 1], '-r' , linewidth  = 4) #outer track
+    plt.plot(Points0[:, 0], Points0[:, 1], '--y' , linewidth  = 2) #outer track
 
 
     line_ol,        = axtr.plot(xdata, ydata, '-g', label = 'Vehicle model simulation')

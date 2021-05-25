@@ -1,0 +1,10 @@
+<launch>
+  <node pkg="plotter" type="fisheyecam_plotter.py" name="cam_pose_plotter" output="screen">
+  <param name="track_visualization"    type="bool"      value="true" />
+  <param name="pose_visualization"    type="bool"      value="true" />
+  <param name="record_on"     		 type="bool"      value="false" />
+  <param name="loop_rate"     		 type="int"      value="1000" />
+
+  </node>
+
+</launch>
