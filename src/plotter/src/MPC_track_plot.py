@@ -39,9 +39,13 @@ def plot_control(x_lim,y_lim):
 
 
 #### plotter for vehicle estimation on the track ####
-def plot_vehicle_global_position(map):
+def plot_vehicle_global_position(x_lim_min,y_lim_min, x_lim_max, y_lim_max, map):
     xdata = []; ydata = []
     fig = plt.figure(figsize=(10,8))
+
+    plt.xlim([x_lim_min,x_lim_max])
+    plt.ylim([y_lim_min,y_lim_max])
+
     plt.ion()
     axtr = plt.axes()
 
@@ -247,7 +251,8 @@ def main():
 
 
     rospy.init_node('MPC_controller_plot', anonymous=True)
-    loop_rate       = 1000
+    loop_rate       = rospy.get_param("MPC_plotter/loop_rate")
+    
     rate            = rospy.Rate(loop_rate)
 
     track_map = Map()
@@ -264,25 +269,25 @@ def main():
     image_veh_his = []
 
 
-    vehicle_visualization = True
-    states_visualization  = False
-    error_visualization   = True
-    control_visualization  = True
+    vehicle_visualization = rospy.get_param("MPC_plotter/vehicle_visualization")
+    states_visualization  = rospy.get_param("MPC_plotter/states_visualization")
+    control_visualization = rospy.get_param("MPC_plotter/control_visualization")
+    error_visualization = rospy.get_param("MPC_plotter/error_visualization")
+    record_data = rospy.get_param("MPC_plotter/record_data")
+
     window_size = 100
     
     if vehicle_visualization == True:
 
         margin = 0.5 ## margin percentage fox axes: make dynamic window size
-        x_lim_init_max = 5
-        x_lim_init_min = -x_lim_init_max
-        
-        y_lim_init_max = 5
-        y_lim_init_min = -y_lim_init_max
-
+        x_lim_init_min = -1.75
+        y_lim_init_min = -0.75
+        x_lim_init_max = 3
+        y_lim_init_max = 4.0
 
         ### Vehicle kinematics
 
-        (fig_veh, plt_veh, axtr, line_est, line_ol, line_meas, line_lpv_pred, line_mpc_pred, rec_est, rec_ol, rec_meas) = plot_vehicle_global_position(track_map)
+        (fig_veh, plt_veh, axtr, line_est, line_ol, line_meas, line_lpv_pred, line_mpc_pred, rec_est, rec_ol, rec_meas) = plot_vehicle_global_position(x_lim_init_min, y_lim_init_min, x_lim_init_max, y_lim_init_max, track_map)
 
         ol_x_his     = []
         est_x_his    = []
@@ -349,7 +354,7 @@ def main():
 
         if vehicle_visualization == True: 
 
-            l = 0.42; w = 0.19
+            l = 0.42/2; w = 0.19/2
 
             est_x_his.append(X_est)
             est_y_his.append(Y_est)

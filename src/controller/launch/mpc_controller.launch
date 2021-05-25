@@ -33,7 +33,7 @@
     <!-- PLANNER    -->
     <param name="duty_th"       type="double"   value="0.05" />  <!-- deadzone where the wheel doesn't rotate -->
     <param name="planning_mode" type="int"      value="2" />
-    <param name="halfWidth"     type="double"   value="0.5" />
+    <param name="halfWidth"     type="double"   value="0.25" />
     <param name="trackShape"    type="str"      value="oval_iri" />
 
 

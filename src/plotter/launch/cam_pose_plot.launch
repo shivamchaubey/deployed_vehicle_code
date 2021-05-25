@@ -1,5 +1,5 @@
 <launch>
-  <param name="halfWidth"     type="double"   value="0.5" />
+  <param name="halfWidth"     type="double"   value="0.25" />
   <param name="trackShape"  type="str"    value="oval_iri"/>
   <node pkg="plotter" type="fisheyecam_plot.py" name="cam_pose_plotter" output="screen">
   <param name="track_visualization"    type="bool"      value="true" />

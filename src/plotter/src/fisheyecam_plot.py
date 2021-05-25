@@ -58,12 +58,22 @@ def plot_cam_pose(x_lim_min,y_lim_min, x_lim_max, y_lim_max, map, track_plot_on)
     line_pure,        = axtr.plot(xdata, ydata, '-g', label = 'Localization using visual only', linewidth =2 )
     line_fused,       = axtr.plot(xdata, ydata, '-b', label = 'Localization using visual-inertial', linewidth =2)  
 
+    v = np.array([[ 1,  1],
+                  [ 1, -1],
+                  [-1, -1],
+                  [-1,  1]])
+
+    rec_pure = patches.Polygon(v, alpha=0.7, closed=True, fc='b', ec='k', zorder=10)
+    axtr.add_patch(rec_pure)
+
+    rec_fused = patches.Polygon(v, alpha=0.7, closed=True, fc='g', ec='k', zorder=10)
+    axtr.add_patch(rec_fused)
+
     plt.legend()
     plt.grid()
     
 
-    return fig, plt, line_pure, line_fused
-
+    return fig, plt, line_pure, line_fused, rec_pure, rec_fused
 
 ### wrap the angle between [-pi,pi] ###
 def wrap(angle):
@@ -98,12 +108,12 @@ class fiseye_cam():
         #                  [sin(theta_tf),  cos(theta_tf)]])
         # self.yaw_tf   = rospy.get_param("switching_lqr_observer/yaw_tf")*pi/180
 
-        self.x_tf     = 0.
-        self.y_tf     = 0.
-        theta_tf = 0.*pi/180
+        self.x_tf     = 0.970
+        self.y_tf     = -0.812
+        theta_tf = -90.*pi/180
         self.R_tf = np.array([[cos(theta_tf), -sin(theta_tf)],
                          [sin(theta_tf),  cos(theta_tf)]])
-        self.yaw_tf   = 0.*pi/180
+        self.yaw_tf   = 90.*pi/180
 
 
         self.pure_x   = 0.0
@@ -118,9 +128,10 @@ class fiseye_cam():
 
     def pure_cam_pose_callback(self, data):
 
-        self.pure_x   = data.position.x
-        self.pure_y   = data.position.y
-        self.pure_yaw = data.orientation.z
+        [self.pure_x, self.pure_y] = np.dot(self.R_tf, np.array([data.position.x,data.position.y]).T)
+        self.pure_x = self.pure_x - self.x_tf
+        self.pure_y = self.pure_y - self.y_tf
+        self.pure_yaw = wrap(data.orientation.z + self.yaw_tf)
 
 
     def fused_cam_pose_callback(self, data):
@@ -130,6 +141,13 @@ class fiseye_cam():
         self.fused_y = self.fused_y - self.y_tf
         self.fused_yaw = wrap(data.orientation.z + self.yaw_tf)
 
+#### gives the coordinate of the patches for plotting the rectangular (vehicle) orientation and position.
+def getCarPosition(x, y, psi, w, l):
+    car_x = [ x + l * np.cos(psi) - w * np.sin(psi), x + l * np.cos(psi) + w * np.sin(psi),
+              x - l * np.cos(psi) + w * np.sin(psi), x - l * np.cos(psi) - w * np.sin(psi)]
+    car_y = [ y + l * np.sin(psi) + w * np.cos(psi), y + l * np.sin(psi) - w * np.cos(psi),
+              y - l * np.sin(psi) - w * np.cos(psi), y - l * np.sin(psi) + w * np.cos(psi)]
+    return car_x, car_y
 
 
 
@@ -172,7 +190,7 @@ def main():
         x_lim_max = 3
         y_lim_max = 3.5
         
-        fig, plt, line_pure, line_fused = plot_cam_pose(x_lim_min,y_lim_min, x_lim_max,y_lim_max, track_map, track_visualization)
+        fig, plt, line_pure, line_fused, rec_pure, rec_fused = plot_cam_pose(x_lim_min,y_lim_min, x_lim_max,y_lim_max, track_map, track_visualization)
 
     counter = 0
     while not (rospy.is_shutdown()):
@@ -180,8 +198,8 @@ def main():
 
         ########################################### unpack messages ############################################
 
-        cam_pure_x, cam_pure_y = cam_pose.pure_x, cam_pose.pure_y
-        cam_fused_x, cam_fused_y = cam_pose.fused_x, cam_pose.fused_y
+        cam_pure_x, cam_pure_y, cam_pure_yaw  = cam_pose.pure_x, cam_pose.pure_y, cam_pose.pure_yaw
+        cam_fused_x, cam_fused_y, cam_fused_yaw = cam_pose.fused_x, cam_pose.fused_y, cam_pose.fused_yaw
 
         ########################################################################################################
 
@@ -194,6 +212,15 @@ def main():
         if pose_visualization == True:
             line_pure.set_data(cam_pose_pure_x_hist ,cam_pose_pure_y_hist)
             line_fused.set_data(cam_pose_fused_x_hist ,cam_pose_fused_y_hist)
+
+            l = 0.42/2; w = 0.19/2
+
+            car_pure_x, car_pure_y = getCarPosition(cam_pure_x, cam_pure_y, cam_pure_yaw, w, l)
+            rec_pure.set_xy(np.array([car_pure_x, car_pure_y]).T)
+            
+            car_fused_x, car_fused_y = getCarPosition(cam_fused_x, cam_fused_y, cam_fused_yaw, w, l)
+            rec_fused.set_xy(np.array([car_fused_x, car_fused_y]).T)
+                        
 
             fig.canvas.draw()
 
