@@ -25,13 +25,13 @@ sys.path.append(('/').join(sys.path[0].split('/')[:-2])+'/planner/src/')
 from trackInitialization import Map
 
 #### plotter for visual sensor vs visual-inertial sensor ##########
-def plot_cam_pose(x_lim,y_lim, map, track_plot_on):
+def plot_cam_pose(x_lim_min,y_lim_min, x_lim_max, y_lim_max, map, track_plot_on):
 
     xdata = []; ydata = []
     fig = plt.figure(figsize=(10,8))
     plt.ion()
-    plt.xlim([-1*x_lim,x_lim])
-    plt.ylim([-1*y_lim,y_lim])
+    plt.xlim([x_lim_min,x_lim_max])
+    plt.ylim([y_lim_min,y_lim_max])
 
     axtr = plt.axes()
 
@@ -167,9 +167,12 @@ def main():
     pose_visualization  = True
 
     if pose_visualization == True:
-        x_lim = 3
-        y_lim = 6
-        fig, plt, line_pure, line_fused = plot_cam_pose(x_lim,y_lim)
+        x_lim_min = -1.75
+        y_lim_min = -0.75
+        x_lim_max = 3
+        y_lim_max = 3.5
+        
+        fig, plt, line_pure, line_fused = plot_cam_pose(x_lim_min,y_lim_min, x_lim_max,y_lim_max, track_map, track_visualization)
 
     counter = 0
     while not (rospy.is_shutdown()):

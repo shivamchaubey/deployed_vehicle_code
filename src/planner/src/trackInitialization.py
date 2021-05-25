@@ -49,12 +49,17 @@ class Map():
                              [lengthCurve/2, lengthCurve / np.pi]])
 
 
-        elif selectedTrack == "oval_iri":
+        elif selectedTrack == "oval_iri_old":
             spec = 1.0*np.array([[1.25, 0],
                              [3.5, 3.5 / np.pi],
                              [1.25, 0],
                              [3.5, 3.5 / np.pi]])
 
+        elif selectedTrack == "oval_iri":
+            spec = 1.0*np.array([[1.34, 0],
+                             [1.125*np.pi, 1.125],
+                             [1.34, 0],
+                             [1.14*np.pi, 1.125]])
 
 
         # Now given the above segments we compute the (x, y) points of the track and the angle of the tangent vector (psi) at
