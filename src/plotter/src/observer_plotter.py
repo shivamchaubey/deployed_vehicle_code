@@ -593,7 +593,6 @@ def main():
         counter +=1
         rate.sleep()
 
-    print "Saving GIF images"
 
     if record_data == True:
 
