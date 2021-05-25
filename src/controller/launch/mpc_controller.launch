@@ -26,7 +26,7 @@
     <param name="dutycycle_min"     type="double"   value="-0.01" />
     <param name="steer_max"         type="double"   value="0.349" />
     <param name="steer_min"         type="double"   value="-0.349" />
-    <param name="lat_e_max"         type="double"   value="0.4" />   <!-- like halfWidth-->
+    <param name="lat_e_max"         type="double"   value="0.35" />   <!-- like halfWidth-->
     <param name="orient_e_max"      type="double"   value="0.4" />
 
 
@@ -47,11 +47,11 @@
     
     <node pkg="controller"      type="controllerMain.py"    name="control" output="screen">
 
-        <param name="Horizon"           type="int"      value="20" />
-        <param name="Hz"                type="double"   value="50" />
-        <param name="vel_ref"           type="double"   value="0.8"/>
+        <param name="Horizon"           type="int"      value="40" />
+        <param name="Hz"                type="double"   value="30" />
+        <param name="vel_ref"           type="double"   value="1.2"/>
         <param name="integral_action"   type="bool"     value="true"/>
-        <param name="soft_constraints"  type="bool"     value="false"/>
+        <param name="soft_constraints"  type="bool"     value="true"/>
         
 
     </node>

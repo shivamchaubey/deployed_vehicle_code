@@ -1,6 +1,6 @@
 <launch>
-  <arg name="serial_no"           default=""/>
-  <arg name="usb_port_id"         default=""/>
+  <arg name="serial_no"           default="0"/>
+  <arg name="usb_port_id"         default="/dev/video0"/>
   <arg name="device_type"         default=""/>
   <arg name="json_file_path"      default=""/>
   <arg name="camera"              default="camera"/>
