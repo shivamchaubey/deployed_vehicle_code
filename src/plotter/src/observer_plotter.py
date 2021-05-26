@@ -126,7 +126,7 @@ def plot_vehicle_states(window):
     line_vx_ol,         = axs[0,0].plot(xdata, ydata, '-g', label = r'$v_x$: Vehicle model longitudinal velocity')  
     line_vx_meas,       = axs[0,0].plot(xdata, ydata, '-m', label = r'$v_x$: Measured longitudinal velocity')  
     axs[0,0].set_xlim(0,window)
-    axs[0,0].set_ylim(-1,5)
+    axs[0,0].set_ylim(-0.2,1.5)
     axs[0,0].legend(prop={'size': 12}, framealpha = 0.2)
     axs[0,0].grid()
 
@@ -137,7 +137,7 @@ def plot_vehicle_states(window):
     line_vy_ol,         = axs[0,1].plot(xdata, ydata, '-g', label = r'$v_y$: Vehicle model lateral velocity')  
     line_vy_meas,       = axs[0,1].plot(xdata, ydata, '-m', label = r'$v_y$: Measured lateral velocity')  
     axs[0,1].set_xlim(0,window)
-    axs[0,1].set_ylim(-1,5)
+    axs[0,1].set_ylim(-0.2,1.5)
     axs[0,1].legend(prop={'size': 12}, framealpha = 0.2)
     axs[0,1].grid()
 
@@ -146,7 +146,7 @@ def plot_vehicle_states(window):
     line_omega_ol,      = axs[1,0].plot(xdata, ydata, '-g', label = r'$\omega$: Vehicle model angular velocity')  
     line_omega_meas,    = axs[1,0].plot(xdata, ydata, '-m', label = r'$\omega$: Measured angular velocity')  
     axs[1,0].set_xlim(0,window)
-    axs[1,0].set_ylim(-5,5)
+    axs[1,0].set_ylim(-2,2)
     axs[1,0].legend(prop={'size': 12} , framealpha = 0.2)
     axs[1,0].grid()
     
@@ -285,9 +285,10 @@ def main():
 
     window_size = 100
 
+    margin = 0.5 ## margin percentage fox axes: make dynamic window size
+
     if vehicle_visualization == True:
 
-        margin = 0.5 ## margin percentage fox axes: make dynamic window size
         x_lim_init_min = -1.75
         y_lim_init_min = -0.75
         x_lim_init_max = 3

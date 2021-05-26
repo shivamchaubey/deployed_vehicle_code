@@ -84,7 +84,7 @@ class PathFollowingLPV_MPC:
 
 
         # Assign the weight of objective function
-        self.Q  = 0.6 * np.array([0.5*vx_scale, 0.0, 0.00, 0.1*etheta_scale, 0.0, 0.4*ey_scale]) # penality on states 
+        self.Q  = 0.6 * np.array([0.6*vx_scale, 0.0, 0.00, 0.1*etheta_scale, 0.0, 0.3*ey_scale]) # penality on states 
         self.R  = 0.1 * np.array([0.01*str_scale, 0.05*duty_scale])     # Penality on input (dutycycle, steer)
         self.dR = 0.3 * np.array([0.01*dstr_scale,0.1*dduty_scale])  # Penality on Input rate 
         self.Qe = np.array([0, 0, 0, 1, 0, 1])*(10.0e8) # Penality on soft constraints 
