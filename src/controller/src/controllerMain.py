@@ -140,8 +140,12 @@ class predicted_states_msg():
         self.LPV_prediction_state_pub.publish(self.LPV_prediction_states)
     # def MPC_update(self):
 
-
-
+def shutdown_publish():
+    
+    for i in range(100):
+        dutycycle_commands.publish(0.0)
+        steering_commands.publish(0.0)
+        rate.sleep()
 
 def main():
 
@@ -332,13 +336,12 @@ def main():
         MPC_prediction_state_pub.publish(mpcPrediction_msg)
         LPV_prediction_state_pub.publish(lpvPrediction_msg)
 
-        
+
 
 
         rate.sleep()
 
-    dutycycle_commands.publish(0.0)
-    steering_commands.publish(0.0)
+    shutdown_publish(dutycycle_commands, steering_commands, rate)
 
     quit()
 
