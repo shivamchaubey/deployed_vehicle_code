@@ -84,11 +84,19 @@ class PathFollowingLPV_MPC:
 
 
         # Assign the weight of objective function
-        self.Q  = 0.6 * np.array([0.6*vx_scale, 0.0, 0.00, 0.1*etheta_scale, 0.0, 0.3*ey_scale]) # penality on states 
-        self.R  = 0.1 * np.array([0.01*str_scale, 0.05*duty_scale])     # Penality on input (dutycycle, steer)
-        self.dR = 0.3 * np.array([0.01*dstr_scale,0.1*dduty_scale])  # Penality on Input rate 
-        self.Qe = np.array([0, 0, 0, 1, 0, 1])*(10.0e8) # Penality on soft constraints 
+        self.Q  = 0.8 * np.array([0.6*vx_scale, 0.0, 0.00, 0.1*etheta_scale, 0.0, 0.3*ey_scale]) # penality on states 
+        self.R  = 0.2 * np.array([0.01*str_scale, 0.05*duty_scale])     # Penality on input (dutycycle, steer)
+        
+        if self.slew_rate_on:
+            self.Q  = 0.8 * np.array([0.6*vx_scale, 0.0, 0.00, 0.1*etheta_scale, 0.0, 0.3*ey_scale]) # penality on states 
+            self.R  = 0.1 * np.array([0.01*str_scale, 0.05*duty_scale])     # Penality on input (dutycycle, steer)        
+            self.dR = 0.1 * np.array([0.01*dstr_scale,0.1*dduty_scale])  # Penality on Input rate 
 
+        if self.soft_constraints_on:
+            self.Q  = 0.6 * np.array([0.6*vx_scale, 0.0, 0.00, 0.1*etheta_scale, 0.0, 0.3*ey_scale]) # penality on states 
+            self.R  = 0.1 * np.array([0.01*str_scale, 0.05*duty_scale])     # Penality on input (dutycycle, steer)        
+            self.dR = 0.3 * np.array([0.01*dstr_scale,0.1*dduty_scale])  # Penality on Input rate 
+            self.Qe = np.array([0, 0, 0, 1, 0, 1])*(10.0e8) # Penality on soft constraints 
         
         # Create an OSQP object
         self.prob = osqp.OSQP()
@@ -146,34 +154,46 @@ class PathFollowingLPV_MPC:
         Q  = sparse.diags(self.Q)
         QN = Q
         R  = sparse.diags(self.R)
-        dR = sparse.diags(self.dR)
-        Qeps  = sparse.diags(self.Qe)
         
 
         PQx = sparse.block_diag([sparse.kron(sparse.eye(N), Q), QN], format='csc')
         PQu = sparse.kron(sparse.eye(N), R)
-        idu = (2 * np.eye(N) - np.eye(N, k=1) - np.eye(N, k=-1))
-        PQdu = sparse.kron(idu, dR)
-        PQeps = sparse.kron(sparse.eye(N+1), Qeps)
         
             
         #################### q formulation ################################
         qQx  = np.hstack([np.kron(np.ones(N), -Q.dot(xr)), -QN.dot(xr)])
         qQu  = np.kron(np.ones(N), -R.dot(u_ref))
-        qQdu = np.hstack([-dR.dot(self.uminus1), np.zeros((N - 1) * nu)])
-        qQeps = np.zeros((N+1)*nx)
-
+        
         
         '''Objective function formulation'''
         if self.soft_constraints_on and self.slew_rate_on:
+            
+            dR = sparse.diags(self.dR)
+            Qeps  = sparse.diags(self.Qe)
+            idu = (2 * np.eye(N) - np.eye(N, k=1) - np.eye(N, k=-1))
+            PQdu = sparse.kron(idu, dR)
+            PQeps = sparse.kron(sparse.eye(N+1), Qeps)
+            qQdu = np.hstack([-dR.dot(self.uminus1), np.zeros((N - 1) * nu)])
+            qQeps = np.zeros((N+1)*nx)
+    
             self.P = sparse.block_diag([PQx, PQu + PQdu, PQeps], format='csc')
             self.q = np.hstack([qQx, qQu + qQdu, qQeps])
 
         elif self.slew_rate_on:
+
+            dR = sparse.diags(self.dR)
+            idu = (2 * np.eye(N) - np.eye(N, k=1) - np.eye(N, k=-1))
+            PQdu = sparse.kron(idu, dR)
+            qQdu = np.hstack([-dR.dot(self.uminus1), np.zeros((N - 1) * nu)])
+
             self.P = sparse.block_diag([PQx, PQu + PQdu], format='csc')
             self.q = np.hstack([qQx, qQu + qQdu])
 
         elif self.soft_constraints_on:
+
+            PQeps = sparse.kron(sparse.eye(N+1), Qeps)
+            qQeps = np.zeros((N+1)*nx)
+
             self.P = sparse.block_diag([PQx, PQu, PQeps], format='csc')
             self.q = np.hstack([qQx, qQu, qQeps])
 
