@@ -30,7 +30,7 @@
         
 
         <param name="lqr_gain_path"   type="string"  value="/data/LQR_16_04_2021/switching_LQR_gain.mat" if="$(arg SWITCHING_LQR)"/>
-        
+        <param name="simulation"    type="bool"      value="1" />
         <param name="visualization"    type="bool"      value="false" />
         <param name="record_data"      type="bool"      value="false" />
 

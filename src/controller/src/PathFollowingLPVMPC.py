@@ -84,10 +84,10 @@ class PathFollowingLPV_MPC:
 
 
         # Assign the weight of objective function
-        self.Q  = 0.6 * np.array([0.4*vx_scale, 0.0, 0.00, 0.05*etheta_scale, 0.0, 0.55*ey_scale]) # penality on states 
-        self.R  = 0.1 * np.array([0.0*str_scale, 0.05*duty_scale])     # Penality on input (dutycycle, steer)
-        self.dR = 0.3 * np.array([0.009*dstr_scale,0.1*dduty_scale])  # Penality on Input rate 
-        self.Qe = np.array([1, 0, 0, 0, 0, 0])*(10.0e8) # Penality on soft constraints 
+        self.Q  = 0.6 * np.array([0.5*vx_scale, 0.0, 0.00, 0.1*etheta_scale, 0.0, 0.4*ey_scale]) # penality on states 
+        self.R  = 0.1 * np.array([0.01*str_scale, 0.05*duty_scale])     # Penality on input (dutycycle, steer)
+        self.dR = 0.3 * np.array([0.01*dstr_scale,0.1*dduty_scale])  # Penality on Input rate 
+        self.Qe = np.array([0, 0, 0, 1, 0, 1])*(10.0e8) # Penality on soft constraints 
 
         
         # Create an OSQP object
@@ -380,10 +380,10 @@ class PathFollowingLPV_MPC:
                 cur     = float(curv_ref[i,0]) # From planner
 
             vx      = float(vel_ref[i,0])
-            
-            if i == (self.N - 1):
-                ey = 0
-                epsi = 0
+            # ey = 0
+            # if i >= (self.N - 1):
+            #     ey = 0
+            #     epsi = 0
 
             delta = float(u[i,0])
             dutycycle = float(u[i,1])
@@ -402,29 +402,30 @@ class PathFollowingLPV_MPC:
             A11 = 0;
 
 
-            eps = 0.000001
-            # if abs(vx)> 0.0:
+            # eps = 0.000001
+            eps = 0.000
+            if abs(vx)> 0.0:
 
-            F_flat = 2*Caf*(delta- atan((vy+lf*omega)/(vx+eps)));        
-            Fry = -2*Car*atan((vy - lr*omega)/(vx+eps)) ;
-            A11 = -(1/m)*(C0 + C1/(vx+eps) + Cd_A*rho*vx/2);
-            A31 = -Fry*lr/((vx+eps)*Iz);
+                F_flat = 2*Caf*(delta- atan((vy+lf*omega)/(vx+eps)));        
+                Fry = -2*Car*atan((vy - lr*omega)/(vx+eps)) ;
+                A11 = -(1/m)*(C0 + C1/(vx+eps) + Cd_A*rho*vx/2);
+                A31 = -Fry*lr/((vx+eps)*Iz);
                 
             A12 = omega;
             A21 = -omega;
             A22 = 0;
             
-            # if abs(vy) > 0.0:
-            A22 = Fry/(m*(vy+eps));
+            if abs(vy) > 0.0:
+                A22 = Fry/(m*(vy+eps));
 
             B11 = 0;
             B31 = 0;
             B21 = 0;
             
-            # if abs(delta) > 0:
-            B11 = -F_flat*sin(delta)/(m*(delta+eps));
-            B21 = F_flat*cos(delta)/(m*(delta+eps));    
-            B31 = F_flat*cos(delta)*lf/(Iz*(delta+eps));
+            if abs(delta) > 0:
+                B11 = -F_flat*sin(delta)/(m*(delta+eps));
+                B21 = F_flat*cos(delta)/(m*(delta+eps));    
+                B31 = F_flat*cos(delta)*lf/(Iz*(delta+eps));
 
 
             B12 = (1/m)*(Cm0 - Cm1*vx);
@@ -451,17 +452,8 @@ class PathFollowingLPV_MPC:
                             [ 0,   0 ],
                             [ 0,   0 ]])
 
-            Ci  = np.array([[ 0 ],
-                            [ 0 ],
-                            [ 0 ],
-                            [ 0 ],
-                            [ 0 ],
-                            [ 0 ]])
-
-
             Ai = np.eye(len(Ai)) + self.dt * Ai
             Bi = self.dt * Bi
-            Ci = self.dt * Ci
 
             states_new = np.dot(Ai, states) + np.dot(Bi, np.transpose(np.reshape(u[i,:],(1,2))))
 
@@ -472,10 +464,8 @@ class PathFollowingLPV_MPC:
 
             Atv.append(Ai)
             Btv.append(Bi)
-            Ctv.append(Ci)
 
-
-        return STATES_vec, np.array(Atv), np.array(Btv), np.array(Ctv)
+        return STATES_vec, np.array(Atv), np.array(Btv)
 
 
     def LPVPrediction_setup(self, x, u, vel_ref):

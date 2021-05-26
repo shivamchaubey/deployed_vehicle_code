@@ -239,13 +239,13 @@ def main():
 
             # print("\n")
             # print("vx vy w: ", GlobalState[:3])
-            # print("\n")
-            # print("x y yaw: ", GlobalState[3:])
-            # print("\n")
-            # print("epsi s ey: ", LocalState[3:])
-            # print("\n")
+            print("\n")
+            print("x y yaw: ", GlobalState[3:])
+            print("\n")
+            print("epsi s ey: ", LocalState[3:])
+            print("\n")
 
-            vel_ref         = np.ones([N,1])
+            vel_ref         = np.ones([N,1])*Vx_ref
      
             # Check if the lap has finished
             if LocalState[4] >= 3*map.TrackLength/4:
@@ -287,7 +287,7 @@ def main():
 
             # print "Controller.uminus1", Controller.uminus1
 
-            LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction(LocalState[0:6], Controller.uPred, vel_ref)
+            LPV_States_Prediction, A_L, B_L = Controller.LPVPrediction(LocalState[0:6], Controller.uPred, vel_ref)
             # print "LPV_States_Prediction", LPV_States_Prediction
             
             if first_it == 5:
@@ -332,7 +332,13 @@ def main():
         MPC_prediction_state_pub.publish(mpcPrediction_msg)
         LPV_prediction_state_pub.publish(lpvPrediction_msg)
 
+        
+
+
         rate.sleep()
+
+    dutycycle_commands.publish(0.0)
+    steering_commands.publish(0.0)
 
     quit()
 

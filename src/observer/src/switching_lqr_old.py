@@ -813,64 +813,112 @@ def append_control_data(data,msg):
     data['duty_cycle'].append(msg.duty_cycle)
 
 
-def Continuous_AB_Comp(vx, vy, omega, theta, delta):
+def Continuous_AB_Comp(vx, vy, omega, theta, delta, D):
 
 
 #     %%% Parameters
-    m = 2.424;
-    rho = 1.225;
-    lr = 0.1203;
-    lf = 0.1377;
-    Cm0 = 10.1305;
-    Cm1 = 1.05294;
-    C0 = 3.68918;
-    C1 = 0.0306803;
-    Cd_A = -0.657645;
-    Caf = 1.3958;
-    Car = 1.6775;
-    Iz = 0.02;
+    m = rospy.get_param("m")
+    rho = rospy.get_param("rho")
+    lr = rospy.get_param("lr")
+    lf = rospy.get_param("lf")
+    Cm0 = rospy.get_param("Cm0")
+    Cm1 = rospy.get_param("Cm1")
+    C0 = rospy.get_param("C0")
+    C1 = rospy.get_param("C1")
+    Cd_A = rospy.get_param("Cd_A")
+    Caf = rospy.get_param("Caf")
+    Car = rospy.get_param("Car")
+    Iz = rospy.get_param("Iz")
 
-    F_flat = 0;
-    Fry = 0;
-    Frx = 0;
-    
-    A31 = 0;
-    A11 = 0;
-    
-    eps = 0.0000001
-    # eps = 0
-    # if abs(vx)> 0:
-    F_flat = 2*Caf*(delta- atan((vy+lf*omega)/(vx+eps)));
-    Fry = -2*Car*atan((vy - lr*omega)/(vx+eps)) ;
-    A11 = -(1/m)*(C0 + C1/(vx+eps) + Cd_A*rho*vx/2);
-    A31 = -Fry*lr/((vx+eps)*Iz);
+
+    if D >= 0.0:
+        F_flat = 0;
+        Fry = 0;
+        Frx = 0;
         
-    A12 = omega;
-    A21 = -omega;
-    A22 = 0;
+        A31 = 0;
+        A11 = 0;
+        
+        eps = 0.0000
+        # eps = 0
+        if abs(vx)> 0:
+            F_flat = 2*Caf*(delta- atan((vy+lf*omega)/(vx+eps)));
+            Fry = -2*Car*atan((vy - lr*omega)/(vx+eps)) ;
+            A11 = -(1/m)*(C0 + C1/(vx+eps) + Cd_A*rho*vx/2);
+            A31 = -Fry*lr/((vx+eps)*Iz);
+            
+        A12 = omega;
+        A21 = -omega;
+        A22 = 0;
+        
+        if abs(vy) > 0.0:
+            A22 = Fry/(m*(vy+eps));
+
+        A41 = cos(theta);
+        A42 = -sin(theta);
+        A51 = sin(theta);
+        A52 = cos(theta);
+
+
+        B12 = 0;
+        B32 = 0;
+        B22 = 0;
+        
+        if abs(delta) > 0.0:
+            B12 = -F_flat*sin(delta)/(m*(delta+eps));
+            B22 = F_flat*cos(delta)/(m*(delta+eps));    
+            B32 = F_flat*cos(delta)*lf/(Iz*(delta+eps));
+
+
+
+        B11 = (1/m)*(Cm0 - Cm1*vx);
     
-    # if abs(vy) > 0.0:
-    A22 = Fry/(m*(vy+eps));
+    else:
+        #singularity correction during backward
+        delta = -delta
 
-    A41 = cos(theta);
-    A42 = -sin(theta);
-    A51 = sin(theta);
-    A52 = cos(theta);
+        F_flat = 0;
+        Fry = 0;
+        Frx = 0;
+        
+        A31 = 0;
+        A11 = 0;
+        
+        eps = 0.0000
+        # eps = 0
+        if abs(vx)> 0:
+            F_flat = 2*Caf*(delta- atan((vy+lf*omega)/abs(vx+eps)));
+            Fry = -2*Car*atan((vy - lr*omega)/abs(vx+eps)) ;
+            A11 = -(1/m)*(C0 + C1/(vx+eps) + Cd_A*rho*vx/2);
+            A31 = -Fry*lr/((vx+eps)*Iz);
+            
+        A12 = omega;
+        A21 = -omega;
+        A22 = 0;
+        
+        if abs(vy) > 0.0:
+            A22 = Fry/(m*(vy+eps));
+
+        A41 = cos(theta);
+        A42 = -sin(theta);
+        A51 = sin(theta);
+        A52 = cos(theta);
 
 
-    B12 = 0;
-    B32 = 0;
-    B22 = 0;
-    
+        B12 = 0;
+        B32 = 0;
+        B22 = 0;
+        
+        if abs(delta) > 0.0:
+            B12 = -F_flat*sin(delta)/(m*(delta+eps));
+            B22 = F_flat*cos(delta)/(m*(delta+eps));    
+            B32 = F_flat*cos(delta)*lf/(Iz*(delta+eps));
 
-    B12 = -F_flat*sin(delta)/(m*(delta+eps));
-    B22 = F_flat*cos(delta)/(m*(delta+eps));    
-    B32 = F_flat*cos(delta)*lf/(Iz*(delta+eps));
 
 
+        B11 = (1/m)*(Cm0 - Cm1*vx);
 
-    B11 = (1/m)*(Cm0 - Cm1*vx);
-    
+
     A = np.array([[A11, A12, 0,  0,   0,  0],\
                   [A21, A22, 0,  0,   0,  0],\
                   [A31,  0 , 0,  0,   0,  0],\
@@ -1280,17 +1328,21 @@ def main():
     N_enc  = rospy.get_param("switching_lqr_observer/enc_MA_window")
     N_fcam = rospy.get_param("switching_lqr_observer/fcam_MA_window")
     N_imu  = rospy.get_param("switching_lqr_observer/imu_MA_window")
+    sim_on  = rospy.get_param("switching_lqr_observer/simulation")
+
 
     enc    = motor_encoder(time0, N_enc)
     fcam   = fiseye_cam(time0, N_fcam)
     imu    = IMU(time0, N_imu)
 
-    time.sleep(3)
-    print  "yaw_offset", fcam.yaw
-    imu.yaw_offset = imu.yaw - fcam.yaw
-    control_input = vehicle_control(time0)
-    time.sleep(3)
 
+    if sim_on == 0: 
+        time.sleep(3)
+        print  "yaw_offset", fcam.yaw
+        imu.yaw_offset = imu.yaw - fcam.yaw
+        time.sleep(3)
+    
+    control_input = vehicle_control(time0)
     print "fcam.yaw",fcam.yaw
     
     if visualization == True:
@@ -1486,28 +1538,32 @@ def main():
 
         dt = curr_time - prev_time 
         
-        if u[0] > 0.05:
+        if abs(u[0]) > 0.05:
 
 
             # yaw_trans = wrap(yaw_correction(y_meas[-1]))
             yaw_trans = (est_state[5] + pi) % (2 * pi) - pi
             # yaw_trans = est_state[5]
             # %% quadrant case
+            steer_angle = u[1]
+        
+
             if 0 <= yaw_trans <= pi/2:
+
             # % 1st quadrant
-                 L_gain = L_Computation(est_state[0], est_state[1], est_state[2], yaw_trans, u[1], LQR_gain[0], sched_var[0], seq[0])
+                 L_gain = L_Computation(est_state[0], est_state[1], est_state[2], yaw_trans, steer_angle, LQR_gain[0], sched_var[0], seq[0])
                
             elif pi/2 < yaw_trans <= pi:
             # % 2nd quadrant
-                 L_gain = L_Computation(est_state[0], est_state[1], est_state[2], yaw_trans, u[1], LQR_gain[1], sched_var[1], seq[1])
+                 L_gain = L_Computation(est_state[0], est_state[1], est_state[2], yaw_trans, steer_angle, LQR_gain[1], sched_var[1], seq[1])
                     
             elif -pi <= yaw_trans <= -pi/2:
             # % 3rd quadrant
-                 L_gain = L_Computation(est_state[0], est_state[1], est_state[2], yaw_trans, u[1], LQR_gain[2], sched_var[2], seq[2])
+                 L_gain = L_Computation(est_state[0], est_state[1], est_state[2], yaw_trans, steer_angle, LQR_gain[2], sched_var[2], seq[2])
                 
             elif (-pi/2 < yaw_trans < 0):
             # % 4th quadrant
-                 L_gain = L_Computation(est_state[0], est_state[1], est_state[2], yaw_trans, u[1], LQR_gain[3], sched_var[3], seq[3])
+                 L_gain = L_Computation(est_state[0], est_state[1], est_state[2], yaw_trans, steer_angle, LQR_gain[3], sched_var[3], seq[3])
                 
             else:
                 
@@ -1515,9 +1571,7 @@ def main():
 
                 display("ERROR Normalize the theta")
 
-
-
-                yaw_error_throw()
+            
 
 
 
@@ -1555,7 +1609,7 @@ def main():
             # print ("u",u)
             
             ####### LQR ESTIMATION ########
-            A_obs, B_obs = Continuous_AB_Comp(est_state[0], est_state[1], est_state[2], est_state[5], u[1])
+            A_obs, B_obs = Continuous_AB_Comp(est_state[0], est_state[1], est_state[2], est_state[5], u[1], u[0])
             # L_gain = L_Computation(est_state[0], est_state[1], est_state[2], est_state[5], u[1], LQR_gain, sched_var, seq)
             
             est_state  = est_state + ( dt * np.dot( ( A_obs - np.dot(L_gain, C) ), est_state )
@@ -1565,8 +1619,8 @@ def main():
             # print ("time taken for estimation ={}".format(rospy.get_rostime().to_sec() - time0 - curr_time))
             
             ##### OPEN LOOP SIMULATION ####
-            A_sim, B_sim = Continuous_AB_Comp(ol_state[0], ol_state[1], ol_state[2], ol_state[5], u[1])
-            ol_state = ol_state + dt*(np.dot(A_sim,ol_state) + np.dot(B_sim,u)) 
+            # A_sim, B_sim = Continuous_AB_Comp(ol_state[0], ol_state[1], ol_state[2], ol_state[5], u[1], u[0])
+            # ol_state = ol_state + dt*(np.dot(A_sim,ol_state) + np.dot(B_sim,u)) 
             # yaw_check += wrap(fcam.yaw)
 
         if abs(u[0]) <= 0.05:

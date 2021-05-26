@@ -415,14 +415,12 @@ class Vehicle_Simulator(object):
         yaw     = self.yaw
         omega   = self.omega
         self.dt = dt
-    
+           
     
         dX = vx*cos(yaw) - vy*sin(yaw)
         dY = vx*sin(yaw) + vy*cos(yaw)
         dyaw = omega
         
-        
-
         F_flat = 0
         Fry    = 0
         Frx    = (self.Cm0 - self.Cm1*vx)*u[0] - self.C0*vx - self.C1 - (self.Cd_A*self.rho*vx**2)/2;
@@ -433,22 +431,6 @@ class Vehicle_Simulator(object):
         if abs(vx)> 0:
             Fry = -2.0*self.Car*atan((vy - self.lr*omega)/(vx+eps)) ;
             F_flat = 2.0*self.Caf*(u[1] - atan((vy+self.lf*omega)/(vx+eps)));
-
-
-        # if u[0]>0:
-        #     Fry = -2.0*self.Car*np.arctan((vy - self.lr*omega)/(vx+eps)) ;
-        #     F_flat = 2.0*self.Caf*(u[1] - np.arctan((vy+self.lf*omega)/(vx+eps)));
-
-
-        # if u[0]<0:
-        #     Fry = -2.0*self.Car*np.arctan((vy - self.lr*omega)/(abs(vx)+eps)) ;
-        #     F_flat = 2.0*self.Caf*(u[1] - np.arctan((vy+self.lf*omega)/(abs(vx)+eps)));
-
-
-        # if abs(vx)>0:
-        #     Fry = -2.0*self.Car*atan((vy - self.lr*omega)/(abs(vx)+eps)) ;
-        #     F_flat = 2.0*self.Caf*(u[1] - atan((vy+self.lf*omega)/(abs(vx)+eps)));
-
 
         dvx = (1/self.m)*(Frx - F_flat*sin(u[1]) + self.m*vy*omega);
 
