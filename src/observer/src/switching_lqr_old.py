@@ -24,6 +24,34 @@ gain_path = rospy.get_param("switching_lqr_observer/lqr_gain_path")
 gain_path = ('/').join(sys.path[0].split('/')[:-1]) + gain_path
 print "\n LQR gain path ={} \n".format(gain_path)
 
+
+
+class lidar_pose():
+    """ Object collecting hector slam pose data
+    """
+    def __init__(self):
+        """ Initialization
+        Arguments:
+            t0: starting measurement time
+        """
+        rospy.Subscriber("/slam_out_pose", PoseStamped, self.pose_callback, queue_size=1)
+
+        # ECU measurement
+        self.X = 0.0
+        self.Y = 0.0
+        self.yaw = 0.0
+
+    def pose_callback(self,msg):
+        """Unpack message from lidar sensor"""
+        
+        self.X = msg.pose.position.x
+        self.Y = msg.pose.position.y
+        quat = msg.pose.orientation
+        euler = tf.transformations.euler_from_quaternion([quat.x, quat.y, quat.z, quat.w])
+        self.yaw = euler[2]
+    
+
+
 class vehicle_control(object):
     """ Object collecting CMD command data
     Attributes:
@@ -1281,6 +1309,7 @@ def main():
     N_fcam = rospy.get_param("switching_lqr_observer/fcam_MA_window")
     N_imu  = rospy.get_param("switching_lqr_observer/imu_MA_window")
 
+    lidar  = lidar_pose()
     enc    = motor_encoder(time0, N_enc)
     fcam   = fiseye_cam(time0, N_fcam)
     imu    = IMU(time0, N_imu)
@@ -1421,6 +1450,7 @@ def main():
     #### YAW CORRECTION ####
     angle_past = imu.yaw
     
+    lidar_state_test = np.array([0, 0, 0, 0, 0, 0]).T
 
     while not (rospy.is_shutdown()):
         
@@ -1607,18 +1637,23 @@ def main():
         AC_sig = 0
         CC_sig = 0
 
+        lidar_state_test[3] = lidar.X
+        lidar_state_test[4] = lidar.Y
+        lidar_state_test[5] = lidar.yaw
+
+
         est_msg = data_retrive_est(est_state_msg, est_state, y_meas[-1], AC_sig, CC_sig)
         est_state_pub.publish(est_msg) ## remember we want to check the transformed yaw angle for debugging that's why 
                                                                                     ##publishing this information in the topic of "s" which is not used for any purpose. 
-        append_sensor_data(est_state_hist, est_msg)
+        # append_sensor_data(est_state_hist, est_msg)
   
 
-        ol_state_pub.publish(data_retrive(ol_state_msg, ol_state))
+        ol_state_pub.publish(data_retrive(ol_state_msg, lidar_state_test))
         # ol_state_hist.append(ol_state)
 
         meas_msg = meas_retrive(meas_state_msg, y_meas)
         meas_state_pub.publish(meas_msg)
-        append_sensor_data(meas_state_hist, meas_msg)
+        # append_sensor_data(meas_state_hist, meas_msg)
 
         # angle_past = angle_cur
 
