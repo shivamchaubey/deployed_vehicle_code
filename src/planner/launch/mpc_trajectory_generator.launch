@@ -18,14 +18,14 @@
 
     <!-- Variables limits-->
 
-    <param name="max_vel"           type="double"   value="4.0" />
-    <param name="min_vel"           type="double"   value="-0.001" />
-    <param name="dutycycle_max"     type="double"   value="0.5" />
+    <param name="max_vel"           type="double"   value="2.0" />
+    <param name="min_vel"           type="double"   value="-0.1" />
+    <param name="dutycycle_max"     type="double"   value="1.0" />
     <param name="dutycycle_min"     type="double"   value="-0.0" />
     <param name="steer_max"         type="double"   value="0.349" />
     <param name="steer_min"         type="double"   value="-0.349" />
     <param name="lat_e_max"         type="double"   value="0.25" />   <!-- like halfWidth-->
-    <param name="orient_e_max"      type="double"   value="0.6" />
+    <param name="orient_e_max"      type="double"   value="0.5" />
 
 
     <!-- PLANNER    -->
@@ -38,19 +38,20 @@
 
     <!-- CONTROL -->
     
-    <node pkg="controller"      type="controllerMain.py"    name="control" output="screen">
+    <node pkg="controller"      type="mpc_planner.py"    name="trajectory_planner" output="screen">
 
         <?Ignore simple mpc setting
+        <param name="halfWidth"     type="double"   value="0.25" />
         <param name="Horizon"           type="int"      value="20" />
         <param name="Hz"                type="double"   value="50" />
-        <param name="vel_ref"           type="double"   value="0.80"/>
+        <param name="vel_ref"           type="double"   value="0.60"/>
         <param name="integral_action"   type="bool"     value="false"/>
         <param name="soft_constraints"  type="bool"     value="false"/>
         ?>
 
-        <param name="Horizon"           type="int"      value="15" />
+        <param name="Horizon"           type="int"      value="20" />
         <param name="Hz"                type="double"   value="50" />
-        <param name="vel_ref"           type="double"   value="0.80"/>
+        <param name="vel_ref"           type="double"   value="0.40"/>
         <param name="integral_action"   type="bool"     value="false"/>
         <param name="soft_constraints"  type="bool"     value="false"/>
 

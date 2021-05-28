@@ -39,10 +39,12 @@ def plot_control(x_lim,y_lim):
 
 
 #### plotter for vehicle estimation on the track ####
-def plot_vehicle_global_position(map):
+def plot_vehicle_global_position(x_lim_min, y_lim_min, x_lim_max, y_lim_max, map):
     xdata = []; ydata = []
     fig = plt.figure(figsize=(10,8))
     plt.ion()
+    plt.xlim([x_lim_min, x_lim_max])
+    plt.ylim([y_lim_min, y_lim_max])
     axtr = plt.axes()
 
     Points = int(np.floor(10 * (map.PointAndTangent[-1, 3] + map.PointAndTangent[-1, 4])))
@@ -72,7 +74,7 @@ def plot_vehicle_global_position(map):
 
     l = 0.42/2; w = 0.19/2
 
-    v = np.array([[ 1,  1],
+    v = 0.1*np.array([[ 1,  1],
                   [ 1, -1],
                   [-1, -1],
                   [-1,  1]])
@@ -90,6 +92,78 @@ def plot_vehicle_global_position(map):
     plt.grid()
 
     return fig, plt, axtr, line_est, line_ol, line_meas,  line_lpv_pred, line_mpc_pred , rec_est, rec_ol, rec_meas
+
+
+#### plotter for vehicle 6 states ####
+def plot_vehicle_states(window):
+
+    xdata = []; ydata = [];
+    fig, axs = plt.subplots(3, 2, figsize=(50,50))
+    plt.ion()
+
+
+    ### longitudinal Velocity
+    line_vx_est,        = axs[0,0].plot(xdata, ydata, '-b', label = r'$v_x$: Estimated longitudinal velocity')
+    line_vx_ol,         = axs[0,0].plot(xdata, ydata, '-g', label = r'$v_x$: Vehicle model longitudinal velocity')  
+    line_vx_meas,       = axs[0,0].plot(xdata, ydata, '-m', label = r'$v_x$: Measured longitudinal velocity')  
+    axs[0,0].set_xlim(0,window)
+    axs[0,0].set_ylim(-0.2,1.5)
+    axs[0,0].legend(prop={'size': 12}, framealpha = 0.2)
+    axs[0,0].grid()
+
+
+
+    ### lateral Velocity
+    line_vy_est,        = axs[0,1].plot(xdata, ydata, '-b', label = r'$v_y$: Estimated lateral velocity')
+    line_vy_ol,         = axs[0,1].plot(xdata, ydata, '-g', label = r'$v_y$: Vehicle model lateral velocity')  
+    line_vy_meas,       = axs[0,1].plot(xdata, ydata, '-m', label = r'$v_y$: Measured lateral velocity')  
+    axs[0,1].set_xlim(0,window)
+    axs[0,1].set_ylim(-0.2,1.5)
+    axs[0,1].legend(prop={'size': 12}, framealpha = 0.2)
+    axs[0,1].grid()
+
+    ### Angular rate
+    line_omega_est,     = axs[1,0].plot(xdata, ydata, '-b', label = r'$\omega$: Estimated angular velocity')
+    line_omega_ol,      = axs[1,0].plot(xdata, ydata, '-g', label = r'$\omega$: Vehicle model angular velocity')  
+    line_omega_meas,    = axs[1,0].plot(xdata, ydata, '-m', label = r'$\omega$: Measured angular velocity')  
+    axs[1,0].set_xlim(0,window)
+    axs[1,0].set_ylim(-2,2)
+    axs[1,0].legend(prop={'size': 12} , framealpha = 0.2)
+    axs[1,0].grid()
+    
+    ### Global X -position
+    line_X_est,     = axs[1,1].plot(xdata, ydata, '-b', label = r'$X$: Estimated X - position')
+    line_X_ol,      = axs[1,1].plot(xdata, ydata, '-g', label = r'$X$: Vehicle model X - position')  
+    line_X_meas,    = axs[1,1].plot(xdata, ydata, '-m', label = r'$X$: Measured X - position')  
+    axs[1,1].set_xlim(0,window)
+    axs[1,1].set_ylim(-10,10)
+    axs[1,1].legend(prop={'size': 12} , framealpha = 0.2)
+    axs[1,1].grid()
+    
+
+    ### Global Y -position
+    line_Y_est,     = axs[2,0].plot(xdata, ydata, '-b', label = r'$Y$: Estimated Y - position')
+    line_Y_ol,      = axs[2,0].plot(xdata, ydata, '-g', label = r'$Y$: Vehicle model Y - position')  
+    line_Y_meas,    = axs[2,0].plot(xdata, ydata, '-m', label = r'$Y$: Measured Y - position')  
+    axs[2,0].set_xlim(0,window)
+    axs[2,0].set_ylim(-10,10)
+    axs[2,0].legend(prop={'size': 12} , framealpha = 0.2)
+    axs[2,0].grid()
+
+
+    ### Yaw
+    line_yaw_est,     = axs[2,1].plot(xdata, ydata, '-b', label = r'$\theta$: Estimated yaw')
+    line_yaw_ol,      = axs[2,1].plot(xdata, ydata, '-g', label = r'$\theta$: Vehicle model yaw')  
+    line_yaw_meas,    = axs[2,1].plot(xdata, ydata, '-m', label = r'$\theta$: Measured yaw')  
+    axs[2,1].set_xlim(0,window)
+    axs[2,1].set_ylim(-4,4)
+    axs[2,1].legend(prop={'size': 12} , framealpha = 0.2)
+    axs[2,1].grid()
+
+
+    return fig, axs, plt, line_vx_ol, line_vx_est, line_vx_meas, line_vy_ol, line_vy_est, line_vy_meas, line_omega_ol, line_omega_est, line_omega_meas,\
+    line_X_ol, line_X_est, line_X_meas, line_Y_ol, line_Y_est, line_Y_meas, line_yaw_ol, line_yaw_est, line_yaw_meas
+
 
 
 #### plot vehicle state error for the track ####
@@ -178,22 +252,38 @@ class MPC_prediction(object):
         print "subscribed to vehicle Vehicle model states"
         rospy.Subscriber('control/MPC_prediction', mpcPrediction, self.vehicle_ol_state_callback, queue_size=1)
         
-        self.x_list = []
-        self.y_list = []
-        self.yaw_list = []
+        N           = rospy.get_param("/control/Horizon")
+        self.x_list = np.zeros(N)
+        self.y_list = np.zeros(N)
+        self.yaw_list = np.zeros(N)
         self.map      = Map()
 
     def vehicle_ol_state_callback(self, msg):
-        self.x_list = []
-        self.y_list = []
-        self.yaw_list = []
+        self.x_list = np.zeros(len(msg.s))
+        self.y_list = np.zeros(len(msg.s))
+        self.yaw_list = np.zeros(len(msg.s))
         
         for i in range(len(msg.s)):
             x, y, yaw = self.map.getGlobalPosition(msg.s[i], msg.ey[i])
+            
             # print "x, y, yaw", x, y, yaw
-            self.yaw_list.append(yaw)
-            self.x_list.append(x)
-            self.y_list.append(y)
+            self.yaw_list[i] = yaw
+            self.x_list[i]   = x
+            self.y_list[i]   = y
+
+        self.yaw_list = np.array(self.yaw_list, dtype = np.float)
+        self.x_list   = np.array(self.x_list, dtype = np.float)
+        self.y_list   = np.array(self.y_list, dtype = np.float)
+
+    def update(self):
+
+
+        # self.yaw_list = np.array(self.yaw_list)
+        # self.x_list = np.array(self.x_list)
+        # self.y_list = np.array(self.y_list)
+
+        return self.yaw_list, self.x_list, self.y_list
+
 
 
 class LPV_prediction(object):
@@ -201,23 +291,38 @@ class LPV_prediction(object):
         print "subscribed to vehicle Vehicle model states"
         rospy.Subscriber('control/LPV_prediction', mpcPrediction, self.vehicle_ol_state_callback, queue_size=1)
         
-        self.x_list = []
-        self.y_list = []
-        self.yaw_list = []
+        N           = rospy.get_param("/control/Horizon")
+        self.x_list = np.zeros(N)
+        self.y_list = np.zeros(N)
+        self.yaw_list = np.zeros(N)
         self.map      = Map()
 
     def vehicle_ol_state_callback(self, msg):
-        self.x_list = []
-        self.y_list = []
-        self.yaw_list = []
+        self.x_list = np.zeros(len(msg.s))
+        self.y_list = np.zeros(len(msg.s))
+        self.yaw_list = np.zeros(len(msg.s))
         
         for i in range(len(msg.s)):
             x, y, yaw = self.map.getGlobalPosition(msg.s[i], msg.ey[i])
+            
             # print "x, y, yaw", x, y, yaw
-            self.yaw_list.append(yaw)
-            self.x_list.append(x)
-            self.y_list.append(y)
+            self.yaw_list[i] = yaw
+            self.x_list[i]   = x
+            self.y_list[i]   = y
 
+        self.yaw_list = np.array(self.yaw_list, dtype = np.float)
+        self.x_list   = np.array(self.x_list, dtype = np.float)
+        self.y_list   = np.array(self.y_list, dtype = np.float)
+
+
+    def update(self):
+
+
+        # self.yaw_list = np.array(self.yaw_list)
+        # self.x_list = np.array(self.x_list)
+        # self.y_list = np.array(self.y_list)
+
+        return self.yaw_list, self.x_list, self.y_list
 
 
 class vehicle_control_action(object):
@@ -247,7 +352,7 @@ def main():
 
 
     rospy.init_node('MPC_controller_plot', anonymous=True)
-    loop_rate       = 1000
+    loop_rate       = rospy.get_param("MPC_plotter/loop_rate")
     rate            = rospy.Rate(loop_rate)
 
     track_map = Map()
@@ -264,32 +369,35 @@ def main():
     image_veh_his = []
 
 
-    vehicle_visualization = True
-    states_visualization  = False
-    error_visualization   = True
-    control_visualization  = True
-    window_size = 100
+    vehicle_visualization = rospy.get_param("MPC_plotter/vehicle_visualization")
+    states_visualization  = rospy.get_param("MPC_plotter/states_visualization")
+    error_visualization   = rospy.get_param("MPC_plotter/error_visualization")
+    control_visualization = rospy.get_param("MPC_plotter/control_visualization")
+    plot_end_result       = rospy.get_param("MPC_plotter/plot_end_result")
     
+
+    window_size = 100
+    margin = 0.5 ## margin percentage fox axes: make dynamic window size
+        
     if vehicle_visualization == True:
 
-        margin = 0.5 ## margin percentage fox axes: make dynamic window size
-        x_lim_init_max = 5
-        x_lim_init_min = -x_lim_init_max
+        x_lim_init_max = 3.0
+        x_lim_init_min = -1.75
         
-        y_lim_init_max = 5
-        y_lim_init_min = -y_lim_init_max
+        y_lim_init_max = 4.0
+        y_lim_init_min = -0.5
 
-
+        dynamic_graph_size = False
         ### Vehicle kinematics
 
-        (fig_veh, plt_veh, axtr, line_est, line_ol, line_meas, line_lpv_pred, line_mpc_pred, rec_est, rec_ol, rec_meas) = plot_vehicle_global_position(track_map)
+        (fig_veh, plt_veh, axtr, line_est, line_ol, line_meas, line_lpv_pred, line_mpc_pred, rec_est, rec_ol, rec_meas) = plot_vehicle_global_position(x_lim_init_min, y_lim_init_min, x_lim_init_max, y_lim_init_max, track_map)
 
-        ol_x_his     = []
-        est_x_his    = []
-        meas_x_his   = []
-        ol_y_his     = []
-        est_y_his    = []
-        meas_y_his   = []
+    ol_x_his     = []
+    est_x_his    = []
+    meas_x_his   = []
+    ol_y_his     = []
+    est_y_his    = []
+    meas_y_his   = []
 
 
 
@@ -301,32 +409,32 @@ def main():
         line_X_ol, line_X_est, line_X_meas, line_Y_ol, line_Y_est, line_Y_meas, line_yaw_ol, line_yaw_est, line_yaw_meas) = plot_vehicle_states(window_size)
 
 
-        line_vx_ol_his       =  [0.0]*window_size
-        line_vx_est_his      =  [0.0]*window_size
-        line_vx_meas_his     =  [0.0]*window_size
-        line_vy_ol_his       =  [0.0]*window_size
-        line_vy_est_his      =  [0.0]*window_size
-        line_vy_meas_his     =  [0.0]*window_size
-        line_omega_ol_his    =  [0.0]*window_size
-        line_omega_est_his   =  [0.0]*window_size
-        line_omega_meas_his  =  [0.0]*window_size
-        line_X_ol_his        =  [0.0]*window_size
-        line_X_est_his       =  [0.0]*window_size
-        line_X_meas_his      =  [0.0]*window_size
-        line_Y_ol_his        =  [0.0]*window_size
-        line_Y_est_his       =  [0.0]*window_size
-        line_Y_meas_his      =  [0.0]*window_size
-        line_yaw_ol_his      =  [0.0]*window_size
-        line_yaw_est_his     =  [0.0]*window_size
-        line_yaw_meas_his    =  [0.0]*window_size
+    line_vx_ol_his       =  []
+    line_vx_est_his      =  []
+    line_vx_meas_his     =  []
+    line_vy_ol_his       =  []
+    line_vy_est_his      =  []
+    line_vy_meas_his     =  []
+    line_omega_ol_his    =  []
+    line_omega_est_his   =  []
+    line_omega_meas_his  =  []
+    line_X_ol_his        =  []
+    line_X_est_his       =  []
+    line_X_meas_his      =  []
+    line_Y_ol_his        =  []
+    line_Y_est_his       =  []
+    line_Y_meas_his      =  []
+    line_yaw_ol_his      =  []
+    line_yaw_est_his     =  []
+    line_yaw_meas_his    =  []
 
     if control_visualization  == True:    
         x_lim = 100
         y_lim = 1.2
         fig_cont, plt_cont, line_dutycycle, line_steer = plot_control(x_lim,y_lim)
 
-        line_dutycycle_his = [0.0]*window_size
-        line_steer_his     = [0.0]*window_size         
+    line_dutycycle_his = []
+    line_steer_his     = []         
 
 
     counter = 0
@@ -341,24 +449,39 @@ def main():
 
         (lpv_pred_x, lpv_pred_y)  =  lpv_pred_points.x_list, lpv_pred_points.y_list
         (mpc_pred_x, mpc_pred_y)  =  mpc_pred_points.x_list, mpc_pred_points.y_list
+
+        # (lpv_pred_x, lpv_pred_y), _  =  np.array(np.squeeze(lpv_pred_points.update())), np.array(np.squeeze(lpv_pred_points.y_list))
+        # (mpc_pred_x, mpc_pred_y), _  =  np.array(np.squeeze(mpc_pred_points.x_list)), np.array(np.squeeze(mpc_pred_points.y_list))
+
+
+        # lpv_pred_x, lpv_pred_y, _  =  lpv_pred_points.update()
+        # mpc_pred_x, mpc_pred_y, _  =  mpc_pred_points.update()
+
         ########################################################################################################
 
 
 
         ############################################## vehicle motion plot ######################################
 
+        est_x_his.append(X_est)
+        est_y_his.append(Y_est)
+
+        ol_x_his.append(X_ol)
+        ol_y_his.append(Y_ol)
+                    
+        meas_x_his.append(X_meas)
+        meas_y_his.append(Y_meas)
+
         if vehicle_visualization == True: 
 
             l = 0.42/2; w = 0.19/2
 
-            est_x_his.append(X_est)
-            est_y_his.append(Y_est)
+            # print "X_est  , Y_est  , yaw_est", X_est  , Y_est  , yaw_est
+            # print "X_ol  , Y_ol  , yaw_ol", X_ol  , Y_ol  , yaw_ol
+            # print "X_meas  , Y_meas  , yaw_meas", X_meas  , Y_meas  , yaw_meas
 
-            ol_x_his.append(X_ol)
-            ol_y_his.append(Y_ol)
-                        
-            meas_x_his.append(X_meas)
-            meas_y_his.append(Y_meas)
+
+
 
             car_est_x, car_est_y = getCarPosition(X_est, Y_est, yaw_est, w, l)
             rec_est.set_xy(np.array([car_est_x, car_est_y]).T)
@@ -373,35 +496,40 @@ def main():
             line_ol.set_data(ol_x_his, ol_y_his)
             line_meas.set_data(meas_x_his, meas_y_his)
 
-            if len(lpv_pred_x) > 0 and len(lpv_pred_x) == len(lpv_pred_y):
+            print "lpv_pred_x, lpv_pred_y", lpv_pred_x, lpv_pred_y
+
+            if (len(lpv_pred_x) == len(lpv_pred_y)) and (False in np.isnan(lpv_pred_x)) and (False in np.isnan(lpv_pred_y)):
                 line_lpv_pred.set_data(lpv_pred_x, lpv_pred_y)
 
-            if len(mpc_pred_x) > 0 and len(mpc_pred_x) == len(mpc_pred_y):
+            print "mpc_pred_x, mpc_pred_y", mpc_pred_x, mpc_pred_y    
+            if (len(mpc_pred_x) == len(mpc_pred_y)) and (False in np.isnan(mpc_pred_x)) and (False in np.isnan(mpc_pred_y)):
                 line_mpc_pred.set_data(mpc_pred_x, mpc_pred_y)
 
             ############# Dynamic window size ##############
-            min_x_lim = min(min(ol_x_his) - margin*min(ol_x_his), min(meas_x_his) - margin*min(meas_x_his)) 
-            max_x_lim = max(max(ol_x_his) + margin*max(ol_x_his), max(meas_x_his) + margin*max(meas_x_his))
-            min_y_lim = min(min(ol_y_his) - margin*min(ol_y_his), min(meas_y_his) - margin*min(meas_y_his))
-            max_y_lim = max(max(ol_y_his) + margin*max(ol_y_his), max(meas_y_his) + margin*max(meas_y_his))
 
-            if (x_lim_init_max < max_x_lim):
-                x_lim_init_max = max_x_lim
-                axtr.set_xlim( x_lim_init_min, x_lim_init_max )
+            if dynamic_graph_size == True:
+                min_x_lim = min(min(ol_x_his) - margin*min(ol_x_his), min(meas_x_his) - margin*min(meas_x_his)) 
+                max_x_lim = max(max(ol_x_his) + margin*max(ol_x_his), max(meas_x_his) + margin*max(meas_x_his))
+                min_y_lim = min(min(ol_y_his) - margin*min(ol_y_his), min(meas_y_his) - margin*min(meas_y_his))
+                max_y_lim = max(max(ol_y_his) + margin*max(ol_y_his), max(meas_y_his) + margin*max(meas_y_his))
 
-            
-            if (x_lim_init_min > min_x_lim):
-                x_lim_init_min = min_x_lim
-                axtr.set_xlim( x_lim_init_min, x_lim_init_max )
+                if (x_lim_init_max < max_x_lim):
+                    x_lim_init_max = max_x_lim
+                    axtr.set_xlim( x_lim_init_min, x_lim_init_max )
+
+                
+                if (x_lim_init_min > min_x_lim):
+                    x_lim_init_min = min_x_lim
+                    axtr.set_xlim( x_lim_init_min, x_lim_init_max )
 
 
-            if (y_lim_init_max < max_y_lim):
-                y_lim_init_max = max_y_lim
-                axtr.set_ylim( y_lim_init_min, y_lim_init_max )
+                if (y_lim_init_max < max_y_lim):
+                    y_lim_init_max = max_y_lim
+                    axtr.set_ylim( y_lim_init_min, y_lim_init_max )
 
-            if (y_lim_init_min > min_y_lim):
-                y_lim_init_min = min_y_lim
-                axtr.set_ylim( y_lim_init_min, y_lim_init_max )
+                if (y_lim_init_min > min_y_lim):
+                    y_lim_init_min = min_y_lim
+                    axtr.set_ylim( y_lim_init_min, y_lim_init_max )
 
             fig_veh.canvas.draw()
             plt_veh.show()
@@ -412,102 +540,82 @@ def main():
 
         #############################################  vehicle states plot #######################################
 
-        if states_visualization == True:
-
-            line_vx_ol_his.append(vx_ol)       
-            line_vx_est_his.append(vx_est)      
-            line_vx_meas_his.append(vx_meas)     
-            line_vy_ol_his.append(vy_ol)       
-            line_vy_est_his.append(vy_est)      
-            line_vy_meas_his.append(vy_meas)     
-            line_omega_ol_his.append(omega_ol)    
-            line_omega_est_his.append(omega_est)   
-            line_omega_meas_his.append(omega_meas)  
-            line_X_ol_his.append(X_ol)        
-            line_X_est_his.append(X_est)       
-            line_X_meas_his.append(X_meas)      
-            line_Y_ol_his.append(Y_ol)        
-            line_Y_est_his.append(Y_est)       
-            line_Y_meas_his.append(Y_meas)      
-            line_yaw_ol_his.append(yaw_ol)      
-            line_yaw_est_his.append(yaw_est)     
-            line_yaw_meas_his.append(yaw_meas)    
-
-            line_vx_ol_his.pop(0)
-            line_vx_est_his.pop(0)
-            line_vx_meas_his.pop(0)
-            line_vy_ol_his.pop(0)
-            line_vy_est_his.pop(0)
-            line_vy_meas_his.pop(0)
-            line_omega_ol_his.pop(0)
-            line_omega_est_his.pop(0)
-            line_omega_meas_his.pop(0)
-            line_X_ol_his.pop(0)
-            line_X_est_his.pop(0)
-            line_X_meas_his.pop(0)
-            line_Y_ol_his.pop(0)
-            line_Y_est_his.pop(0)
-            line_Y_meas_his.pop(0)
-            line_yaw_ol_his.pop(0)
-            line_yaw_est_his.pop(0)
-            line_yaw_meas_his.pop(0)
+        line_vx_ol_his.append(vx_ol)
+        line_vx_est_his.append(vx_est)
+        line_vx_meas_his.append(vx_meas)
+        line_vy_ol_his.append(vy_ol)
+        line_vy_est_his.append(vy_est)
+        line_vy_meas_his.append(vy_meas)
+        line_omega_ol_his.append(omega_ol)
+        line_omega_est_his.append(omega_est)
+        line_omega_meas_his.append(omega_meas)
+        line_X_ol_his.append(X_ol)
+        line_X_est_his.append(X_est)
+        line_X_meas_his.append(X_meas)
+        line_Y_ol_his.append(Y_ol)
+        line_Y_est_his.append(Y_est)
+        line_Y_meas_his.append(Y_meas)
+        line_yaw_ol_his.append(yaw_ol)
+        line_yaw_est_his.append(yaw_est)
+        line_yaw_meas_his.append(yaw_meas)
 
 
+        if states_visualization == True and counter > 100:
 
                 # axs_dy[0,0].set_ylim(min(line_vx_ol_his) + , max(line_vx_ol_his) + ) # FOR SETTING THE DYNAMIC AXES
-            line_vx_ol.set_data( range(counter, counter + window_size ) ,line_vx_ol_his)
-            line_vx_est.set_data( range(counter, counter + window_size ) ,line_vx_est_his)
-            line_vx_meas.set_data( range(counter, counter + window_size ) ,line_vx_meas_his)
+                # axs_dy[0,0].set_ylim(min(line_vx_ol_his) + , max(line_vx_ol_his) + ) # FOR SETTING THE DYNAMIC AXES
+            line_vx_ol.set_data( range(counter, counter + window_size ) ,line_vx_ol_his[ -window_size : ])
+            line_vx_est.set_data( range(counter, counter + window_size ) ,line_vx_est_his[ -window_size : ])
+            line_vx_meas.set_data( range(counter, counter + window_size ) ,line_vx_meas_his[ -window_size : ])
             axs_dy[0,0].set_xlim(counter, counter + window_size ) # FOR SETTING THE DYNAMIC AXES
             
             
-            line_vy_ol.set_data( range(counter, counter + window_size ) ,line_vy_ol_his)
-            line_vy_est.set_data( range(counter, counter + window_size ) ,line_vy_est_his)
-            line_vy_meas.set_data( range(counter, counter + window_size ) ,line_vy_meas_his)
+            line_vy_ol.set_data( range(counter, counter + window_size ) ,line_vy_ol_his[ -window_size : ])
+            line_vy_est.set_data( range(counter, counter + window_size ) ,line_vy_est_his[ -window_size : ])
+            line_vy_meas.set_data( range(counter, counter + window_size ) ,line_vy_meas_his[ -window_size : ])
             axs_dy[0,1].set_xlim(counter, counter + window_size ) # FOR SETTING THE DYNAMIC AXES
             
 
-            line_omega_ol.set_data( range(counter, counter + window_size ) ,line_omega_ol_his)
-            line_omega_est.set_data( range(counter, counter + window_size ) ,line_omega_est_his)
-            line_omega_meas.set_data( range(counter, counter + window_size ) ,line_omega_meas_his)
+            line_omega_ol.set_data( range(counter, counter + window_size ) ,line_omega_ol_his[ -window_size : ])
+            line_omega_est.set_data( range(counter, counter + window_size ) ,line_omega_est_his[ -window_size : ])
+            line_omega_meas.set_data( range(counter, counter + window_size ) ,line_omega_meas_his[ -window_size : ])
             axs_dy[1,0].set_xlim(counter, counter + window_size ) # FOR SETTING THE DYNAMIC AXES
             
             
-            line_X_ol.set_data( range(counter, counter + window_size ) ,line_X_ol_his)
-            line_X_est.set_data( range(counter, counter + window_size ) ,line_X_est_his)
-            line_X_meas.set_data( range(counter, counter + window_size ) ,line_X_meas_his)
+            line_X_ol.set_data( range(counter, counter + window_size ) ,line_X_ol_his[ -window_size : ])
+            line_X_est.set_data( range(counter, counter + window_size ) ,line_X_est_his[ -window_size : ])
+            line_X_meas.set_data( range(counter, counter + window_size ) ,line_X_meas_his[ -window_size : ])
             axs_dy[1,1].set_xlim(counter, counter + window_size ) # FOR SETTING THE DYNAMIC AXES
             
 
-            line_Y_ol.set_data( range(counter, counter + window_size ) ,line_Y_ol_his)
-            line_Y_est.set_data( range(counter, counter + window_size ) ,line_Y_est_his)
-            line_Y_meas.set_data( range(counter, counter + window_size ) ,line_Y_meas_his)
+            line_Y_ol.set_data( range(counter, counter + window_size ) ,line_Y_ol_his[ -window_size : ])
+            line_Y_est.set_data( range(counter, counter + window_size ) ,line_Y_est_his[ -window_size : ])
+            line_Y_meas.set_data( range(counter, counter + window_size ) ,line_Y_meas_his[ -window_size : ])
             axs_dy[2,0].set_xlim(counter, counter + window_size ) # FOR SETTING THE DYNAMIC AXES
             
 
-            line_yaw_ol.set_data( range(counter, counter + window_size ) ,line_yaw_ol_his)
-            line_yaw_est.set_data( range(counter, counter + window_size ) ,line_yaw_est_his)
-            line_yaw_meas.set_data( range(counter, counter + window_size ) ,line_yaw_meas_his)
+            line_yaw_ol.set_data( range(counter, counter + window_size ) ,line_yaw_ol_his[ -window_size : ])
+            line_yaw_est.set_data( range(counter, counter + window_size ) ,line_yaw_est_his[ -window_size : ])
+            line_yaw_meas.set_data( range(counter, counter + window_size ) ,line_yaw_meas_his[ -window_size : ])
             axs_dy[2,1].set_xlim(counter, counter + window_size ) # FOR SETTING THE DYNAMIC AXES
-            axs_dy[2,1].set_ylim(min(min(line_yaw_meas_his) - margin*min(line_yaw_meas_his)\
-                , min(line_yaw_ol_his) - margin*min(line_yaw_ol_his)), \
-            max(max(line_yaw_meas_his) + margin*max(line_yaw_meas_his), max(line_yaw_ol_his) + margin*max(line_yaw_ol_his))) # FOR SETTING THE DYNAMIC AXES
             
-            fig_dy.canvas.draw()    
+
+            axs_dy[2,1].set_ylim(min(min(line_yaw_meas_his[ -window_size : ]) + margin*min(line_yaw_meas_his[ -window_size : ])\
+                , min(line_yaw_ol_his[ -window_size : ]) + margin*min(line_yaw_ol_his[ -window_size : ])), \
+            max(max(line_yaw_meas_his[ -window_size : ]) + margin*max(line_yaw_meas_his[ -window_size : ]), max(line_yaw_ol_his[ -window_size : ]) + margin*max(line_yaw_ol_his[ -window_size : ]))) # FOR SETTING THE DYNAMIC AXES
+
+            fig_dy.canvas.draw()
             plt_dy.show()
-
-
-        if control_visualization == True:
             
-            line_dutycycle_his.append(vehicle_control.duty_cycle)
-            line_steer_his.append(vehicle_control.steer)
+        
+        line_dutycycle_his.append(vehicle_control.duty_cycle)
+        line_steer_his.append(vehicle_control.steer)
 
-            line_dutycycle_his.pop(0)
-            line_steer_his.pop(0)
+        if control_visualization == True and counter > 100: 
 
-            line_dutycycle.set_data(range(counter, counter + window_size ) ,line_dutycycle_his)
-            line_steer.set_data(range(counter, counter + window_size ) ,line_steer_his)
-            plt_cont.xlim(counter, counter + window_size)
+            line_dutycycle.set_data(range(counter, counter + window_size ) ,line_dutycycle_his[ -window_size : ])
+            line_steer.set_data(range(counter, counter + window_size ) ,line_steer_his[ -window_size : ])
+            plt_cont.xlim(counter, counter + window_size )
 
             fig_cont.canvas.draw()
             plt_cont.show()
@@ -522,6 +630,105 @@ def main():
         rate.sleep()
 
 
+    if plot_end_result == True:
+
+        ######## Vehicle position ##########
+        x_lim_init_max = 3.0
+        x_lim_init_min = -1.75
+        y_lim_init_max = 4.0
+        y_lim_init_min = -0.5
+
+        dynamic_graph_size = False
+        ### Vehicle kinematics
+
+        (fig_veh, plt_veh, axtr, line_est, line_ol, line_meas, line_lpv_pred, line_mpc_pred, rec_est, rec_ol, rec_meas) = plot_vehicle_global_position(x_lim_init_min, y_lim_init_min, x_lim_init_max, y_lim_init_max, track_map)
+
+        line_est.set_data(est_x_his, est_y_his)
+        line_ol.set_data(ol_x_his, ol_y_his)
+        line_meas.set_data(meas_x_his, meas_y_his)
+
+
+
+
+
+
+        # ############# Vehicle states ############
+        window_size = len(line_vx_est_his)
+        margin = 0.1
+        (fig_dy, axs_dy, plt_dy, line_vx_ol, line_vx_est, line_vx_meas, line_vy_ol, line_vy_est, line_vy_meas, line_omega_ol, line_omega_est, line_omega_meas,\
+        line_X_ol, line_X_est, line_X_meas, line_Y_ol, line_Y_est, line_Y_meas, line_yaw_ol, line_yaw_est, line_yaw_meas) = plot_vehicle_states(window_size)
+
+        line_vx_ol.set_data( range(counter, counter + window_size ) ,line_vx_ol_his[ -window_size : ])
+        line_vx_est.set_data( range(counter, counter + window_size ) ,line_vx_est_his[ -window_size : ])
+        line_vx_meas.set_data( range(counter, counter + window_size ) ,line_vx_meas_his[ -window_size : ])
+        axs_dy[0,0].set_xlim(counter, counter + window_size ) # FOR SETTING THE DYNAMIC AXES
+        
+        
+        line_vy_ol.set_data( range(counter, counter + window_size ) ,line_vy_ol_his[ -window_size : ])
+        line_vy_est.set_data( range(counter, counter + window_size ) ,line_vy_est_his[ -window_size : ])
+        line_vy_meas.set_data( range(counter, counter + window_size ) ,line_vy_meas_his[ -window_size : ])
+        axs_dy[0,1].set_xlim(counter, counter + window_size ) # FOR SETTING THE DYNAMIC AXES
+        
+
+        line_omega_ol.set_data( range(counter, counter + window_size ) ,line_omega_ol_his[ -window_size : ])
+        line_omega_est.set_data( range(counter, counter + window_size ) ,line_omega_est_his[ -window_size : ])
+        line_omega_meas.set_data( range(counter, counter + window_size ) ,line_omega_meas_his[ -window_size : ])
+        axs_dy[1,0].set_xlim(counter, counter + window_size ) # FOR SETTING THE DYNAMIC AXES
+        
+        
+        line_X_ol.set_data( range(counter, counter + window_size ) ,line_X_ol_his[ -window_size : ])
+        line_X_est.set_data( range(counter, counter + window_size ) ,line_X_est_his[ -window_size : ])
+        line_X_meas.set_data( range(counter, counter + window_size ) ,line_X_meas_his[ -window_size : ])
+        axs_dy[1,1].set_xlim(counter, counter + window_size ) # FOR SETTING THE DYNAMIC AXES
+        
+
+        line_Y_ol.set_data( range(counter, counter + window_size ) ,line_Y_ol_his[ -window_size : ])
+        line_Y_est.set_data( range(counter, counter + window_size ) ,line_Y_est_his[ -window_size : ])
+        line_Y_meas.set_data( range(counter, counter + window_size ) ,line_Y_meas_his[ -window_size : ])
+        axs_dy[2,0].set_xlim(counter, counter + window_size ) # FOR SETTING THE DYNAMIC AXES
+        
+
+        line_yaw_ol.set_data( range(counter, counter + window_size ) ,line_yaw_ol_his[ -window_size : ])
+        line_yaw_est.set_data( range(counter, counter + window_size ) ,line_yaw_est_his[ -window_size : ])
+        line_yaw_meas.set_data( range(counter, counter + window_size ) ,line_yaw_meas_his[ -window_size : ])
+        axs_dy[2,1].set_xlim(counter, counter + window_size ) # FOR SETTING THE DYNAMIC AXES
+        
+
+        axs_dy[2,1].set_ylim(min(min(line_yaw_meas_his[ -window_size : ]) + margin*min(line_yaw_meas_his[ -window_size : ])\
+            , min(line_yaw_ol_his[ -window_size : ]) + margin*min(line_yaw_ol_his[ -window_size : ])), \
+        max(max(line_yaw_meas_his[ -window_size : ]) + margin*max(line_yaw_meas_his[ -window_size : ]), max(line_yaw_ol_his[ -window_size : ]) + margin*max(line_yaw_ol_his[ -window_size : ]))) # FOR SETTING THE DYNAMIC AXES
+
+
+
+
+
+
+        # ########### vehicle control ###############
+        x_lim = len(line_dutycycle_his)
+        y_lim = 1.2
+        fig_cont, plt_cont, line_dutycycle, line_steer = plot_control(x_lim,y_lim)
+        line_dutycycle.set_data(range(counter, counter + window_size ) ,line_dutycycle_his[ -window_size : ])
+        line_steer.set_data(range(counter, counter + window_size ) ,line_steer_his[ -window_size : ])
+        plt_cont.xlim(counter, counter + window_size )
+
+        import cv2
+
+        while True:
+
+            fig_veh.canvas.draw()
+            plt_veh.show()
+            plt.pause(1)
+
+            fig_dy.canvas.draw()
+            plt_dy.show()
+            plt_dy.pause(1)
+
+            fig_cont.canvas.draw()
+            plt_cont.show()
+            plt_dy.pause(1)
+
+            if cv2.waitKey(0) & 0xFF == ord('q'):
+                break
 
 
 def Body_Frame_Errors (x, y, psi, xd, yd, psid, s0, vx, vy, curv, dt):

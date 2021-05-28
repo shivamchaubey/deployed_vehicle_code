@@ -52,10 +52,10 @@ class PathFollowingLPV_MPC:
         self.etheta_max = rospy.get_param("orient_e_max")
 
         # bounds on steering and dutycycle changes
-        self.dstr_max   = self.str_max*0.5
-        self.dstr_min   = self.str_min*0.5
-        self.dduty_max  = self.duty_max*0.5
-        self.dduty_min  = self.duty_min*0.5
+        self.dstr_max   = self.str_max*0.15
+        self.dstr_min   = self.str_min*0.15
+        self.dduty_max  = self.duty_max*0.15
+        self.dduty_min  = self.duty_min*0.15
 
         # Normalize the weight to be used as normalized objective function
         vx_scale        = 1/((self.vx_max-self.vx_min)**2)
@@ -84,12 +84,12 @@ class PathFollowingLPV_MPC:
 
 
         # Assign the weight of objective function
-        self.Q  = 0.8 * np.array([0.6*vx_scale, 0.0, 0.00, 0.1*etheta_scale, 0.0, 0.3*ey_scale]) # penality on states 
-        self.R  = 0.2 * np.array([0.01*str_scale, 0.05*duty_scale])     # Penality on input (dutycycle, steer)
+        self.Q  = 0.6 * np.array([0.5*vx_scale, 0.0, 0.00, 0.1*etheta_scale, 0.0, 0.4*ey_scale]) # penality on states 
+        self.R  = 0.1 * np.array([0.01*str_scale, 0.05*duty_scale])     # Penality on input (dutycycle, steer)
         
         if self.slew_rate_on:
-            self.Q  = 0.8 * np.array([0.6*vx_scale, 0.0, 0.00, 0.1*etheta_scale, 0.0, 0.3*ey_scale]) # penality on states 
-            self.R  = 0.1 * np.array([0.01*str_scale, 0.05*duty_scale])     # Penality on input (dutycycle, steer)        
+            self.Q  = 0.7 * np.array([0.6*vx_scale, 0.0, 0.00, 0.1*etheta_scale, 0.0, 0.2*ey_scale]) # penality on states 
+            self.R  = 0.2 * np.array([0.01*str_scale, 0.05*duty_scale])     # Penality on input (dutycycle, steer)        
             self.dR = 0.1 * np.array([0.01*dstr_scale,0.1*dduty_scale])  # Penality on Input rate 
 
         if self.soft_constraints_on:
@@ -401,6 +401,7 @@ class PathFollowingLPV_MPC:
 
             vx      = float(vel_ref[i,0])
             # ey = 0
+            # epsi = 0
             # if i >= (self.N - 1):
             #     ey = 0
             #     epsi = 0

@@ -15,34 +15,28 @@
     <param name="Iz"            type="double"   value="0.02" />
     
 
-    <param name="max_vel"       type="double" value="5.0" />
-    <param name="min_vel"       type="double" value="-5.0" />
-    <!-- should be > 1.0 -->
-    <param name="init_vx"     type="double" value="0.1"/>
-    <param name="halfWidth"     type="double"   value="0.25" />
-    <param name="trackShape"  type="str"    value="oval_iri"/>
     <param name="duty_th"       type="double"   value="0.05" />  <!-- deadzone where the wheel doesn't rotate -->
 
 
-    <arg name="DISTURBANCE" default="1"/>
+    <arg name="DISTURBANCE" default="0"/>
 
-    <arg name="NOISE" default="1"/>
+    <arg name="NOISE" default="0"/>
 
     <!-- SIMULATOR -->
     <node pkg="simulator" type="vehicleSimulator.py" name="simulator" output="screen">
     <!--node pkg="simulator" type="vehicleSimulator_comparison.py" name="simulator" output="screen"-->
 
 
-        <param name="publish_frequency" type="double" value="100.0" />
+        <param name="publish_frequency" type="double" value="80.0" />
         
         <param name="visualization"    type="bool"      value="False" />
 
         <!-- sensor freq update -->
         <!-- Generally 1 per second or 1 Hz not more than 10Hz in case of advanced gps made for UAV/AGV?? -->         
-        <param name="gps_freq_update" type="double" value="100.0" />
+        <param name="gps_freq_update" type="double" value="100.0" /> <!-- not being used -->
         <param name="fcam_freq_update" type="double" value="40" />
-        <param name="imu_freq_update" type="double" value="100.0" />
-        <param name="enc_freq_update" type="double" value="100.0" />
+        <param name="imu_freq_update" type="double" value="80.0" />
+        <param name="enc_freq_update" type="double" value="80.0" />
         
         <!-- delay in the simulator -->
         <!-- why delay in simulator is needed?? -->
@@ -51,13 +45,13 @@
         <param name="delay_a"     type="double" value="0.0" />
 
         <!-- simulator sensor noise -->
-        <param name="n_bound_pr"     type="double" value="2.0" if="$(arg NOISE)"/>
-        <param name="x_std_pr"       type="double" value="0.02" if="$(arg NOISE)"/>
-        <param name="y_std_pr"       type="double" value="0.02" if="$(arg NOISE)"/>
-        <param name="psi_std_pr"     type="double" value="0.02" if="$(arg NOISE)"/>
-        <param name="vx_std_pr"       type="double" value="0.1" if="$(arg NOISE)"/>
-        <param name="vy_std_pr"       type="double" value="0.045" if="$(arg NOISE)"/>
-        <param name="psiDot_std_pr"  type="double" value="0.035" if="$(arg NOISE)"/> -->
+        <param name="n_bound_pr"     type="double" value="1.0" if="$(arg NOISE)"/>
+        <param name="x_std_pr"       type="double" value="0.002" if="$(arg NOISE)"/>
+        <param name="y_std_pr"       type="double" value="0.002" if="$(arg NOISE)"/>
+        <param name="psi_std_pr"     type="double" value="0.002" if="$(arg NOISE)"/>
+        <param name="vx_std_pr"       type="double" value="0.001" if="$(arg NOISE)"/>
+        <param name="vy_std_pr"       type="double" value="0.0045" if="$(arg NOISE)"/>
+        <param name="psiDot_std_pr"  type="double" value="0.0035" if="$(arg NOISE)"/> -->
 
         <param name="n_bound_pr"     type="double" value="0.0" unless="$(arg NOISE)"/>
         <param name="x_std_pr"       type="double" value="0.0" unless="$(arg NOISE)"/>

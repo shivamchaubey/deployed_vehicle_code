@@ -142,7 +142,7 @@ class predicted_states_msg():
 
 def shutdown_publish():
     
-    for i in range(100):
+    for i in range(1000):
         dutycycle_commands.publish(0.0)
         steering_commands.publish(0.0)
         rate.sleep()
@@ -252,7 +252,7 @@ def main():
             vel_ref         = np.ones([N,1])*Vx_ref
      
             # Check if the lap has finished
-            if LocalState[4] >= 3*map.TrackLength/4:
+            if LocalState[4] >= map.TrackLength - map.TrackLength*0.05:
                 HalfTrack = 1
                 print 'the lap has finished'
 
@@ -264,7 +264,7 @@ def main():
 
         ### END OF THE LAP.
         # PATH TRACKING:
-        if ( HalfTrack == 1 and (LocalState[4] <= map.TrackLength/4)):
+        if ( HalfTrack == 1 and (LocalState[4] <= map.TrackLength - map.TrackLength*0.05)): #map.TrackLength/4)):
             HalfTrack       = 0
             LapNumber       += 1
             SS              = 0
@@ -275,9 +275,9 @@ def main():
 
         if first_it < 5:
 
-            duty_cycle  = 0.0
+            duty_cycle  = 0.051
 
-            delta = 0.01
+            delta = 0.001
             # xx, uu      = predicted_vectors_generation(N, LocalState, accel_rate, dt)
             xx, uu      = predicted_vectors_generation(N, LocalState, duty_cycle, delta, dt)
             
@@ -319,7 +319,6 @@ def main():
             mpcPrediction_msg.s = Controller.xPred[:,4]
             mpcPrediction_msg.ey = Controller.xPred[:,5]
 
-
             Controller.uminus1 = Controller.uPred[0,:] 
 
         first_it    = first_it + 1
@@ -328,6 +327,16 @@ def main():
         print('\n')
 
             
+        if abs(Controller.uPred[0,1]) > 1: 
+            Controller.uPred[0,1] = 0.0
+
+        if Controller.uPred[0,0] > 0.35: 
+            Controller.uPred[0,0] = 0.349
+        if Controller.uPred[0,0] < -0.35: 
+            Controller.uPred[0,0] = -0.349
+
+        
+        
         ## Publish controls ##
         cmd_servo = Controller.uPred[0,0]
         cmd_motor = Controller.uPred[0,1]

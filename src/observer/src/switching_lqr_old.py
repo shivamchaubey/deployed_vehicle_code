@@ -940,7 +940,7 @@ def Continuous_AB_Comp(vx, vy, omega, theta, delta, D):
     return A, B
 
 
-def Continuous_AB_Comp_old(vx, vy, omega, theta, delta):
+def Continuous_AB_Comp_old(vx, vy, omega, theta, delta, D):
 
     m = rospy.get_param("m")
     rho = rospy.get_param("rho")
@@ -962,24 +962,21 @@ def Continuous_AB_Comp_old(vx, vy, omega, theta, delta):
     A11 = 0.0;
     A31 = 0.0;
     
-    eps = 0.000001
+    eps = 0.00000
     
-    # if abs(vx)>0.0:
-    F_flat = 2*Caf*(delta- atan((vy+lf*omega)/(vx+eps)));
-    
-    
-    
-    Fry = -2*Car*atan((vy - lr*omega)/(vx+eps)) ;
-    A11 = -(1/m)*(C0 + C1/(vx+eps) + Cd_A*rho*vx/2);
-    A31 = -Fry*lr/((vx+eps)*Iz);
-            
+    if abs(vx)>0.0:
+        F_flat = 2*Caf*(delta- atan((vy+lf*omega)/(vx+eps)));
+        Fry = -2*Car*atan((vy - lr*omega)/(vx+eps)) ;
+        A11 = -(1/m)*(C0 + C1/(vx+eps) + Cd_A*rho*vx/2);
+        A31 = -Fry*lr/((vx+eps)*Iz);
+                
     A12 = omega;
     A21 = -omega;
     A22 = 0.0
 
-    # if abs(vy)>0.0:
+    if abs(vy)>0.0:
 
-    A22 = Fry/(m*(vy+eps));
+        A22 = Fry/(m*(vy+eps));
 
     A41 = cos(theta);
     A42 = -sin(theta);
@@ -990,11 +987,11 @@ def Continuous_AB_Comp_old(vx, vy, omega, theta, delta):
     B22 = 0.0 
     B32 = 0.0 
 
-    # if abs(delta)>0.0:
+    if abs(delta)>0.0:
 
-    B12 = -F_flat*sin(delta)/(m*(delta+eps));
-    B22 = F_flat*cos(delta)/(m*(delta+eps));    
-    B32 = F_flat*cos(delta)*lf/(Iz*(delta+eps));
+        B12 = -F_flat*sin(delta)/(m*(delta+eps));
+        B22 = F_flat*cos(delta)/(m*(delta+eps));    
+        B32 = F_flat*cos(delta)*lf/(Iz*(delta+eps));
 
 
 
@@ -1022,7 +1019,7 @@ def Continuous_AB_Comp_old(vx, vy, omega, theta, delta):
 
 
 
-def Continuous_AB_Comp_old2(vx, vy, omega, theta, delta):
+def Continuous_AB_Comp_old2(vx, vy, omega, theta, delta, D):
 
     m = rospy.get_param("m")
     rho = rospy.get_param("rho")
@@ -1119,9 +1116,9 @@ def L_Computation(vx,vy,w,theta,delta,LQR_gain,sched_var,seq):
 
 
     if vx > sched_vx[1] or vx < sched_vx[0]:
-        print( '[ESTIMATOR/L_Gain_Comp]: Vx is out of the polytope ...' )
+        print( '[ESTIMATOR/L_Gain_Comp]: Vx is out of the polytope ...', vx )
     elif vy > sched_vy[1] or vy < sched_vy[0]:
-        print( '[ESTIMATOR/L_Gain_Comp]: Vy is out of the polytope ...' )
+        print( '[ESTIMATOR/L_Gain_Comp]: Vy is out of the polytope ...', vy )
     elif delta > sched_delta[1] or delta < sched_delta[0]:
         print( '[ESTIMATOR/L_Gain_Comp]: Steering is out of the polytope ... = ',delta)
 
@@ -1309,7 +1306,15 @@ def yaw_error_throw():
         print('Error in yaw transformation')
 
 
+def wrap(angle):
+    if angle < -np.pi:
+        w_angle = 2 * np.pi + angle
+    elif angle > np.pi:
+        w_angle = angle - 2 * np.pi
+    else:
+        w_angle = angle
 
+    return w_angle
 
 
 def main():
@@ -1475,6 +1480,9 @@ def main():
     
 
     while not (rospy.is_shutdown()):
+
+        curr_time = rospy.get_rostime().to_sec() - time0
+        t1 = time.time()
         
         u = np.array([control_input.duty_cycle, control_input.steer]).T
 
@@ -1487,7 +1495,6 @@ def main():
         
         # print "fcam.yaw",fcam.yaw
 
-        curr_time = rospy.get_rostime().to_sec() - time0
     
         ######### YAW CALCULATION ########
         # angle_cur = yaw_correction(imu.yaw)
@@ -1543,6 +1550,7 @@ def main():
 
             # yaw_trans = wrap(yaw_correction(y_meas[-1]))
             yaw_trans = (est_state[5] + pi) % (2 * pi) - pi
+
             # yaw_trans = est_state[5]
             # %% quadrant case
             steer_angle = u[1]
@@ -1609,7 +1617,7 @@ def main():
             # print ("u",u)
             
             ####### LQR ESTIMATION ########
-            A_obs, B_obs = Continuous_AB_Comp(est_state[0], est_state[1], est_state[2], est_state[5], u[1], u[0])
+            A_obs, B_obs = Continuous_AB_Comp_old(est_state[0], est_state[1], est_state[2], est_state[5], u[1], u[0])
             # L_gain = L_Computation(est_state[0], est_state[1], est_state[2], est_state[5], u[1], LQR_gain, sched_var, seq)
             
             est_state  = est_state + ( dt * np.dot( ( A_obs - np.dot(L_gain, C) ), est_state )
@@ -1619,15 +1627,15 @@ def main():
             # print ("time taken for estimation ={}".format(rospy.get_rostime().to_sec() - time0 - curr_time))
             
             ##### OPEN LOOP SIMULATION ####
-            # A_sim, B_sim = Continuous_AB_Comp(ol_state[0], ol_state[1], ol_state[2], ol_state[5], u[1], u[0])
-            # ol_state = ol_state + dt*(np.dot(A_sim,ol_state) + np.dot(B_sim,u)) 
+            A_sim, B_sim = Continuous_AB_Comp_old(ol_state[0], ol_state[1], ol_state[2], ol_state[5], u[1], u[0])
+            ol_state = ol_state + dt*(np.dot(A_sim,ol_state) + np.dot(B_sim,u)) 
             # yaw_check += wrap(fcam.yaw)
 
-        if abs(u[0]) <= 0.05:
+        else:
                 #     # vehicle_sim.vehicle_model(u, simulator_dt)
                     # if vehicle_sim.vx <= 0.01 :
-            est_state[:-3] = 0.000001 
-            ol_state[:-3] = 0.000001
+            est_state[0:3] = 0.001
+            ol_state[0:3] = 0.001
 
 
         # else:
@@ -1641,9 +1649,9 @@ def main():
         #         est_state[2] = 0.0
         #         ol_state[2]  = 0.0
 
-        print "\n <<<<<<<<< PRE WRAP >>>>>>>>>>>>>"
-        print "est_state",est_state
-        print "ol_state", ol_state
+        # print "\n <<<<<<<<< PRE WRAP >>>>>>>>>>>>>"
+        # print "est_state",est_state
+        # print "ol_state", ol_state
 
 
         # est_state[5] = wrap(est_state[5])
@@ -1651,12 +1659,12 @@ def main():
         # est_state[5] = yaw_correction(est_state[5])
         # ol_state[5] = yaw_correction(ol_state[5])
         
-        print "\n <<<<<<<<< STATS >>>>>>>>>>>>>"
-        print "measured states", y_meas
-        print "est_state",est_state
-        print "ol_state", ol_state
-        print "input u", u
-        print "dt", dt
+        # print "\n <<<<<<<<< STATS >>>>>>>>>>>>>"
+        # print "measured states", y_meas
+        # print "est_state",est_state
+        # print "ol_state", ol_state
+        # print "input u", u
+        # print "dt", dt
 
         AC_sig = 0
         CC_sig = 0
@@ -1664,7 +1672,7 @@ def main():
         est_msg = data_retrive_est(est_state_msg, est_state, y_meas[-1], AC_sig, CC_sig)
         est_state_pub.publish(est_msg) ## remember we want to check the transformed yaw angle for debugging that's why 
                                                                                     ##publishing this information in the topic of "s" which is not used for any purpose. 
-        append_sensor_data(est_state_hist, est_msg)
+        # append_sensor_data(est_state_hist, est_msg)
   
 
         ol_state_pub.publish(data_retrive(ol_state_msg, ol_state))
@@ -1672,12 +1680,12 @@ def main():
 
         meas_msg = meas_retrive(meas_state_msg, y_meas)
         meas_state_pub.publish(meas_msg)
-        append_sensor_data(meas_state_hist, meas_msg)
+        # append_sensor_data(meas_state_hist, meas_msg)
 
         # angle_past = angle_cur
 
         control_msg = control_input.data_retrive(control_data)        
-        append_control_data(control_hist, control_msg)
+        # append_control_data(control_hist, control_msg)
 
 
         # enc_msg = enc.data_retrive(enc_data)
@@ -1708,6 +1716,9 @@ def main():
         # fcam_MA_msg = fcam.data_retrive_MA(fcam_MA_data)
         # fcam_MA_pub.publish(fcam_MA_msg)
         # append_sensor_data(fcam_MA_hist, fcam_MA_msg)
+
+        
+        print "\n >>>> time elapsed ={}".format(time.time()  - t1)
 
         prev_time = curr_time 
 

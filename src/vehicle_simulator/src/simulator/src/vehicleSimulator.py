@@ -171,9 +171,9 @@ def main():
         if abs(u[0]) <= duty_th:
                 #     # vehicle_sim.vehicle_model(u, simulator_dt)
                     # if vehicle_sim.vx <= 0.01 :
-                    vehicle_sim.vx = 0.000001 
+                    vehicle_sim.vx = 0.000001
                     vehicle_sim.vy = 0.000001
-                    vehicle_sim.omega = 0.000001 
+                    vehicle_sim.omega = 0.000001
                     simStates.vx = 0.000001
                     simStates.vy = 0.000001
                     simStates.omega = 0.000001

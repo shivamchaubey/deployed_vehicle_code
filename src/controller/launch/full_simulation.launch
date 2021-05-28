@@ -1,0 +1,22 @@
+<launch>
+
+    <!-- vehicle simulation-->
+    <include file="$(find simulator)/launch/simulator.launch" />
+
+    <!-- vehicle observer-->
+    <include file="$(find observer)/launch/state_estimator.launch">
+          <arg name="SIM" value="1"/>
+    </include>
+
+
+    <!-- vehicle states plot-->
+    <include file="$(find plotter)/launch/observer_plot.launch" />
+
+    <!-- vehicle controller plot-->
+    <!--include file="$(find plotter)/launch/mpc_plot.launch" /-->
+
+
+    <!-- vehicle MPC controller-->
+    <include file="$(find controller)/launch/mpc_controller.launch" />
+
+</launch>

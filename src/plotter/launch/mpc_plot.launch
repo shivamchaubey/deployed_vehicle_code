@@ -1,0 +1,18 @@
+<launch>
+  <param name="halfWidth"     type="double"   value="0.25" />
+  <param name="trackShape"  type="str"    value="oval_iri"/>
+  
+  <node pkg="plotter" type="MPC_track_plot.py" name="MPC_plotter" output="screen">
+  <param name="loop_rate"     		 	     type="int"      value="100" />
+  <param name="track_visualization"   	 type="bool"      value="1" />
+  <param name="sim"					             type="bool"      value="1" />
+  <param name="vehicle_visualization"    type="bool"      value="1" />
+  <param name="states_visualization"     type="bool"      value="0" />
+  <param name="control_visualization"    type="bool"      value="1" />
+  <param name="error_visualization"      type="bool"      value="0" />
+  <param name="plot_end_result"          type="bool"      value="0" />
+  <param name="record_data"     		     type="bool"      value="false" />
+
+  </node>
+
+</launch>
