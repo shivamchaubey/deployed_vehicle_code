@@ -245,7 +245,7 @@ def main():
             # print("epsi s ey: ", LocalState[3:])
             # print("\n")
 
-            vel_ref         = np.ones([N,1])
+            vel_ref         = np.ones([N,1])*Vx_ref
      
             # Check if the lap has finished
             if LocalState[4] >= 3*map.TrackLength/4:

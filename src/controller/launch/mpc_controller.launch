@@ -49,9 +49,9 @@
 
         <param name="Horizon"           type="int"      value="20" />
         <param name="Hz"                type="double"   value="50" />
-        <param name="vel_ref"           type="double"   value="0.4"/>
+        <param name="vel_ref"           type="double"   value="1.2"/>
         <param name="integral_action"   type="bool"     value="false"/>
-        <param name="soft_constraints"  type="bool"     value="true"/>
+        <param name="soft_constraints"  type="bool"     value="false"/>
         
 
     </node>

@@ -19,7 +19,7 @@
 
     <arg name="SWITCHING_LQR" default="1"/>
 
-    <arg name="SIM" default="0"/>
+    <arg name="SIM" default="1"/>
 
     <!-- switching  LQR type --> 
     <group if="$(arg SWITCHING_LQR)">

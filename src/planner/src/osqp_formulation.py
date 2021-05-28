@@ -306,8 +306,12 @@ class LPV_MPC_Planner:
             eps = 0.000001
             # if abs(vx)> 0.0:
 
-            F_flat = 2*Caf*(delta- atan((vy+lf*omega)/(vx+eps)));        
+            F_flat = 2*Caf*(delta- atan((vy+lf*omega)/(vx+eps)));  
+            # F_flat = 2*Caf*(delta- ((vy+lf*omega)/(vx+eps)));        
+
             Fry = -2*Car*atan((vy - lr*omega)/(vx+eps)) ;
+            # Fry = -2*Car*((vy - lr*omega)/(vx+eps)) ;
+            
             A11 = -(1/m)*(C0 + C1/(vx+eps) + Cd_A*rho*vx/2);
             A31 = -Fry*lr/((vx+eps)*Iz);
                     
@@ -640,6 +644,8 @@ def _EstimateABC(Planner, Last_xPredicted, uPredicted):
 
         F_flat = 2*Caf*(delta- atan((vy+lf*omega)/(vx+eps)));        
         Fry = -2*Car*atan((vy - lr*omega)/(vx+eps)) ;
+        # F_flat = 2*Caf*(delta- ((vy+lf*omega)/abs(vx+eps)));        
+        # Fry = -2*Car*((vy - lr*omega)/abs(vx+eps)) ;
         A11 = -(1/m)*(C0 + C1/(vx+eps) + Cd_A*rho*vx/2);
         A31 = -Fry*lr/((vx+eps)*Iz);
             

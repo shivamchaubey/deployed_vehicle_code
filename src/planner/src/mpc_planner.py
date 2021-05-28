@@ -178,14 +178,13 @@ def main():
 
                 first_it += 1
 
-                print "Dentro primera iter... = "
-               
             else:                               
 
                 # LPV_X_Pred, A_L, B_L, C_L = Planner.LPVPrediction( LocalState[:], SS[:], Planner.uPred ) 
                 # Planner.solve( LocalState[:], 0, 0, A_L, B_L, C_L, first_it, HW)    
 
                 # Planner.solve(Planner.xPred[1,:], LPV_X_Pred, Planner.uPred, A_L, B_L, C_L, first_it)
+                print "\n solve new"
 
                 LPV_X_Pred, A_L, B_L, C_L = Planner.LPVPrediction( Planner.xPred[1,:], SS[:], Planner.uPred )    
                 Planner.solve(Planner.xPred[1,:], 0, 0, A_L, B_L, C_L, first_it, HW)
@@ -261,7 +260,7 @@ def main():
 
                 plt.show()
                 plt.pause(1.0/300.0)
-                StringValue = "vx = "+str(Planner.xPred[0,0])
+                StringValue = "vx = "+str(Planner.xPred[0,0]) + " epsi =" + str(Planner.xPred[0,4]) 
                 axtr.set_title(StringValue)
 
 

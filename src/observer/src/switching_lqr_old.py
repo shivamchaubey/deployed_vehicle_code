@@ -7,7 +7,7 @@ import matplotlib.patches as patches
 import rospy
 from numpy.random import randn,rand
 import rosbag
-from geometry_msgs.msg import Twist, Pose
+from geometry_msgs.msg import Twist, Pose, PoseStamped
 from std_msgs.msg import Bool, Float32
 from sensor_fusion.msg import sensorReading, control, hedge_imu_fusion, hedge_imu_raw
 import tf
