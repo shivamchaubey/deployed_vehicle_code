@@ -28,10 +28,10 @@
     <node pkg="planner" type="mpc_planner.py" name="trajectory_planner" output="screen"> 
          <param name="Planning_Track"   type="int"      value="1" /> 
          <param name="max_vel"          type="double"   value="4.4" />
-         <param name="min_vel"          type="double"   value="-0.0" />
+         <param name="min_vel"          type="double"   value="-0.1" />
          <param name="N"                type="int"      value="40" /> 
          <param name="Hz"        type="int"      value="20" /> 
-         <param name="halfWidth"        type="double"   value="0.3" />
+         <param name="halfWidth"        type="double"   value="0.25" />
          <param name="Visualization"    type="int"      value="1" />
          <param name="Testing"          type="int"      value="1" />
     </node>   

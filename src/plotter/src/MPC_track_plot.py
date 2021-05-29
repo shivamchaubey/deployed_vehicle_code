@@ -531,6 +531,9 @@ def main():
                     y_lim_init_min = min_y_lim
                     axtr.set_ylim( y_lim_init_min, y_lim_init_max )
 
+            StringValue = "vx = "+str(vx_est) 
+            axtr.set_title(StringValue)
+
             fig_veh.canvas.draw()
             plt_veh.show()
        

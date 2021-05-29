@@ -28,6 +28,7 @@ from nav_msgs.msg import Path
 from geometry_msgs.msg import PoseStamped
 import tf
 from PathFollowingLPVMPC import PathFollowingLPV_MPC
+from planner.msg import My_Planning
 import time
 import sys
 sys.path.append(('/').join(sys.path[0].split('/')[:-2])+'/planner/src/')
@@ -49,6 +50,32 @@ class EstimatorData(object):
         Unpack the messages from the estimator
         """
         self.CurrentState = np.array([msg.vx, msg.vy, msg.yaw_rate, msg.X, msg.Y, msg.yaw]).T
+
+########## Full state estimation from observer #############
+class planner_ref(object):
+    """Data from estimator"""
+    def __init__(self):
+
+        rospy.Subscriber("My_Planning", My_Planning, self.planner_callback)
+        print "Subscribed to planner"
+    
+        self.x_d    = []
+        self.y_d    = []
+        self.psi_d  = []
+        self.vx_d   = []
+        self.curv_d = []
+
+    def planner_callback(self, msg):
+        """
+        Unpack the messages from the planner
+        """
+        self.x_d    = msg.x_d
+        self.y_d    = msg.y_d
+        self.psi_d  = msg.psi_d
+        self.vx_d   = msg.vx_d
+        self.curv_d = msg.curv_d
+
+
 
 ### wrap the angle between [-pi,pi] ###
 def wrap(angle):
@@ -163,6 +190,7 @@ def main():
     ### same message type used for both ##
     lpvPrediction_msg = mpcPrediction()
     mpcPrediction_msg = mpcPrediction()
+    planner           = planner_ref()
 
     dutycycle_thres     = rospy.get_param("/duty_th") # dutycycle Deadzone
     
@@ -230,6 +258,29 @@ def main():
         the map.getLocalPosition function work in this domain.  '''
         LocalState[:]  = estimatorData.CurrentState  # [vx vy w x y psi]
 
+                ## This is for the map case you can add your own cases for example if you want the vehicle to follow other trajectory make another case.
+        if test_gen == 1:
+
+            # OUT: s, ey, epsi       IN: x, y, psi
+            LocalState[4], LocalState[5], LocalState[3], insideTrack = map.getLocalPosition(
+                GlobalState[3], GlobalState[4], wrap(GlobalState[5]))
+
+            # print("\n")
+            # print("vx vy w: ", GlobalState[:3])
+            # print("\n")
+            # print("x y yaw: ", GlobalState[3:])
+            # print("\n")
+            # print("epsi s ey: ", LocalState[3:])
+            # print("\n")
+
+            vel_ref         = np.ones([N,1])*Vx_ref
+     
+            # Check if the lap has finished
+            if LocalState[4] >= 3*map.TrackLength/4:
+                HalfTrack = 1
+                print 'the lap has finished'
+
+
         ## This is for the map case you can add your own cases for example if you want the vehicle to follow other trajectory make another case.
         if test_gen == 2:
 
@@ -286,6 +337,16 @@ def main():
         else:
 
             # print "Controller.uminus1", Controller.uminus1
+
+
+            if test_gen == 1:
+                
+                curv_ref = planner.curv_d 
+                vel_ref  = planner.vx_d
+            
+            else:
+                curv_ref = 0 # selected from the map inside the LPVPrediction function
+
 
             LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction(LocalState[0:6], Controller.uPred, vel_ref, curv_ref)
             # print "LPV_States_Prediction", LPV_States_Prediction

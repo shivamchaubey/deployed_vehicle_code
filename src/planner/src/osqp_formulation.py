@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+
 """
     File name: stateEstimator.py
     Author: Eugenio Alcala
@@ -21,7 +22,7 @@ from scipy.sparse import vstack
 from osqp import OSQP
 # from numpy import tan, arctan, cos, sin, pi
 import rospy
-from math import atan, sin, cos, pi
+from math import tan, atan, cos, sin, pi
 # solvers.options['show_progress'] = False
 
 
@@ -79,6 +80,7 @@ class LPV_MPC_Planner:
         self.Caf        = rospy.get_param("Caf")
         self.Car        = rospy.get_param("Car")
         self.Iz         = rospy.get_param("Iz")
+
 
         self.g      = 9.81
         self.epss   = 0.00000001
@@ -175,8 +177,8 @@ class LPV_MPC_Planner:
         
 
         # Inequality constraint section:
-        umin    = np.array([-0.249, -0.7]) # delta, a 
-        umax    = np.array([+0.249, 2.0]) # delta, a 
+        umin    = np.array([-0.349, -0.1]) # delta, a 
+        umax    = np.array([+0.349, +1.0]) # delta, a 
       
         xmin    = np.array([ self.min_vel, -1, -2, -max_ey, -0.8]) # [ vx vy w ey epsi ]
         xmax    = np.array([ self.max_vel,  1,  2,  max_ey,  0.8])    
@@ -225,7 +227,7 @@ class LPV_MPC_Planner:
         ################################################################
 
         if feasible == 0:
-            print 'QUIT...'
+            print ('QUIT...')
 
         Solution = res.x
 
@@ -244,7 +246,7 @@ class LPV_MPC_Planner:
 
 
 
-    def LPVPrediction(self, x, SS, u):
+    def LPVPrediction_old(self, x, SS, u):
 
         m = self.m
         rho = self.rho
@@ -271,30 +273,18 @@ class LPV_MPC_Planner:
             if i==0:
                 states  = np.reshape(x, (self.nx,1))
 
-
-
-
-
-
             vx      = float(states[0])
             vy      = float(states[1])
             omega   = float(states[2])
             ey      = float(states[3])
             epsi    = float(states[4])
 
+            print "epsi", epsi
             PointAndTangent = self.map.PointAndTangent         
             cur     = Curvature(SS[i], PointAndTangent)
 
             delta   = float(u[i,0])  
           
-            dutycycle = float(u[i,1])
-
-            # if abs(dutycycle) <= 0.05:
-
-            #     u[i,1] = 0.  
-                # vx = 0.0           
-                # vy = 0.0
-
             F_flat = 0.0;
             Fry = 0.0;
             Frx = 0.0;
@@ -302,14 +292,14 @@ class LPV_MPC_Planner:
             A31 = 0.0;
             A11 = 0.0;
 
-
+            # print "LPV predicted"
             eps = 0.000001
             # if abs(vx)> 0.0:
 
             F_flat = 2*Caf*(delta- atan((vy+lf*omega)/(vx+eps)));  
-            # F_flat = 2*Caf*(delta- ((vy+lf*omega)/(vx+eps)));        
-
             Fry = -2*Car*atan((vy - lr*omega)/(vx+eps)) ;
+
+            # F_flat = 2*Caf*(delta- ((vy+lf*omega)/(vx+eps)));        
             # Fry = -2*Car*((vy - lr*omega)/(vx+eps)) ;
             
             A11 = -(1/m)*(C0 + C1/(vx+eps) + Cd_A*rho*vx/2);
@@ -334,7 +324,7 @@ class LPV_MPC_Planner:
 
             B12 = (1/m)*(Cm0 - Cm1*vx);
 
-            print "epsi", epsi
+            # print "epsi", epsi
             # print 'cur', cur
             # print 'ey', ey
             # print "1/(1-ey*cur)", 1/(1-ey*cur)
@@ -371,6 +361,7 @@ class LPV_MPC_Planner:
                             [ 0. ],
                             [ 0. ]])
 
+   
 
             Ai = np.eye(len(Ai)) + self.dt * Ai
             Bi = self.dt * Bi
@@ -388,6 +379,127 @@ class LPV_MPC_Planner:
 
         return STATES_vec, Atv, Btv, Ctv
         
+
+    def LPVPrediction(self, x, SS, u):
+
+        m = self.m
+        rho = self.rho
+        lr = self.lr
+        lf = self.lf
+        Cm0 = self.Cm0
+        Cm1 = self.Cm1
+        C0 = self.C0
+        C1 = self.C1
+        Cd_A = self.Cd_A
+        Caf = self.Caf
+        Car = self.Car
+        Iz = self.Iz
+
+        epss= self.epss
+
+        STATES_vec = np.zeros((self.N, self.nx))
+
+        Atv = []
+        Btv = []
+        Ctv = []
+
+        for i in range(0, self.N):
+            if i==0:
+                states  = np.reshape(x, (self.nx,1))
+
+            vx      = float(states[0])
+            vy      = float(states[1])
+            omega   = float(states[2])
+            ey      = float(states[3])
+            epsi    = float(states[4])
+
+            print "epsi", epsi
+            PointAndTangent = self.map.PointAndTangent         
+            cur     = Curvature(SS[i], PointAndTangent)
+
+            delta   = float(u[i,0])  
+          
+            A11 = 0.0
+            A12 = 0.0
+            A13 = 0.0
+            A22 = 0.0
+            A23 = 0.0
+            A32 = 0.0
+            A33 = 0.0
+            B31 = 0.0
+            eps = 0.0
+
+            ## et to not go to nan
+            # if abs(vx) > 0.0:  
+            A11 = -(1/m)*(C0 + C1/(vx+eps) + Cd_A*rho*vx/2);
+            A12 = 2*Caf*sin(delta)/(m*vx) 
+            A13 = 2*Caf*lf*sin(delta)/(m*vx) + vy
+            A22 = -(2*Car + 2*Caf*cos(delta))/(m*vx)
+            A23 = (2*Car*lr - 2*Caf*lf*cos(delta))/(m*vx) - vx
+            A32 = (2*Car*lr - 2*Caf*lf*cos(delta))/(Iz*vx)
+            A33 = -(2*Car*lf*lf*cos(delta) + 2*Caf*lr*lr)/(Iz*vx)
+            B31 = 2*Caf*lf*cos(delta)/(Iz*vx)
+
+            A41 = -(cur*cos(epsi))/(1-ey*cur)
+            A42 = (cur*sin(epsi))/(1-ey*cur)
+            # A51 = cos(epsi)/(1-ey*cur)
+            # A52 = -sin(epsi)/(1-ey*cur)
+            A61 = sin(epsi)
+            A62 = cos(epsi)
+            B11 = -(2*Caf*sin(delta))/m
+            B12 = (Cm0 - Cm1*vx)/m
+            B21 = 2*Caf*cos(delta)/m
+
+
+            A1      = (1/(1-ey*cur)) 
+        # print "epsi", epsi
+        # print 'cur', cur
+            A2      = np.sin(epsi)
+            A4 = vx
+
+            Ai = np.array([ [A11    ,  A12 ,  A13 ,  0., 0. ],   # [vx]
+                            [ 0     ,  A22 ,  A23  , 0., 0. ],   # [vy]
+                            [ 0     ,  A32 ,  A33  , 0., 0. ],   # [wz]
+                            [0    ,  1 ,   0 ,   0., A4 ],   # [ey]
+                            [-A1*cur    ,  A1*A2*cur ,   1 ,  0., 0. ]])  # [epsi] 
+
+            
+
+            # Ai = np.array([ [A11    ,  A12 ,  A13 ,  0., 0. ],   # [vx]
+            #                 [ 0     ,  A22 ,  A23  , 0., 0. ],   # [vy]
+            #                 [ 0     ,  A32 ,  A33  , 0., 0. ],   # [wz]
+            #                 [A61    ,  A62 ,   0. ,   0., 0 ],   # [ey]
+            #                 [A41    ,  A42 ,   1 ,  0., 0. ]])  # [epsi] 
+
+            Bi  = np.array([[ B11, B12 ], #[delta, a]
+                            [ B21, 0. ],
+                            [ B31, 0. ],
+                            [ 0.,   0. ],
+                            [ 0.,   0. ]])
+
+            Ci  = np.array([[ 0. ],
+                            [ 0. ],
+                            [ 0. ],
+                            [ 0. ],
+                            [ 0. ]])
+
+   
+
+            Ai = np.eye(len(Ai)) + self.dt * Ai
+            Bi = self.dt * Bi
+            Ci = self.dt * Ci
+
+            states_new = np.dot(Ai, states) + np.dot(Bi, np.transpose(np.reshape(u[i,:],(1,2))))
+
+            STATES_vec[i] = np.reshape(states_new, (self.nx,))
+
+            states = states_new
+
+            Atv.append(Ai)
+            Btv.append(Bi)
+            Ctv.append(Ci)
+
+        return STATES_vec, Atv, Btv, Ctv
 
 
 
@@ -623,14 +735,6 @@ def _EstimateABC(Planner, Last_xPredicted, uPredicted):
         
         delta   = uPredicted[i]  
 
-        # dutycycle = float(u[i,1])
-
-        # if abs(dutycycle) <= 0.05:
-
-        #     u[i,1] = 0.  
-            # vx = 0.0           
-            # vy = 0.0
-
         F_flat = 0;
         Fry = 0;
         Frx = 0;
@@ -642,10 +746,10 @@ def _EstimateABC(Planner, Last_xPredicted, uPredicted):
         eps = 0.000001
         # if abs(vx)> 0.0:
 
-        F_flat = 2*Caf*(delta- atan((vy+lf*omega)/(vx+eps)));        
-        Fry = -2*Car*atan((vy - lr*omega)/(vx+eps)) ;
-        # F_flat = 2*Caf*(delta- ((vy+lf*omega)/abs(vx+eps)));        
-        # Fry = -2*Car*((vy - lr*omega)/abs(vx+eps)) ;
+        # F_flat = 2*Caf*(delta- atan((vy+lf*omega)/(vx+eps)));        
+        # Fry = -2*Car*atan((vy - lr*omega)/(vx+eps)) ;
+        F_flat = 2*Caf*(delta- ((vy+lf*omega)/abs(vx+eps)));        
+        Fry = -2*Car*((vy - lr*omega)/abs(vx+eps)) ;
         A11 = -(1/m)*(C0 + C1/(vx+eps) + Cd_A*rho*vx/2);
         A31 = -Fry*lr/((vx+eps)*Iz);
             

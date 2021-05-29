@@ -32,7 +32,7 @@
 
     <!-- PLANNER    -->
     <param name="duty_th"       type="double"   value="0.05" />  <!-- deadzone where the wheel doesn't rotate -->
-    <param name="planning_mode" type="int"      value="2" />
+    <param name="planning_mode" type="int"      value="1" />
     <param name="halfWidth"     type="double"   value="0.25" />
     <param name="trackShape"    type="str"      value="oval_iri" />
 
@@ -45,15 +45,24 @@
 
     <!-- CONTROL -->
     
-    <node pkg="controller"      type="controllerMain.py"    name="control" output="screen">
+    <node pkg="controller"      type="planner_controller.py"    name="control" output="screen">
 
         <param name="Horizon"           type="int"      value="20" />
         <param name="Hz"                type="double"   value="50" />
         <param name="vel_ref"           type="double"   value="0.8"/>
         <param name="integral_action"   type="bool"     value="false"/>
         <param name="soft_constraints"  type="bool"     value="false"/>
-        
-
     </node>
+
+    <node pkg="planner" type="mpc_planner.py" name="trajectory_planner" output="screen"> 
+         <param name="Planning_Track"   type="int"      value="1" /> 
+         <param name="max_vel"          type="double"   value="4.4" />
+         <param name="min_vel"          type="double"   value="-0.1" />
+         <param name="N"                type="int"      value="40" /> 
+         <param name="Hz"        type="int"      value="50" /> 
+         <param name="halfWidth"        type="double"   value="0.25" />
+         <param name="Visualization"    type="int"      value="1" />
+         <param name="Testing"          type="int"      value="1" />
+    </node>  
 
 </launch>
