@@ -150,7 +150,6 @@ def main():
     ########################## Control output ##################################
     dutycycle_commands  = rospy.Publisher('control/accel', Float32, queue_size=1)
     steering_commands   = rospy.Publisher('control/steering', Float32, queue_size=1)
-    states_info   = rospy.Publisher('control/states_info', states_info, queue_size=1)
 
     predicted_points_pub_on = True
 
@@ -293,7 +292,7 @@ def main():
             
             if first_it == 5:
                 print "MPC setup"
-
+                LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction_setup()
                 Controller.MPC_setup(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref) 
                 
 
@@ -324,7 +323,9 @@ def main():
         print('control actions',"delta", Controller.uPred[0,0],"dutycycle", Controller.uPred[0,1])
         print('\n')
 
-            
+        if Controller.feasible == 0.0:
+            Controller.uPred[0,0] = 0.0
+            Controller.uPred[0,1] = 0.0
         ## Publish controls ##
         cmd_servo = Controller.uPred[0,0]
         cmd_motor = Controller.uPred[0,1]
@@ -332,7 +333,6 @@ def main():
         steering_commands.publish(Controller.uPred[0,0])
         MPC_prediction_state_pub.publish(mpcPrediction_msg)
         LPV_prediction_state_pub.publish(lpvPrediction_msg)
-        states_info_pub.Publish(states_info_msg)
         rate.sleep()
 
     quit()

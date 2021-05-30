@@ -261,12 +261,29 @@ def main():
         the map.getLocalPosition function work in this domain.  '''
         LocalState[:]  = estimatorData.CurrentState  # [vx vy w x y psi]
 
+
+        LocalState[4], LocalState[5], LocalState[3], insideTrack = map.getLocalPosition(
+                GlobalState[3], GlobalState[4], wrap(GlobalState[5]))
+
+        states_info_msg.X = GlobalState[3]
+        states_info_msg.Y = GlobalState[4]
+        states_info_msg.yaw = GlobalState[5]
+        states_info_msg.vx = GlobalState[0]
+        states_info_msg.vy = GlobalState[1]
+        states_info_msg.omega = GlobalState[2]
+        states_info_msg.ey = LocalState[3]
+        states_info_msg.epsi = LocalState[5]
+        states_info_msg.s = LocalState[4]
+
+        states_info_pub.publish(states_info_msg)
+
+
                 ## This is for the map case you can add your own cases for example if you want the vehicle to follow other trajectory make another case.
-        if test_gen == 1:
+        if Controller.planning_mode == 1:
 
             # OUT: s, ey, epsi       IN: x, y, psi
-            LocalState[4], LocalState[5], LocalState[3], insideTrack = map.getLocalPosition(
-                GlobalState[3], GlobalState[4], wrap(GlobalState[5]))
+            # LocalState[4], LocalState[5], LocalState[3], insideTrack = map.getLocalPosition(
+            #     GlobalState[3], GlobalState[4], wrap(GlobalState[5]))
 
             # print("\n")
             # print("vx vy w: ", GlobalState[:3])
@@ -275,9 +292,15 @@ def main():
             # print("\n")
             # print("epsi s ey: ", LocalState[3:])
             # print("\n")
+            
 
-            vel_ref         = np.ones([N,1])*Vx_ref
-     
+            curv_ref = planner.curv_d 
+            vel_ref  = planner.vx_d
+         
+            # if planner.x_d < 0.5:
+            #     curv_ref = curv_ref*0.0 
+            #     vel_ref  = vel_ref*0.0
+         
             # Check if the lap has finished
             if LocalState[4] >= 3*map.TrackLength/4:
                 HalfTrack = 1
@@ -286,11 +309,11 @@ def main():
 
         
         ## This is for the map case you can add your own cases for example if you want the vehicle to follow other trajectory make another case.
-        if test_gen == 2:
+        if Controller.planning_mode == 2:
 
             # OUT: s, ey, epsi       IN: x, y, psi
-            LocalState[4], LocalState[5], LocalState[3], insideTrack = map.getLocalPosition(
-                GlobalState[3], GlobalState[4], wrap(GlobalState[5]))
+            # LocalState[4], LocalState[5], LocalState[3], insideTrack = map.getLocalPosition(
+            #     GlobalState[3], GlobalState[4], wrap(GlobalState[5]))
 
             # print("\n")
             # print("vx vy w: ", GlobalState[:3])
@@ -299,9 +322,8 @@ def main():
             # print("\n")
             # print("epsi s ey: ", LocalState[3:])
             # print("\n")
-
+            curv_ref        = 0
             vel_ref         = np.ones([N,1])*Vx_ref
-     
             # Check if the lap has finished
             if LocalState[4] >= 3*map.TrackLength/4:
                 HalfTrack = 1
@@ -322,26 +344,21 @@ def main():
             print "END OF THE LAP"
 
 
-        states_info_msg.vx = GlobalState[0]
-        states_info_msg.vy = GlobalState[1]
-        states_info_msg.omega = GlobalState[2]
-        states_info_msg.ey = LocalState[3]
-        states_info_msg.epsi = LocalState[5]
-        states_info_msg.s = LocalState[4]
-
-        states_info_pub.publish(states_info_msg)
 
         ###################################################################################################
         ###################################################################################################
 
         if first_it < 5:
 
-            duty_cycle  = 0.0
+            Controller.planning_mode = 1
+            duty_cycle  = 0.051
 
             delta = 0.01
             # xx, uu      = predicted_vectors_generation(N, LocalState, accel_rate, dt)
             xx, uu      = predicted_vectors_generation(N, LocalState, duty_cycle, delta, dt)
             
+            curv_ref        = 0
+            vel_ref         = np.ones([N,1])*Vx_ref
             Controller.uPred = uu
             Controller.xPred = xx
             
@@ -352,26 +369,33 @@ def main():
 
             # print "Controller.uminus1", Controller.uminus1
 
-
-            if test_gen == 1:
-                
-                curv_ref = planner.curv_d 
-                vel_ref  = planner.vx_d
-            
-            else:
-                curv_ref = 0 # selected from the map inside the LPVPrediction function
-
-
-            LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction(LocalState[0:6], Controller.uPred, vel_ref, curv_ref)
             # print "LPV_States_Prediction", LPV_States_Prediction
             
             if first_it == 5:
                 print "MPC setup"
+                print "vel_ref, curv_ref", len(vel_ref), len(curv_ref)
+                LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction_setup()
 
                 Controller.MPC_setup(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref) 
                 
+                Controller.planning_mode = rospy.get_param("planning_mode")
+
+                if Controller.planning_mode == 2:
+                    rospy.wait_for_message("My_Planning", My_Planning)
+
+                c = 0
+                while len(planner.vx_d)==0:
+                    c+=1
+                    if c == 10000:
+                        print "information not received from planner"
+                        states_info_pub.publish(states_info_msg)
+                        break
 
             else:
+
+                print "len(vel_ref), len(curv_ref)",len(vel_ref), len(curv_ref)
+                LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction(LocalState[0:6], Controller.uPred, vel_ref, curv_ref)
+            
                 # publish_predicted.LPV_msg_update(map, LPV_States_Prediction)
                 # publish_predicted.LPV_msg_update(map, Controller.xPred)
 
@@ -398,6 +422,9 @@ def main():
         print('control actions',"delta", Controller.uPred[0,0],"dutycycle", Controller.uPred[0,1])
         print('\n')
 
+        if Controller.feasible == 0.0:
+            Controller.uPred[0,0] = 0.0
+            Controller.uPred[0,1] = 0.0
             
         ## Publish controls ##
         cmd_servo = Controller.uPred[0,0]
@@ -408,6 +435,9 @@ def main():
         LPV_prediction_state_pub.publish(lpvPrediction_msg)
 
         rate.sleep()
+    dutycycle_commands.publish(0)
+    steering_commands.publish(0)
+    rate.sleep()
 
     quit()
 

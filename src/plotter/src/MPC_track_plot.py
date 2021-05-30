@@ -10,6 +10,7 @@ import rospy
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from simulator.msg import simulatorStates
+from planner.msg import My_Planning
 from sensor_fusion.msg import sensorReading
 from std_msgs.msg import Bool, Float32
 from nav_msgs.msg import Path
@@ -66,7 +67,7 @@ def plot_vehicle_global_position(x_lim_min, y_lim_min, x_lim_max, y_lim_max, map
     plt.plot(Points0[:, 0], Points0[:, 1], '--y' , linewidth  = 2) #outer track
 
 
-    line_ol,        = axtr.plot(xdata, ydata, '-g', label = 'Vehicle model simulation')
+    line_ol,        = axtr.plot(xdata, ydata, '-ob', label = 'Planner trajectory')
     line_est,       = axtr.plot(xdata, ydata, '-b', label = 'Estimated states')  
     line_meas,      = axtr.plot(xdata, ydata, '-m', label = 'Measured position camera') 
     line_lpv_pred,  = axtr.plot(xdata, ydata, '-o', color='orange' , label = 'Model prediction')
@@ -284,6 +285,29 @@ class MPC_prediction(object):
 
         return self.yaw_list, self.x_list, self.y_list
 
+########## Planner reference from MPC planner #############
+class planner_ref(object):
+    """Data from estimator"""
+    def __init__(self):
+
+        rospy.Subscriber("My_Planning", My_Planning, self.planner_callback)
+        print "Subscribed to planner"
+    
+        self.x_d    = []
+        self.y_d    = []
+        self.psi_d  = []
+        self.vx_d   = []
+        self.curv_d = []
+
+    def planner_callback(self, msg):
+        """
+        Unpack the messages from the planner
+        """
+        self.x_d    = msg.x_d
+        self.y_d    = msg.y_d
+        self.psi_d  = msg.psi_d
+        self.vx_d   = msg.vx_d
+        self.curv_d = msg.curv_d
 
 
 class LPV_prediction(object):
@@ -365,6 +389,8 @@ def main():
     lpv_pred_points    = LPV_prediction()
     mpc_pred_points    = MPC_prediction()
 
+    planner_info        = planner_ref()
+
     image_dy_his = []
     image_veh_his = []
 
@@ -444,7 +470,9 @@ def main():
         ########################################### unpack messages ############################################
 
         ( vx_est  , vy_est  , omega_est  , X_est  , Y_est  , yaw_est  )  = vehicle_state_est.CurrentState
-        ( vx_ol   , vy_ol   , omega_ol   , X_ol   , Y_ol   , yaw_ol   )  = vehicle_state_ol.CurrentState
+        ( vx_ol   , vy_ol   , omega_ol   , X_ol   , Y_ol   , yaw_ol   )  = vehicle_state_ol.CurrentState 
+
+        # ( vx_ol   , vy_ol   , omega_ol   , X_ol   , Y_ol   , yaw_ol   )  = planner_ref.x_d, planner_ref.y_d, planner_ref.psi_d 
         ( vx_meas , vy_meas , omega_meas , X_meas , Y_meas , yaw_meas )  = vehicle_state_meas.CurrentState
 
         (lpv_pred_x, lpv_pred_y)  =  lpv_pred_points.x_list, lpv_pred_points.y_list
@@ -466,8 +494,8 @@ def main():
         est_x_his.append(X_est)
         est_y_his.append(Y_est)
 
-        ol_x_his.append(X_ol)
-        ol_y_his.append(Y_ol)
+        ol_x_his.append(planner_info.x_d)
+        ol_y_his.append(planner_info.y_d)
                     
         meas_x_his.append(X_meas)
         meas_y_his.append(Y_meas)
@@ -493,7 +521,10 @@ def main():
             rec_meas.set_xy(np.array([car_meas_x, car_meas_y]).T)
 
             line_est.set_data(est_x_his, est_y_his)
-            line_ol.set_data(ol_x_his, ol_y_his)
+            # line_ol.set_data(ol_x_his, ol_y_his)
+            print "planner_info.x_d", planner_info.x_d
+            line_ol.set_data(planner_info.x_d, planner_info.y_d)
+
             line_meas.set_data(meas_x_his, meas_y_his)
 
             # print "lpv_pred_x, lpv_pred_y", lpv_pred_x, lpv_pred_y

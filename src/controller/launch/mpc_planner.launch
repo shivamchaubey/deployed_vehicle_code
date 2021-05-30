@@ -21,7 +21,7 @@
     <param name="max_vel"           type="double"   value="5.0" />
     <param name="min_vel"           type="double"   value="-0.01" />
     <param name="dutycycle_max"     type="double"   value="0.5" />
-    <param name="dutycycle_min"     type="double"   value="-0.0" />
+    <param name="dutycycle_min"     type="double"   value="0.051" />
     <param name="steer_max"         type="double"   value="0.349" />
     <param name="steer_min"         type="double"   value="-0.349" />
     <param name="lat_e_max"         type="double"   value="0.28" />   <!-- like halfWidth-->
@@ -47,7 +47,7 @@
 
         <param name="Horizon"           type="int"      value="20" />
         <param name="Hz"                type="double"   value="50" />
-        <param name="vel_ref"           type="double"   value="0.8"/>
+        <param name="vel_ref"           type="double"   value="1.2"/>
         <param name="integral_action"   type="bool"     value="false"/>
         <param name="soft_constraints"  type="bool"     value="false"/>
     </node>

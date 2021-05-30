@@ -18,7 +18,7 @@
     <param name="max_vel"       type="double" value="5.0" />
     <param name="min_vel"       type="double" value="-5.0" />
     <!-- should be > 1.0 -->
-    <param name="init_vx"     type="double" value="0.1"/>
+    <param name="init_vx"     type="double" value="0.0"/>
     <param name="halfWidth"     type="double"   value="0.4" />
     <param name="trackShape"  type="str"    value="oval_iri"/>
     <param name="duty_th"       type="double"   value="0.05" />  <!-- deadzone where the wheel doesn't rotate -->
@@ -26,7 +26,7 @@
 
     <arg name="DISTURBANCE" default="1"/>
 
-    <arg name="NOISE" default="1"/>
+    <arg name="NOISE" default="0"/>
 
     <!-- SIMULATOR -->
     <node pkg="simulator" type="vehicleSimulator.py" name="simulator" output="screen">
@@ -102,7 +102,7 @@
         <param name="init_yaw"  type="double" value="0" />
         ?>
 
-        <param name="init_x"    type="double" value="0.0" />
+        <param name="init_x"    type="double" value="0.1" />
         <param name="init_y"    type="double" value="0.0" />
         <param name="init_yaw"  type="double" value="0.0" />
 
