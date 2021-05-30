@@ -16,8 +16,8 @@ import datetime
 import rospy
 from trackInitialization import Map
 from planner.msg import My_Planning
-from controller.msg import  Racing_Info
-
+from controller.msg import  Racing_Info, states_info
+import time
 import numpy as np
 from numpy import hstack
 import scipy.io as sio
@@ -34,6 +34,35 @@ from scipy import signal
 
 
 np.set_printoptions(formatter={'float': lambda x: "{0:0.3f}".format(x)})
+
+
+########## current state of the vehicle from controller #############
+class vehicle_state(object):
+    """Data from estimator"""
+    def __init__(self):
+
+        rospy.Subscriber('control/states_info', states_info, self.states_callback)
+        self.states_vx =0
+        self.states_vy =0
+        self.states_omega =0
+        self.states_ey =0
+        self.states_epsi =0
+        self.states_s =0
+        self.states = np.array([self.states_vx, self.states_vy, self.states_omega, self.states_ey, self.states_epsi]).T
+        print "Subscribed to observer"
+    
+    def states_callback(self, msg):
+        """
+        Unpack the messages from the estimator
+        """
+        self.states_vx = msg.vx
+        self.states_vy = msg.vy
+        self.states_omega = msg.omega
+        self.states_ey = msg.ey
+        self.states_epsi = msg.epsi
+        self.states_s = msg.s
+        self.states = np.array([self.states_vx, self.states_vy, self.states_omega, self.states_ey, self.states_epsi]).T
+
 
 
 ### wrap the angle between [-pi,pi] ###
@@ -58,6 +87,7 @@ def main():
     map             = Map()  
 
     refs            = My_Planning()
+
     refs.x_d        = []
     refs.y_d        = []
     refs.psi_d      = []
@@ -82,6 +112,8 @@ def main():
         mode            = "simulations"
         racing_info     = RacingDataClass()
 
+
+    curr_states = vehicle_state()
 
     first_it        = 1
 
@@ -137,6 +169,8 @@ def main():
     yp              = np.zeros(N)
     yaw             = np.zeros(N)    
 
+    x_his          = []
+    y_his          = []
     SS              = np.zeros(N+1,) 
 
     GlobalState     = np.zeros(6)
@@ -172,7 +206,7 @@ def main():
                 # delta es el steering angle del modelo no lineal para la primera it.
 
                 x0 = LocalState[:]        # Initial planning state
-                accel_rate = 0.2
+                accel_rate = 0.0
                 xx, uu = predicted_vectors_generation(N, x0, accel_rate, planner_dt)
 
                 
@@ -182,15 +216,22 @@ def main():
 
             else:                               
 
+                t0 = time.time()
                 # LPV_X_Pred, A_L, B_L, C_L = Planner.LPVPrediction( LocalState[:], SS[:], Planner.uPred ) 
                 # Planner.solve( LocalState[:], 0, 0, A_L, B_L, C_L, first_it, HW)    
 
                 # Planner.solve(Planner.xPred[1,:], LPV_X_Pred, Planner.uPred, A_L, B_L, C_L, first_it)
                 print "\n solve new"
 
-                LPV_X_Pred, A_L, B_L, C_L = Planner.LPVPrediction( Planner.xPred[1,:], SS[:], Planner.uPred )    
-                Planner.solve(Planner.xPred[1,:], 0, 0, A_L, B_L, C_L, first_it, HW)
+                
+                # LPV_X_Pred, A_L, B_L, C_L = Planner.LPVPrediction( curr_states.states, SS[:] , Planner.uPred )    
 
+                LPV_X_Pred, A_L, B_L, C_L = Planner.LPVPrediction( Planner.xPred[1,:], SS[:], Planner.uPred )    
+                # Planner.solve(Planner.xPred[1,:], 0, 0, A_L, B_L, C_L, first_it, HW)
+                
+                Planner.solve(curr_states.states, 0, 0, A_L, B_L, C_L, first_it, HW)
+
+                print "time taken", time.time() - t0
 
 
             ###################################################################################################
@@ -219,12 +260,15 @@ def main():
                 
                 curv            = Curvature( SS[j], PointAndTangent )
 
+                # print "Planner.xPred[j,0]", Planner.xPred[j,0]
                 SS[j+1] = ( SS[j] + ( ( Planner.xPred[j,0]* np.cos(Planner.xPred[j,4])
                  - Planner.xPred[j,1]*np.sin(Planner.xPred[j,4]) ) / ( 1-Planner.xPred[j,3]*curv ) ) * planner_dt ) 
 
+                # print "SS", SS
+                # print "map.getGlobalPosition( SS[j+1], 0.0 )", map.getGlobalPosition( SS[j+1], 0.0 )
                 Xref[j+1], Yref[j+1], Thetaref[j+1] = map.getGlobalPosition( SS[j+1], 0.0 )
 
-            SS[0] = SS[1]
+            SS[0] = curr_states.states_s
 
 
             Xlast = Xref[1]
@@ -254,7 +298,10 @@ def main():
             if rospy.get_param("/trajectory_planner/Visualization") == 1:
                 line_trs.set_data(xp[0:N/2], yp[0:N/2])
                 line_pred.set_data(xp[N/2:], yp[N/2:])
-                l = 0.4; w = 0.2
+                x_his.append(xp[0])
+                y_his.append(yp[0])
+                line_cl.set_data(x_his, y_his)
+                l = 0.4/2; w = 0.2/2
                 car_sim_x, car_sim_y = getCarPosition(xp[0], yp[0], yaw[0], w, l)
                 # car_sim_x, car_sim_y = getCarPosition(xp[N-1], yp[N-1], yaw[N-1], w, l)
                 rec_sim.set_xy(np.array([car_sim_x, car_sim_y]).T)
@@ -295,7 +342,7 @@ def main():
             # Curvature (K)
             f = interp1d(time50ms, curv, kind='cubic')
             Curv_interp = f(time33ms)     
-            Curv_interp_filtered  = signal.filtfilt(b_filter, a_filter, Curv_interp, padlen=50)
+            # Curv_interp_filtered  = signal.filtfilt(b_filter, a_filter, Curv_interp, padlen=50)
 
             # plt.clf()
             # plt.figure(2)
@@ -322,7 +369,7 @@ def main():
             refs.y_d        = Y_interp
             refs.psi_d      = Yaw_interp
             refs.vx_d       = Vx_interp 
-            refs.curv_d     = Curv_interp_filtered             
+            refs.curv_d     = Curv_interp#_filtered             
             planning_refs.publish(refs)
 
 

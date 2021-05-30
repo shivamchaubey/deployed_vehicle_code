@@ -3,7 +3,6 @@
     <!-- SYSTEM MODEL -->
     <!-- vehicle parameters-->
     
-    <?ignore
     <param name="m"             type="double"   value="2.424" />
     <param name="rho"             type="double"   value="1.225" />    
     <param name="lr"            type="double"   value="0.1203" />
@@ -16,8 +15,7 @@
     <param name="Caf"            type="double"   value="1.3958" />
     <param name="Car"            type="double"   value="1.6775" />
     <param name="Iz"            type="double"   value="0.02" />
-    ?>
-
+    
     <!-- Variables limits-->
 
     <param name="max_vel"           type="double"   value="5.0" />
@@ -54,7 +52,7 @@
         <param name="soft_constraints"  type="bool"     value="false"/>
     </node>
 
-    <node pkg="planner" type="mpc_planner.py" name="trajectory_planner" output="screen"> 
+    <!--node pkg="planner" type="mpc_planner.py" name="trajectory_planner" output="screen"> 
          <param name="Planning_Track"   type="int"      value="1" /> 
          <param name="max_vel"          type="double"   value="4.4" />
          <param name="min_vel"          type="double"   value="-0.1" />
@@ -63,6 +61,6 @@
          <param name="halfWidth"        type="double"   value="0.25" />
          <param name="Visualization"    type="int"      value="1" />
          <param name="Testing"          type="int"      value="1" />
-    </node>  
+    </node-->  
 
 </launch>

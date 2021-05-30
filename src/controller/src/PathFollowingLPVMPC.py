@@ -84,13 +84,17 @@ class PathFollowingLPV_MPC:
 
 
         # Assign the weight of objective function
-        self.Q  = 0.6 * np.array([0.4*vx_scale, 0.0, 0.00, 0.05*etheta_scale, 0.0, 0.55*ey_scale]) # penality on states 
+        # self.Q  = 0.6 * np.array([0.4*vx_scale, 0.0, 0.00, 0.05*etheta_scale, 0.0, 0.55*ey_scale]) # penality on states 
+        # self.R  = 0.1 * np.array([0.0*str_scale, 0.05*duty_scale])     # Penality on input (dutycycle, steer)
+        
+
+        # self.Q  = 0.8 * np.array([0.6*vx_scale, 0.0, 0.00, 0.05*etheta_scale, 0.0, 0.35*ey_scale]) # penality on states 
+        # self.R  = 0.1 * np.array([0.0*str_scale, 0.05*duty_scale])     # Penality on input (dutycycle, steer)
+        
+        self.Q  = 0.8 * np.array([0.5*vx_scale, 0.0, 0.00, 0.2*etheta_scale, 0.0, 0.3*ey_scale]) # penality on states 
         self.R  = 0.1 * np.array([0.0*str_scale, 0.05*duty_scale])     # Penality on input (dutycycle, steer)
         
 
-        self.Q  = 0.8 * np.array([0.6*vx_scale, 0.0, 0.00, 0.05*etheta_scale, 0.0, 0.35*ey_scale]) # penality on states 
-        self.R  = 0.1 * np.array([0.0*str_scale, 0.05*duty_scale])     # Penality on input (dutycycle, steer)
-        
         self.dR = 0.1 * np.array([0.009*dstr_scale,0.1*dduty_scale])  # Penality on Input rate 
         self.Qe = np.array([1, 0, 0, 1, 0, 1])*(10.0e8) # Penality on soft constraints 
 
@@ -486,7 +490,7 @@ class PathFollowingLPV_MPC:
         return STATES_vec, np.array(Atv), np.array(Btv), np.array(Ctv)
 
 
-    def LPVPrediction(self, x, u, vel_ref, curv_ref):
+    def LPVPrediction_old(self, x, u, vel_ref, curv_ref):
         '''
         Obtain the LPV model along the horizon (n) using the current state x(i) and set of predicted control input at previous step u(i-1)
         '''
@@ -655,6 +659,191 @@ class PathFollowingLPV_MPC:
 
         return STATES_vec, np.array(Atv), np.array(Btv), np.array(Ctv)
 
+
+
+
+
+    def LPVPrediction(self, x, u, vel_ref, curv_ref):
+        '''
+        Obtain the LPV model along the horizon (n) using the current state x(i) and set of predicted control input at previous step u(i-1)
+        '''
+        #############################################
+        ## States:
+        ##   long velocity    [vx]
+        ##   lateral velocity [vy]
+        ##   angular velocity [wz]
+        ##   theta error      [epsi]
+        ##   distance traveled[s]
+        ##   lateral error    [ey]
+        ##
+        ## Control actions:
+        ##   Steering angle   [delta]
+        ##   Acceleration     [a]
+        ##
+        ## Scheduling variables:
+        ##   vx, vy, epsi, ey, cur
+        #############################################
+
+        m     =   self.m;
+        rho   =   self.rho;
+        lr    =   self.lr;
+        lf    =   self.lf;
+        Cm0   =   self.Cm0;
+        Cm1   =   self.Cm1;
+        C0    =   self.C0;
+        C1    =   self.C1;
+        Cd_A  =   self.Cd_A;
+        Caf   =   self.Caf;
+        Car   =   self.Car;
+        Iz    =   self.Iz;
+
+        planning_mode = 2 
+
+        STATES_vec = np.zeros((self.N, 6))
+
+        Atv = []
+        Btv = []
+        Ctv = []
+
+
+        for i in range(0, self.N):
+
+            if i==0:
+                states  = np.reshape(x, (6,1))
+
+            vx      = float(states[0])
+            vy      = float(states[1])
+            omega   = float(states[2])
+            epsi    = float(states[3])
+            s       = float(states[4])
+            ey      = float(states[5])
+
+            if s < 0:
+                s = 0
+
+            if planning_mode == 2:
+
+                PointAndTangent = self.map.PointAndTangent
+                cur     = Curvature(s, PointAndTangent) # From map
+                # print "PointAndTangent",PointAndTangent,"s", s 
+
+            else:
+                cur     = float(curv_ref[i]) # From planner
+
+            # print "vel_ref[i,0]", vel_ref
+            # vx      = float(vel_ref[i])
+            
+            # if i == (self.N - 1):
+            #     ey = 0
+            #     epsi = 0
+
+            delta = float(u[i,0])
+            dutycycle = float(u[i,1])
+            A11 = 0.0
+            A12 = 0.0
+            A13 = 0.0
+            A22 = 0.0
+            A23 = 0.0
+            A32 = 0.0
+            A33 = 0.0
+            B31 = 0.0
+
+            eps = 0.00
+            ## et to not go to nan
+            if abs(vx) > 0.01:  
+                A11 = -(1/m)*(C0 + C1/(eps+vx) + Cd_A*rho*vx/2);
+                A12 = 2*Caf*sin(delta)/(m*(vx+eps)) 
+                A13 = 2*Caf*lf*sin(delta)/(m*(vx+eps)) + vy
+                A22 = -(2*Car + 2*Caf*cos(delta))/(m*(vx+eps))
+                A23 = (2*Car*lr - 2*Caf*lf*cos(delta))/(m*(vx+eps)) - vx
+                A32 = (2*Car*lr - 2*Caf*lf*cos(delta))/(Iz*(vx+eps))
+                A33 = -(2*Car*lf*lf*cos(delta) + 2*Caf*lr*lr)/(Iz*(vx+eps))
+                B31 = 2*Caf*lf*cos(delta)/(Iz*(vx+eps))
+
+            A41 = -(cur*cos(epsi))/(1-ey*cur)
+            A42 = (cur*sin(epsi))/(1-ey*cur)
+            A51 = cos(epsi)/(1-ey*cur)
+            A52 = -sin(epsi)/(1-ey*cur)
+            A61 = sin(epsi)
+            A62 = cos(epsi)
+            B11 = -(2*Caf*sin(delta))/m
+            B12 = (Cm0 - Cm1*vx)/m
+            B21 = 2*Caf*cos(delta)/m
+
+
+            A1      = (1/(1-ey*cur)) 
+        # print "epsi", epsi
+        # print 'cur', cur
+            A2      = np.sin(epsi)
+            A4 = vx
+
+            # Ai = np.array([ [A11    ,  A12 ,  A13 ,  0., 0. ],   # [vx]
+            #                 [ 0     ,  A22 ,  A23  , 0., 0. ],   # [vy]
+            #                 [ 0     ,  A32 ,  A33  , 0., 0. ],   # [wz]
+            #                 [0    ,  1 ,   0 ,   0., A4 ],   # [ey]
+            #                 [-A1*cur    ,  A1*A2*cur ,   1 ,  0., 0. ]])  # [epsi] 
+
+            
+
+            # Ai = np.array([ [A11    ,  A12 ,  A13 ,  0., 0. ],   # [vx]
+            #                 [ 0.     ,  A22 ,  A23  , 0., 0. ],   # [vy]
+            #                 [ 0.     ,  A32 ,  A33  , 0., 0. ],   # [wz]
+            #                 [-A1*cur    ,  A1*A2*cur ,   1. ,   0., 0 ],   # [epsi]
+            #                 [A51    ,  A52 ,   1 ,  0., 0. ],   # [s] 
+            #                 [0.    ,  1 ,   0. ,  0., A4 ]])  # [ey] 
+
+
+            Bi  = np.array([[ B11, B12 ], #[delta, a]
+                            [ B21, 0 ],
+                            [ B31, 0 ],
+                            [ 0,   0 ],
+                            [ 0,   0 ],
+                            [ 0,   0 ]])
+
+            # print "Bi", Bi
+
+            # Ai = np.array([[A11    ,  A12 ,   A13 ,  0., 0., 0.],  # [vx]
+            #                 [0    ,  A22 ,   A23  ,  0., 0., 0.],  # [vy]
+            #                 [0    ,   A32 ,    A33  ,  0., 0., 0.],  # [wz]
+            #                 [-A1*cur    ,  A1*A2*cur ,   1. ,   0., 0, 0. ],  # [epsi]
+            #                 [A51    ,  A52 ,   0. ,  0., 0., 0.],  # [s]
+            #                 [0.    ,  1 ,   0. ,  0., 0., A4 ]]) # [ey]
+
+
+            Ai = np.array([[A11    ,  A12 ,   A13 ,  0., 0., 0.],  # [vx]
+                            [0    ,  A22 ,   A23  ,  0., 0., 0.],  # [vy]
+                            [0    ,   A32 ,    A33  ,  0., 0., 0.],  # [wz]
+                            [A41   ,  A42 ,   1. ,   0., 0, 0. ],  # [epsi]
+                            [A51    ,  A52 ,   0. ,  0., 0., 0.],  # [s]
+                            [A61    ,  A62 ,   0. ,  0., 0., 0. ]]) # [ey]
+
+            # print "Ai", Ai
+
+            Ci  = np.array([[ 0 ],
+                            [ 0 ],
+                            [ 0 ],
+                            [ 0 ],
+                            [ 0 ],
+                            [ 0 ]])
+
+
+            Ai = np.eye(len(Ai)) + self.dt * Ai
+            Bi = self.dt * Bi
+            Ci = self.dt * Ci
+
+            states_new = np.dot(Ai, states) + np.dot(Bi, np.transpose(np.reshape(u[i,:],(1,2))))
+
+
+            STATES_vec[i] = np.reshape(states_new, (6,))
+
+            states = states_new
+
+            Atv.append(Ai)
+            Btv.append(Bi)
+            Ctv.append(Ci)
+
+
+        return STATES_vec, np.array(Atv), np.array(Btv), np.array(Ctv)
 
 
 

@@ -23,6 +23,8 @@ import datetime
 import rospy
 import numpy as np
 from sensor_fusion.msg import sensorReading
+from controller.msg import states_info
+print 'states_info', states_info()
 from std_msgs.msg import Bool, Float32
 from nav_msgs.msg import Path
 from geometry_msgs.msg import PoseStamped
@@ -36,7 +38,7 @@ from trackInitialization import Map
 from controller.msg import mpcPrediction
 np.set_printoptions(formatter={'float': lambda x: "{0:0.3f}".format(x)})
 
-########## Full state estimation from observer #############
+########## current state estimation from observer #############
 class EstimatorData(object):
     """Data from estimator"""
     def __init__(self):
@@ -177,7 +179,8 @@ def main():
     ########################## Control output ##################################
     dutycycle_commands  = rospy.Publisher('control/accel', Float32, queue_size=1)
     steering_commands   = rospy.Publisher('control/steering', Float32, queue_size=1)
-
+    states_info_pub   = rospy.Publisher('control/states_info', states_info, queue_size=1)
+    states_info_msg = states_info()
     predicted_points_pub_on = True
 
     if predicted_points_pub_on == True:
@@ -281,6 +284,7 @@ def main():
                 print 'the lap has finished'
 
 
+        
         ## This is for the map case you can add your own cases for example if you want the vehicle to follow other trajectory make another case.
         if test_gen == 2:
 
@@ -316,6 +320,16 @@ def main():
             LapNumber       += 1
             SS              = 0
             print "END OF THE LAP"
+
+
+        states_info_msg.vx = GlobalState[0]
+        states_info_msg.vy = GlobalState[1]
+        states_info_msg.omega = GlobalState[2]
+        states_info_msg.ey = LocalState[3]
+        states_info_msg.epsi = LocalState[5]
+        states_info_msg.s = LocalState[4]
+
+        states_info_pub.publish(states_info_msg)
 
         ###################################################################################################
         ###################################################################################################

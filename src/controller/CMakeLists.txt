@@ -52,6 +52,7 @@ find_package(catkin REQUIRED COMPONENTS
    FILES
    mpcPrediction.msg
    Racing_Info.msg
+   states_info.msg
   # Message2.msg
  )
 

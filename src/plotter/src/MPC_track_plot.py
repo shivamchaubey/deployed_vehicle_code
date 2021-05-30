@@ -496,12 +496,12 @@ def main():
             line_ol.set_data(ol_x_his, ol_y_his)
             line_meas.set_data(meas_x_his, meas_y_his)
 
-            print "lpv_pred_x, lpv_pred_y", lpv_pred_x, lpv_pred_y
+            # print "lpv_pred_x, lpv_pred_y", lpv_pred_x, lpv_pred_y
 
             if (len(lpv_pred_x) == len(lpv_pred_y)) and (False in np.isnan(lpv_pred_x)) and (False in np.isnan(lpv_pred_y)):
                 line_lpv_pred.set_data(lpv_pred_x, lpv_pred_y)
 
-            print "mpc_pred_x, mpc_pred_y", mpc_pred_x, mpc_pred_y    
+            # print "mpc_pred_x, mpc_pred_y", mpc_pred_x, mpc_pred_y    
             if (len(mpc_pred_x) == len(mpc_pred_y)) and (False in np.isnan(mpc_pred_x)) and (False in np.isnan(mpc_pred_y)):
                 line_mpc_pred.set_data(mpc_pred_x, mpc_pred_y)
 

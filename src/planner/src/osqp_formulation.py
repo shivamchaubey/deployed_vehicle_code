@@ -413,7 +413,7 @@ class LPV_MPC_Planner:
             ey      = float(states[3])
             epsi    = float(states[4])
 
-            print "epsi", epsi
+            # print "epsi", epsi
             PointAndTangent = self.map.PointAndTangent         
             cur     = Curvature(SS[i], PointAndTangent)
 
@@ -430,15 +430,15 @@ class LPV_MPC_Planner:
             eps = 0.0
 
             ## et to not go to nan
-            # if abs(vx) > 0.0:  
-            A11 = -(1/m)*(C0 + C1/(vx+eps) + Cd_A*rho*vx/2);
-            A12 = 2*Caf*sin(delta)/(m*vx) 
-            A13 = 2*Caf*lf*sin(delta)/(m*vx) + vy
-            A22 = -(2*Car + 2*Caf*cos(delta))/(m*vx)
-            A23 = (2*Car*lr - 2*Caf*lf*cos(delta))/(m*vx) - vx
-            A32 = (2*Car*lr - 2*Caf*lf*cos(delta))/(Iz*vx)
-            A33 = -(2*Car*lf*lf*cos(delta) + 2*Caf*lr*lr)/(Iz*vx)
-            B31 = 2*Caf*lf*cos(delta)/(Iz*vx)
+            if abs(vx) > 0.0:  
+                A11 = -(1/m)*(C0 + C1/(vx+eps) + Cd_A*rho*vx/2);
+                A12 = 2*Caf*sin(delta)/(m*vx) 
+                A13 = 2*Caf*lf*sin(delta)/(m*vx) + vy
+                A22 = -(2*Car + 2*Caf*cos(delta))/(m*vx)
+                A23 = (2*Car*lr - 2*Caf*lf*cos(delta))/(m*vx) - vx
+                A32 = (2*Car*lr - 2*Caf*lf*cos(delta))/(Iz*vx)
+                A33 = -(2*Car*lf*lf*cos(delta) + 2*Caf*lr*lr)/(Iz*vx)
+                B31 = 2*Caf*lf*cos(delta)/(Iz*vx)
 
             A41 = -(cur*cos(epsi))/(1-ey*cur)
             A42 = (cur*sin(epsi))/(1-ey*cur)
@@ -470,6 +470,7 @@ class LPV_MPC_Planner:
             #                 [ 0     ,  A32 ,  A33  , 0., 0. ],   # [wz]
             #                 [A61    ,  A62 ,   0. ,   0., 0 ],   # [ey]
             #                 [A41    ,  A42 ,   1 ,  0., 0. ]])  # [epsi] 
+
 
             Bi  = np.array([[ B11, B12 ], #[delta, a]
                             [ B21, 0. ],

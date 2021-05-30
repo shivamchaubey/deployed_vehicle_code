@@ -1,0 +1,10 @@
+int64 timestamp_ms
+float64 X
+float64 Y
+float64 yaw
+float64 vx
+float64 vy
+float64 omega
+float64 ey
+float64 epsi
+float64 s
