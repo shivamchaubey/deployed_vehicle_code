@@ -16,6 +16,7 @@ import datetime
 import rospy
 from trackInitialization import Map
 from planner.msg import My_Planning
+from sensor_fusion.msg import sensorReading
 from controller.msg import  Racing_Info, states_info
 import time
 import numpy as np
@@ -33,9 +34,57 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from scipy.interpolate import interp1d
 from scipy import signal
-
+from math import pi
 
 np.set_printoptions(formatter={'float': lambda x: "{0:0.3f}".format(x)})
+
+
+########## current state estimation from observer #############
+class EstimatorData(object):
+    """Data from estimator"""
+    def __init__(self):
+
+        rospy.Subscriber("est_state_info", sensorReading, self.estimator_callback)
+        self.CurrentState = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        print "Subscribed to observer"
+    
+        self.map             = Map() 
+        self.states_X =0
+        self.states_Y =0
+        self.states_yaw =0
+        self.states_vx =0
+        self.states_vy =0
+        self.states_omega =0
+        
+        self.states_ey =0
+        self.states_epsi =0
+        self.states_s =0
+
+        self.states = np.array([self.states_vx, self.states_vy, self.states_omega, 0, 0]).T
+
+
+    def estimator_callback(self, msg):
+        """
+        Unpack the messages from the estimator
+        """
+        self.states_X = msg.X
+        self.states_Y = msg.Y
+        self.states_yaw = (msg.yaw + pi) % (2 * pi) - pi
+        self.states_vx = msg.vx
+        self.states_vy = msg.vy
+        self.states_omega = msg.yaw_rate
+
+        S_realDist, epsi, ey, insideTrack = self.map.getLocalPosition(msg.X, msg.Y, self.states_yaw)
+
+        self.states_ey = ey
+        self.states_epsi = epsi
+        self.states_s = S_realDist
+
+
+        self.CurrentState = np.array([msg.vx, msg.vy, msg.yaw_rate, msg.X, msg.Y, self.states_yaw]).T
+
+
+        self.states = np.array([self.states_vx, self.states_vy, self.states_omega, epsi, ey]).T
 
 
 ########## current state of the vehicle from controller #############
@@ -114,20 +163,30 @@ def main():
     dt              = 1.0/loop_rate
     rate            = rospy.Rate(loop_rate)
 
+    # curr_states = EstimatorData()
     
-    Testing = rospy.get_param("/trajectory_planner/Testing")
-    if Testing == 0:
+    planner_type = rospy.get_param("/trajectory_planner/Mode")
+    if planner_type == 2:
         racing_info     = RacingDataClass()
         estimatorData   = EstimatorData()
         mode            = rospy.get_param("/control/mode")
 
 
-    else:   # Testing mode
+    if planner_type == 3:
+        racing_info     = RacingDataClass()
+        estimatorData   = EstimatorData()
+        mode            = rospy.get_param("/control/mode")
+
+
+    else:   # planner_type mode
         mode            = "simulations"
         racing_info     = RacingDataClass()
 
 
     curr_states = vehicle_state()
+
+
+
 
     first_it        = 1
 
@@ -155,7 +214,7 @@ def main():
 
     # states = [vx vy w ey epsi]
     # Q   = - np.diag( [ -0.000000000000088, -9.703658572659423, -0.5, 0.000000000213635, -0.153591566469547] ) 
-    Q   =  np.diag( [ 0.00004, 0.01, 0.0011, 0.000000000213635, 0.153591566469547] )  
+    Q   =  np.diag( [ 0.00004, 0.01, 0.0011, 0.00000000, 0.0] )  
  
     L   = - np.array( [ 1.00702414775175, 0.187661946033823, -0.0,  0.0, -0.0329493219494661 ] )
     R   =   np.diag([0.8, 0.0])   # Input variables weight [delta, a]. El peso de "a" ha de ser 0.
@@ -192,10 +251,12 @@ def main():
     GlobalState     = np.zeros(6)
     LocalState      = np.zeros(5)    
 
+    print "Starting iteration"
     while (not rospy.is_shutdown()):  
         
         # If inside the track publish input
-        if (racing_info.LapNumber >= 1 or Testing == 1):
+        if (racing_info.LapNumber >= 1 or planner_type == 1):
+
 
             startTimer = datetime.datetime.now()
 
@@ -203,11 +264,12 @@ def main():
             # GETTING INITIAL STATE:
             ###################################################################################################   
 
-            # if Testing == 0:
+            # if planner_type == 0:
             #     # Read Measurements
             #     GlobalState[:] = estimatorData.CurrentState                 # The current estimated state vector [vx vy w x y psi]
             #     LocalState[:]  = np.array([ GlobalState[0], GlobalState[1], GlobalState[2], 0.0, 0.0 ]) # [vx vy w ey epsi]
             #     S_realDist, LocalState[4], LocalState[3], insideTrack = map.getLocalPosition(GlobalState[3], GlobalState[4], GlobalState[5])
+            
             # else:
             #     LocalState[:] = np.array([1.0, 0, 0, 0, 0])
             #     S_realDist, LocalState[4], LocalState[3], insideTrack = map.getLocalPosition(xp[0], yp[0], yaw[0])
@@ -229,8 +291,9 @@ def main():
                
                 # print "uu", uu
                 Planner.uPred = uu
-                Planner.xPred = xx
-                    
+                Planner.xPred = xx[:,:5]
+
+                print "xx[:5]", xx[:,:5]
                 Planner.uminus1 = Planner.uPred[0,:] 
 
                 # LPV_X_Pred, A_L, B_L, C_L = Planner.LPVPrediction_setup()
@@ -241,8 +304,6 @@ def main():
                 first_it += 1
 
             else:                               
-                print "waiting for message"
-                rospy.wait_for_message('control/states_info', states_info)
 
                 t0 = time.time()
                 # LPV_X_Pred, A_L, B_L, C_L = Planner.LPVPrediction( LocalState[:], SS[:], Planner.uPred ) 
@@ -252,19 +313,20 @@ def main():
                 print "\n solve new"
 
                 # SS[0] = curr_states.states_s
-                SS[0] = curr_states.states_s
-
-                LPV_X_Pred, A_L, B_L, C_L = Planner.LPVPrediction( curr_states.states, SS[:] , Planner.uPred )    
-
-                # LPV_X_Pred, A_L, B_L, C_L = Planner.LPVPrediction( Planner.xPred[1,:], SS[:], Planner.uPred )    
-                # Planner.solve(Planner.xPred[1,:], 0, 0, A_L, B_L, C_L, first_it, HW)
-                
+                                    
+            
                 # print "LPV_X_Pred", LPV_X_Pred.shape                
 
                 if first_it == 5:
                     print "MPC setup"
                     LPV_X_Pred, A_L, B_L, C_L = Planner.LPVPrediction_setup()
-                    Planner.MPC_setup(A_L, B_L, Planner.uPred, curr_states.states, Vx_ref) 
+
+                    if planner_type == 1:
+                        Planner.MPC_setup(A_L, B_L, Planner.uPred, Planner.xPred[1,:], Vx_ref) 
+
+                    else:
+                        Planner.MPC_setup(A_L, B_L, Planner.uPred, curr_states.states, Vx_ref) 
+
                     first_it += 1
 
                 else:
@@ -274,10 +336,28 @@ def main():
                     # print "Planner.xPred", Planner.xPred
                     print "MPC update"
                     t1 = time.time() 
-                    Planner.MPC_update(A_L, B_L, curr_states.states) 
-                    Planner.MPC_solve()
+
+                    if planner_type == 1:
+                    
+                        # SS[0] = curr_states.states_s
+                        LPV_X_Pred, A_L, B_L, C_L = Planner.LPVPrediction( Planner.xPred[1,:], SS[:] ,  Planner.uPred )    
+                    
+                        Planner.MPC_update(A_L, B_L, Planner.xPred[1,:]) 
+                        Planner.MPC_solve()
+
+
+                    else:
+                        # print "waiting for message"
+                        # rospy.wait_for_message('control/states_info', states_info)
+
+                        SS[0] = curr_states.states_s
+                        LPV_X_Pred, A_L, B_L, C_L = Planner.LPVPrediction( curr_states.states, SS[:] , Planner.uPred )    
+                        
+                        Planner.MPC_update(A_L, B_L, curr_states.states) 
+                        Planner.MPC_solve()
+                   
                     print "time taken to solve", time.time() - t1
-                    # print "LPV_X_Pred", LPV_X_Pred                
+                    print "LPV_X_Pred", LPV_X_Pred                
 
 
 
@@ -285,6 +365,7 @@ def main():
 
                 print "time taken", time.time() - t0
             print "feasible", Planner.feasible
+            # print "predicted", Planner.xPred
             Planner.uminus1 = Planner.uPred[0,:] 
 
             if Planner.feasible != 0:
@@ -316,7 +397,7 @@ def main():
                     
                     curv            = Curvature( SS[j], PointAndTangent )
 
-                    # print "Planner.xPred[j,0]", Planner.xPred[j,0], 'Planner.xPred[j,4]', Planner.xPred[j,4], 'Planner.xPred[j,3]', Planner.xPred[j,3] 
+                    print "Planner.xPred[j,0]", Planner.xPred[j,0], 'Planner.xPred[j,4]', Planner.xPred[j,4], 'Planner.xPred[j,3]', Planner.xPred[j,3] 
                     SS[j+1] = ( SS[j] + ( ( Planner.xPred[j,0]* np.cos(Planner.xPred[j,4])
                      - Planner.xPred[j,1]*np.sin(Planner.xPred[j,4]) ) / ( 1-Planner.xPred[j,3]*curv ) ) * planner_dt ) 
 
@@ -333,6 +414,7 @@ def main():
 
                 # SS[0] = curr_states.states_s
 
+                SS[0] = SS[1]
 
                 Xlast = Xref[1]
                 Ylast = Yref[1]

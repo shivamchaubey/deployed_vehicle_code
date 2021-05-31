@@ -212,6 +212,7 @@ class Path_planner_MPC:
         self.Aeq = sparse.hstack([Ax, Bu]).tocsc()
         if self.soft_constraints_on:
             self.Aeq = sparse.hstack([self.Aeq, sparse.csc_matrix((self.Aeq.shape[0], n_eps))])
+
         self.leq = np.hstack([-x0, np.zeros(N*nx)])
         self.ueq = self.leq
                                                       
@@ -311,7 +312,7 @@ class Path_planner_MPC:
 
         res = self.prob.solve()
         # Check solver status
-        if res.info.status != 'solved' or res.info.obj_val:
+        if res.info.status != 'solved':# or res.info.obj_val:
             print ('OSQP did not solve the problem!')
             self.feasible = 0
 

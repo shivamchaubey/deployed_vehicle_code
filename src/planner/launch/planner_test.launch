@@ -41,7 +41,7 @@
          <param name="vel_ref"        type="double"      value="2.0" /> 
          <param name="halfWidth"        type="double"   value="0.28" />
          <param name="Visualization"    type="int"      value="1" />
-         <param name="Testing"          type="int"      value="1" />
+         <param name="Mode"          type="int"      value="1" /> <!-- 1: for testing without estimator, 2: solution w.r.t the estimator data 3: obstacle avoidance  -->
         <param name="integral_action"   type="bool"     value="false"/>
         <param name="soft_constraints"  type="bool"     value="false"/>
     </node>   
