@@ -30,7 +30,7 @@
 
     <!-- PLANNER    -->
     <param name="duty_th"       type="double"   value="0.05" />  <!-- deadzone where the wheel doesn't rotate -->
-    <param name="planning_mode" type="int"      value="2" /> <!-- 1: for planner, 2: without planeer with some fixed references -->
+    <param name="planning_mode" type="int"      value="1" /> <!-- 1: with planner, 2: without planner with some fixed references -->
     <param name="halfWidth"     type="double"   value="0.25" />
     <param name="trackShape"    type="str"      value="oval_iri" />
 
@@ -47,7 +47,7 @@
 
         <param name="Horizon"           type="int"      value="20" />
         <param name="Hz"                type="double"   value="50" />
-        <param name="vel_ref"           type="double"   value="0.9"/>
+        <param name="vel_ref"           type="double"   value="1.0"/>
         <param name="integral_action"   type="bool"     value="false"/>
         <param name="soft_constraints"  type="bool"     value="false"/>
     </node>

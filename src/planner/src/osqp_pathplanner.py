@@ -13,7 +13,7 @@ from scipy import sparse
 import numpy as np
 from numpy import hstack, inf, ones
 import rospy
-from math import cos, sin, atan, pi
+from math import cos, sin, atan, pi, isnan
 import osqp
 
 
@@ -91,11 +91,11 @@ class Path_planner_MPC:
         # self.Q  = 0.8 * np.array([0.6*vx_scale, 0.0, 0.00, 0.05*etheta_scale, 0.0, 0.35*ey_scale]) # penality on states 
         # self.R  = 0.1 * np.array([0.0*str_scale, 0.05*duty_scale])     # Penality on input (dutycycle, steer)
         
-        self.Q  = 0.8 * np.array([0.8*vx_scale, 0.0, 0.00, 0.001*ey_scale, 0.001*etheta_scale]) # penality on states 
-        self.R  = 0.1 * np.array([0.0*str_scale, 0.05*duty_scale])     # Penality on input (dutycycle, steer)
+        self.Q  = 0.8 * np.array([0.8*vx_scale, 0.0, 0.00, 0.01*ey_scale, 0.01*etheta_scale]) # penality on states 
+        self.R  = 0.1 * np.array([0.01*str_scale, 0.01*duty_scale])     # Penality on input (dutycycle, steer)
         
 
-        self.dR = 0.1 * np.array([0.009*dstr_scale,0.1*dduty_scale])  # Penality on Input rate 
+        self.dR = 0.0 * np.array([0.0009*dstr_scale,0.0001*dduty_scale])  # Penality on Input rate 
         self.Qe = np.array([1, 0, 0, 1, 1])*(10.0e8) # Penality on soft constraints 
 
         
@@ -312,12 +312,14 @@ class Path_planner_MPC:
 
         res = self.prob.solve()
         # Check solver status
-        if res.info.status != 'solved':# or res.info.obj_val:
-            print ('OSQP did not solve the problem!')
+        if res.info.status != 'solved' or isnan(res.info.obj_val):
+            print 'OSQP did not solve the problem! , obj val = {}'.format(res.info.obj_val)
+            print "Objective value", res.info.obj_val
+        
             self.feasible = 0
 
         Solution = res.x
-
+        
         # print "controller to be applied", Solution[(N+1)*nx:(N+1)*nx + nu]
         # print "Solution shape", Solution.shape
         
@@ -377,7 +379,7 @@ class Path_planner_MPC:
             eps = 0.0
 
             ## et to not go to nan
-            if abs(vx) > 0.0:  
+            if abs(vx) > 0.0001:  
                 A11 = -(1/m)*(C0 + C1/(vx+eps) + Cd_A*rho*vx/2);
                 A12 = 2*Caf*sin(delta)/(m*vx) 
                 A13 = 2*Caf*lf*sin(delta)/(m*vx) + vy
@@ -447,7 +449,8 @@ class Path_planner_MPC:
             Btv.append(Bi)
             Ctv.append(Ci)
 
-        return STATES_vec, Atv, Btv, Ctv
+        # return STATES_vec, Atv, Btv, Ctv
+        return Atv, Btv, Ctv
 
 
     def LPVPrediction_old(self, x, u, vel_ref, curv_ref):
@@ -864,18 +867,19 @@ class Path_planner_MPC:
             Bi = self.dt * Bi
             Ci = self.dt * Ci
 
-            states_new = np.dot(Ai, states) + np.dot(Bi,u)
+            # states_new = np.dot(Ai, states) + np.dot(Bi,u)
 
-            STATES_vec[i] = np.reshape(states_new, (self.nx,))
+            # STATES_vec[i] = np.reshape(states_new, (self.nx,))
 
-            states = states_new
+            # states = states_new
 
             Atv.append(Ai)
             Btv.append(Bi)
             Ctv.append(Ci)
 
 
-        return STATES_vec, np.array(Atv), np.array(Btv), np.array(Ctv)
+        # return STATES_vec, np.array(Atv), np.array(Btv), np.array(Ctv)
+        return np.array(Atv), np.array(Btv), np.array(Ctv)
 
 
 def Curvature(s, PointAndTangent):

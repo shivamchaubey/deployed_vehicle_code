@@ -88,8 +88,12 @@ class PathFollowingLPV_MPC:
         self.R  = 0.1 * np.array([0.0*str_scale, 0.05*duty_scale])     # Penality on input (dutycycle, steer)
         
 
-        # self.Q  = 0.8 * np.array([0.6*vx_scale, 0.0, 0.00, 0.05*etheta_scale, 0.0, 0.35*ey_scale]) # penality on states 
-        # self.R  = 0.1 * np.array([0.0*str_scale, 0.05*duty_scale])     # Penality on input (dutycycle, steer)
+        self.planning_mode = rospy.get_param("planning_mode")
+         
+        if self.planning_mode == 1:            
+
+            self.Q  = 0.8 * np.array([0.6*vx_scale, 0.0, 0.00, 0.0005*etheta_scale, 0.0, 0.000035*ey_scale]) # penality on states 
+            self.R  = 0.1 * np.array([0.0*str_scale, 0.05*duty_scale])     # Penality on input (dutycycle, steer)
         
         # self.Q  = 0.8 * np.array([0.5*vx_scale, 0.0, 0.00, 0.2*etheta_scale, 0.0, 0.3*ey_scale]) # penality on states 
         # self.R  = 0.1 * np.array([0.0*str_scale, 0.05*duty_scale])     # Penality on input (dutycycle, steer)
@@ -118,8 +122,7 @@ class PathFollowingLPV_MPC:
         self.halfWidth = map.halfWidth                  # width of the track
 
         self.feasible = 1
-        self.planning_mode = rospy.get_param("planning_mode")
-
+        
     def MPC_setup(self, A_vec, B_vec, u, x0, vel_ref):
 
         '''
@@ -728,7 +731,7 @@ class PathFollowingLPV_MPC:
 
             else:
                 cur     = float(curv_ref[i]) # From planner
-
+                print "from planner"
             # print "vel_ref[i,0]", vel_ref
             vx      = float(vel_ref[i])
             

@@ -43,6 +43,8 @@ class EstimatorData(object):
     """Data from estimator"""
     def __init__(self):
 
+        print "Waiting for observer message"
+
         rospy.Subscriber("est_state_info", sensorReading, self.estimator_callback)
         self.CurrentState = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         print "Subscribed to observer"
@@ -58,6 +60,8 @@ class planner_ref(object):
     """Data from estimator"""
     def __init__(self):
 
+        print "Waiting for planner message"
+        rospy.wait_for_message("My_Planning", My_Planning)
         rospy.Subscriber("My_Planning", My_Planning, self.planner_callback)
         print "Subscribed to planner"
     
@@ -193,7 +197,7 @@ def main():
     ### same message type used for both ##
     lpvPrediction_msg = mpcPrediction()
     mpcPrediction_msg = mpcPrediction()
-    planner           = planner_ref()
+
 
     dutycycle_thres     = rospy.get_param("/duty_th") # dutycycle Deadzone
     
@@ -233,7 +237,11 @@ def main():
     TimeCounter         = 0
     PlannerCounter      = 0
     test_gen            = rospy.get_param("planning_mode")# test generated plan 0 = offline plan, 1 = vel profile, 2 = map
-    test_gen = 2
+    
+    if test_gen == 1:
+            planner = planner_ref()
+
+
     SS  = 0.0
 
 
