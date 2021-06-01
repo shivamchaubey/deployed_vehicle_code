@@ -83,24 +83,33 @@ class PathFollowingLPV_MPC:
         self.soft_constraints_on = rospy.get_param("/control/soft_constraints")
 
 
-        # Assign the weight of objective function
-        self.Q  = 0.6 * np.array([0.4*vx_scale, 0.0, 0.00, 0.05*etheta_scale, 0.0, 0.55*ey_scale]) # penality on states 
-        self.R  = 0.1 * np.array([0.0*str_scale, 0.05*duty_scale])     # Penality on input (dutycycle, steer)
         
 
         self.planning_mode = rospy.get_param("planning_mode")
+
+        # Assign the weight of objective function
          
         if self.planning_mode == 1:            
 
-            self.Q  = 0.8 * np.array([0.6*vx_scale, 0.0, 0.00, 0.0005*etheta_scale, 0.0, 0.000035*ey_scale]) # penality on states 
-            self.R  = 0.1 * np.array([0.0*str_scale, 0.05*duty_scale])     # Penality on input (dutycycle, steer)
-        
+            self.Qw  = 0.6 * np.array([0.4*vx_scale, 0.0, 0.00, 0.05*etheta_scale, 0.0, 0.1*ey_scale]) # penality on states 
+            self.Rw  = 0.1 * np.array([0.0*str_scale, 0.05*duty_scale])     # Penality on input (dutycycle, steer)
+            
+        if self.planning_mode == 2:            
+
+            self.Qw  = 0.8 * np.array([0.6*vx_scale, 0.0, 0.00, 0.3*etheta_scale, 0.0, 0.3*ey_scale]) # penality on states 
+            self.Rw  = 0.1 * np.array([0.001*str_scale, 0.05*duty_scale])     # Penality on input (dutycycle, steer)
+
+        if self.planning_mode == 3:       #### OFFLINE PLANNER #######     
+
+            self.Qw  = 0.8 * np.array([0.3*vx_scale, 0.0, 0.00, 0.2*etheta_scale, 0.0, 0.5*ey_scale]) # penality on states 
+            self.Rw  = 0.1 * np.array([0.001*str_scale, 0.05*duty_scale])     # Penality on input (dutycycle, steer)
+
         # self.Q  = 0.8 * np.array([0.5*vx_scale, 0.0, 0.00, 0.2*etheta_scale, 0.0, 0.3*ey_scale]) # penality on states 
         # self.R  = 0.1 * np.array([0.0*str_scale, 0.05*duty_scale])     # Penality on input (dutycycle, steer)
         
 
-        self.dR = 0.1 * np.array([0.009*dstr_scale,0.1*dduty_scale])  # Penality on Input rate 
-        self.Qe = np.array([1, 0, 0, 1, 0, 1])*(10.0e8) # Penality on soft constraints 
+        self.dRw = 0.1 * np.array([0.009*dstr_scale,0.1*dduty_scale])  # Penality on Input rate 
+        self.Qew = np.array([1, 0, 0, 1, 0, 1])*(10.0e8) # Penality on soft constraints 
 
         
         # Create an OSQP object
@@ -108,8 +117,8 @@ class PathFollowingLPV_MPC:
 
         # Formulate the MPC problem
         self.N     = N
-        self.nx    = self.Q.shape[0]
-        self.nu    = self.R.shape[0]
+        self.nx    = self.Qw.shape[0]
+        self.nu    = self.Rw.shape[0]
         self.vx_ref   = vx_ref # velocity desired to be achieved
 
         self.LinPoints = np.zeros((self.N+2,self.nx))   
@@ -122,7 +131,8 @@ class PathFollowingLPV_MPC:
         self.halfWidth = map.halfWidth                  # width of the track
 
         self.feasible = 1
-        
+        self.update_q = False
+
     def MPC_setup(self, A_vec, B_vec, u, x0, vel_ref):
 
         '''
@@ -155,24 +165,24 @@ class PathFollowingLPV_MPC:
         u_ref = np.array([0.0,0.0])
     
         #################### P formulation ################################
-        Q  = sparse.diags(self.Q)
-        QN = Q
-        R  = sparse.diags(self.R)
-        dR = sparse.diags(self.dR)
-        Qeps  = sparse.diags(self.Qe)
+        self.Q  = sparse.diags(self.Qw)
+        self.QN = self.Q
+        self.R  = sparse.diags(self.Rw)
+        self.dR = sparse.diags(self.dRw)
+        self.Qeps  = sparse.diags(self.Qew)
         
 
-        PQx = sparse.block_diag([sparse.kron(sparse.eye(N), Q), QN], format='csc')
-        PQu = sparse.kron(sparse.eye(N), R)
+        PQx = sparse.block_diag([sparse.kron(sparse.eye(N), self.Q), self.QN], format='csc')
+        PQu = sparse.kron(sparse.eye(N), self.R)
         idu = (2 * np.eye(N) - np.eye(N, k=1) - np.eye(N, k=-1))
-        PQdu = sparse.kron(idu, dR)
-        PQeps = sparse.kron(sparse.eye(N+1), Qeps)
+        PQdu = sparse.kron(idu, self.dR)
+        PQeps = sparse.kron(sparse.eye(N+1), self.Qeps)
         
             
         #################### q formulation ################################
-        qQx  = np.hstack([np.kron(np.ones(N), -Q.dot(xr)), -QN.dot(xr)])
-        qQu  = np.kron(np.ones(N), -R.dot(u_ref))
-        qQdu = np.hstack([-dR.dot(self.uminus1), np.zeros((N - 1) * nu)])
+        qQx  = np.hstack([np.kron(np.ones(N), -self.Q.dot(xr)), -self.QN.dot(xr)])
+        qQu  = np.kron(np.ones(N), -self.R.dot(u_ref))
+        qQdu = np.hstack([-self.dR.dot(self.uminus1), np.zeros((N - 1) * nu)])
         qQeps = np.zeros((N+1)*nx)
 
         
@@ -257,21 +267,45 @@ class PathFollowingLPV_MPC:
         ##### vector of non zero element is needed to update the sparse matrix #####
         At = self.A.transpose(copy=True) 
         At.sort_indices()
-        (self.col_indices, self.row_indices) = At.nonzero()
+        (self.A_col_indices, self.A_row_indices) = At.nonzero()
  
+
+        ##### vector of non zero element is needed to update the sparse matrix #####
+        Pt = self.P.transpose(copy=True) 
+        Pt.sort_indices()
+        (self.P_col_indices, self.P_row_indices) = Pt.nonzero()
+ 
+
 
         #################################### Problem Setup ###################################
         self.prob.setup(self.P, self.q, self.A, self.l, self.u, warm_start=True, polish=True, verbose = False)
         
 
      
-    def MPC_update(self, A_vec, B_vec, u, x0, vel_ref):
+    def MPC_update(self, A_vec, B_vec, u, x0, ref):
         '''
         Input: LPV Model(A_vec, B_vec) , current estimated state states (x0), previous input if slew_rate == on 
         Ouput: Update the MPO formulation
         '''
 
         [N,nx,nu] = self.N, self.nx, self.nu 
+
+        if self.update_q == True:
+            vx_ref    = ref[0] 
+            vy_ref    = ref[1]
+            omega_ref = ref[2]
+            epsi_ref  = ref[3]
+            s_ref     = ref[4]
+            ey_ref    = ref[5]
+
+            xr = np.array([vx_ref,vy_ref,omega_ref,epsi_ref,s_ref,ey_ref])
+
+            qQx  = np.hstack([np.kron(np.ones(N), -self.Q.dot(xr)), -self.QN.dot(xr)])
+
+            ############### Update vector q  ##############        
+            print "qQx.shape", qQx.shape
+            self.q[:qQx.shape[0]] = qQx
+            
 
         '''Equality constraints LPV dynamics'''
         A_tr = sparse.lil_matrix((nx*len(A_vec)+nx, nx*len(A_vec)+nx))
@@ -298,8 +332,8 @@ class PathFollowingLPV_MPC:
             self.l[(N+1)*nx + (N+1)*nx + (N)*nu:(N+1)*nx + (N+1)*nx + (N)*nu + nu] = self.dumin + self.uminus1[0:nu]  # update constraint on \Delta u0: Dumin <= u0 - u_{-1}
             self.u[(N+1)*nx + (N+1)*nx + (N)*nu:(N+1)*nx + (N+1)*nx + (N)*nu + nu] = self.dumax + self.uminus1[0:nu]  # update constraint on \Delta u0: u0 - u_{-1} <= Dumax
 
-        Ax_value = self.A[self.row_indices, self.col_indices].A1
-        self.prob.update( Ax = Ax_value , l= self.l, u= self.u)
+        Ax_value = self.A[self.A_row_indices, self.A_col_indices].A1
+        self.prob.update( Ax = Ax_value, q = self.q , l= self.l, u= self.u)
 
 
     def MPC_solve(self):
@@ -723,7 +757,7 @@ class PathFollowingLPV_MPC:
             if s < 0:
                 s = 0
 
-            if self.planning_mode == 2:
+            if self.planning_mode == 1:
 
                 PointAndTangent = self.map.PointAndTangent
                 cur     = Curvature(s, PointAndTangent) # From map
@@ -731,7 +765,7 @@ class PathFollowingLPV_MPC:
 
             else:
                 cur     = float(curv_ref[i]) # From planner
-                print "from planner"
+                # print "from planner"
             # print "vel_ref[i,0]", vel_ref
             vx      = float(vel_ref[i])
             
@@ -752,7 +786,7 @@ class PathFollowingLPV_MPC:
 
             eps = 0.00
             ## et to not go to nan
-            if abs(vx) > 0.01:  
+            if abs(vx) > 0.000001:  
                 A11 = -(1/m)*(C0 + C1/(eps+vx) + Cd_A*rho*vx/2);
                 A12 = 2*Caf*sin(delta)/(m*(vx+eps)) 
                 A13 = 2*Caf*lf*sin(delta)/(m*(vx+eps)) + vy
@@ -787,12 +821,12 @@ class PathFollowingLPV_MPC:
 
             
 
-            # Ai = np.array([ [A11    ,  A12 ,  A13 ,  0., 0. ],   # [vx]
-            #                 [ 0.     ,  A22 ,  A23  , 0., 0. ],   # [vy]
-            #                 [ 0.     ,  A32 ,  A33  , 0., 0. ],   # [wz]
-            #                 [-A1*cur    ,  A1*A2*cur ,   1. ,   0., 0 ],   # [epsi]
-            #                 [A51    ,  A52 ,   1 ,  0., 0. ],   # [s] 
-            #                 [0.    ,  1 ,   0. ,  0., A4 ]])  # [ey] 
+            Ai = np.array([ [A11    ,  A12 ,  A13 ,  0., 0., 0.],   # [vx]
+                            [ 0.     ,  A22 ,  A23  , 0., 0. , 0.],   # [vy]
+                            [ 0.     ,  A32 ,  A33  , 0., 0., 0.],   # [wz]
+                            [-A1*cur    ,  A1*A2*cur ,   1. ,   0., 0., 0. ],   # [epsi]
+                            [A51    ,  A52 ,   1 ,  0., 0. , 0.],   # [s] 
+                            [0.    ,  1 ,   0. ,  0., 0. ,A4  ]])  # [ey] 
 
 
             Bi  = np.array([[ B11, B12 ], #[delta, a]
@@ -812,12 +846,200 @@ class PathFollowingLPV_MPC:
             #                 [0.    ,  1 ,   0. ,  0., 0., A4 ]]) # [ey]
 
 
-            Ai = np.array([[A11    ,  A12 ,   A13 ,  0., 0., 0.],  # [vx]
-                            [0    ,  A22 ,   A23  ,  0., 0., 0.],  # [vy]
-                            [0    ,   A32 ,    A33  ,  0., 0., 0.],  # [wz]
-                            [A41   ,  A42 ,   1. ,   0., 0, 0. ],  # [epsi]
-                            [A51    ,  A52 ,   0. ,  0., 0., 0.],  # [s]
-                            [A61    ,  A62 ,   0. ,  0., 0., 0. ]]) # [ey]
+            # Ai = np.array([[A11    ,  A12 ,   A13 ,  0., 0., 0.],  # [vx]
+            #                 [0    ,  A22 ,   A23  ,  0., 0., 0.],  # [vy]
+            #                 [0    ,   A32 ,    A33  ,  0., 0., 0.],  # [wz]
+            #                 [A41   ,  A42 ,   1. ,   0., 0, 0. ],  # [epsi]
+            #                 [A51    ,  A52 ,   0. ,  0., 0., 0.],  # [s]
+            #                 [A61    ,  A62 ,   0. ,  0., 0., 0. ]]) # [ey]
+
+            # print "Ai", Ai
+
+            Ci  = np.array([[ 0 ],
+                            [ 0 ],
+                            [ 0 ],
+                            [ 0 ],
+                            [ 0 ],
+                            [ 0 ]])
+
+
+            Ai = np.eye(len(Ai)) + self.dt * Ai
+            Bi = self.dt * Bi
+            Ci = self.dt * Ci
+
+            states_new = np.dot(Ai, states) + np.dot(Bi, np.transpose(np.reshape(u[i,:],(1,2))))
+
+
+            STATES_vec[i] = np.reshape(states_new, (6,))
+
+            states = states_new
+
+            Atv.append(Ai)
+            Btv.append(Bi)
+            Ctv.append(Ci)
+
+
+        return STATES_vec, np.array(Atv), np.array(Btv), np.array(Ctv)
+
+
+    def LPVPrediction_planner(self, x, u, ref):
+        '''
+        Obtain the LPV model along the horizon (n) using the current state x(i) and set of predicted control input at previous step u(i-1)
+        '''
+        #############################################
+        ## States:
+        ##   long velocity    [vx]
+        ##   lateral velocity [vy]
+        ##   angular velocity [wz]
+        ##   theta error      [epsi]
+        ##   distance traveled[s]
+        ##   lateral error    [ey]
+        ##
+        ## Control actions:
+        ##   Steering angle   [delta]
+        ##   Acceleration     [a]
+        ##
+        ## Scheduling variables:
+        ##   vx, vy, epsi, ey, cur
+        #############################################
+
+        m     =   self.m;
+        rho   =   self.rho;
+        lr    =   self.lr;
+        lf    =   self.lf;
+        Cm0   =   self.Cm0;
+        Cm1   =   self.Cm1;
+        C0    =   self.C0;
+        C1    =   self.C1;
+        Cd_A  =   self.Cd_A;
+        Caf   =   self.Caf;
+        Car   =   self.Car;
+        Iz    =   self.Iz;
+
+         
+
+        STATES_vec = np.zeros((self.N, 6))
+
+        Atv = []
+        Btv = []
+        Ctv = []
+
+
+        for i in range(0, self.N):
+
+            if i==0:
+                states  = np.reshape(x, (6,1))
+
+
+            vx      = float(states[0])
+            vy      = float(states[1])
+            omega   = float(states[2])
+            epsi    = float(states[3])
+            s       = float(states[4])
+            ey      = float(states[5])
+
+            # if i ==0:
+            #     vx      = ref[0][i]
+            #     vy      = ref[1][i]
+            #     omega   = ref[2][i]
+            #     epsi    = ref[3][i]
+            #     # s       = ref[4][i]
+            #     ey      = ref[5][i]
+            #     cur     = ref[5][i]
+            # omega   = ref[2][i]
+            # epsi    = ref[3][i]
+            # ey      = ref[5][i]
+            # s       = ref[4][i]
+            # PointAndTangent = self.map.PointAndTangent
+            # cur     = Curvature(s, PointAndTangent)
+
+            vx      = ref[0][i]
+            cur     = ref[5][i]
+            # ey      = ref[5][i]
+            # epsi    = ref[3][i]
+            # if i == (self.N - 1):
+            #     ey = 0
+            #     epsi = 0
+
+            delta = float(u[i,0])
+            dutycycle = float(u[i,1])
+            A11 = 0.0
+            A12 = 0.0
+            A13 = 0.0
+            A22 = 0.0
+            A23 = 0.0
+            A32 = 0.0
+            A33 = 0.0
+            B31 = 0.0
+
+            eps = 0.00
+            ## et to not go to nan
+            if abs(vx) > 0.000001:  
+                A11 = -(1/m)*(C0 + C1/(eps+vx) + Cd_A*rho*vx/2);
+                A12 = 2*Caf*sin(delta)/(m*(vx+eps)) 
+                A13 = 2*Caf*lf*sin(delta)/(m*(vx+eps)) + vy
+                A22 = -(2*Car + 2*Caf*cos(delta))/(m*(vx+eps))
+                A23 = (2*Car*lr - 2*Caf*lf*cos(delta))/(m*(vx+eps)) - vx
+                A32 = (2*Car*lr - 2*Caf*lf*cos(delta))/(Iz*(vx+eps))
+                A33 = -(2*Car*lf*lf*cos(delta) + 2*Caf*lr*lr)/(Iz*(vx+eps))
+                B31 = 2*Caf*lf*cos(delta)/(Iz*(vx+eps))
+
+            A41 = -(cur*cos(epsi))/(1-ey*cur)
+            A42 = (cur*sin(epsi))/(1-ey*cur)
+            A51 = cos(epsi)/(1-ey*cur)
+            A52 = -sin(epsi)/(1-ey*cur)
+            A61 = sin(epsi)
+            A62 = cos(epsi)
+            B11 = -(2*Caf*sin(delta))/m
+            B12 = (Cm0 - Cm1*vx)/m
+            B21 = 2*Caf*cos(delta)/m
+
+
+            A1      = (1/(1-ey*cur)) 
+        # print "epsi", epsi
+        # print 'cur', cur
+            A2      = np.sin(epsi)
+            A4 = vx
+
+            # Ai = np.array([ [A11    ,  A12 ,  A13 ,  0., 0. ],   # [vx]
+            #                 [ 0     ,  A22 ,  A23  , 0., 0. ],   # [vy]
+            #                 [ 0     ,  A32 ,  A33  , 0., 0. ],   # [wz]
+            #                 [0    ,  1 ,   0 ,   0., A4 ],   # [ey]
+            #                 [-A1*cur    ,  A1*A2*cur ,   1 ,  0., 0. ]])  # [epsi] 
+
+            
+
+            Ai = np.array([ [A11    ,  A12 ,  A13 ,  0., 0., 0.],   # [vx]
+                            [ 0.     ,  A22 ,  A23  , 0., 0. , 0.],   # [vy]
+                            [ 0.     ,  A32 ,  A33  , 0., 0., 0.],   # [wz]
+                            [-A1*cur    ,  A1*A2*cur ,   1. ,   0., 0., 0. ],   # [epsi]
+                            [A51    ,  A52 ,   1 ,  0., 0. , 0.],   # [s] 
+                            [0.    ,  1 ,   0. ,  0., 0. ,A4  ]])  # [ey] 
+
+
+            Bi  = np.array([[ B11, B12 ], #[delta, a]
+                            [ B21, 0 ],
+                            [ B31, 0 ],
+                            [ 0,   0 ],
+                            [ 0,   0 ],
+                            [ 0,   0 ]])
+
+            # print "Bi", Bi
+
+            # Ai = np.array([[A11    ,  A12 ,   A13 ,  0., 0., 0.],  # [vx]
+            #                 [0    ,  A22 ,   A23  ,  0., 0., 0.],  # [vy]
+            #                 [0    ,   A32 ,    A33  ,  0., 0., 0.],  # [wz]
+            #                 [-A1*cur    ,  A1*A2*cur ,   1. ,   0., 0, 0. ],  # [epsi]
+            #                 [A51    ,  A52 ,   0. ,  0., 0., 0.],  # [s]
+            #                 [0.    ,  1 ,   0. ,  0., 0., A4 ]]) # [ey]
+
+
+            # Ai = np.array([[A11    ,  A12 ,   A13 ,  0., 0., 0.],  # [vx]
+            #                 [0    ,  A22 ,   A23  ,  0., 0., 0.],  # [vy]
+            #                 [0    ,   A32 ,    A33  ,  0., 0., 0.],  # [wz]
+            #                 [A41   ,  A42 ,   1. ,   0., 0, 0. ],  # [epsi]
+            #                 [A51    ,  A52 ,   0. ,  0., 0., 0.],  # [s]
+            #                 [A61    ,  A62 ,   0. ,  0., 0., 0. ]]) # [ey]
 
             # print "Ai", Ai
 

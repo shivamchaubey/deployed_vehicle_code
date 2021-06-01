@@ -54,7 +54,7 @@
 
 
         <!-- FOR TESTING PUSPOSE -->
-        <param name="x_tf"      type="double" value="0.0" if="$(arg SIM)"/>
+        <param name="x_tf"      type="double" value="0.1" if="$(arg SIM)"/>
         <param name="y_tf"      type="double" value="0.0" if="$(arg SIM)"/>
         <!-- Map rotation -->
         <param name="theta_tf"  type="double" value="0.0" if="$(arg SIM)"/>

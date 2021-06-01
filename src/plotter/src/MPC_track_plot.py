@@ -67,11 +67,12 @@ def plot_vehicle_global_position(x_lim_min, y_lim_min, x_lim_max, y_lim_max, map
     plt.plot(Points0[:, 0], Points0[:, 1], '--y' , linewidth  = 2) #outer track
 
 
-    line_ol,        = axtr.plot(xdata, ydata, '-ob', label = 'Planner trajectory')
+    line_ol,        = axtr.plot(xdata, ydata, '-ob', label = 'Planner trajectory', linewidth  = 2)
+    line_ref,        = axtr.plot(xdata, ydata, '-o', color = 'orange', label = 'Controller reference', linewidth  = 4)
     line_est,       = axtr.plot(xdata, ydata, '-b', label = 'Estimated states')  
     line_meas,      = axtr.plot(xdata, ydata, '-m', label = 'Measured position camera') 
-    line_lpv_pred,  = axtr.plot(xdata, ydata, '-o', color='orange' , label = 'Model prediction')
-    line_mpc_pred,  = axtr.plot(xdata, ydata, '-oc', label = 'MPC prediction', linewidth  = 5) 
+    line_lpv_pred,  = axtr.plot(xdata, ydata, '-o', color='yellow' , label = 'Model prediction', linewidth  = 1)
+    line_mpc_pred,  = axtr.plot(xdata, ydata, '-oc', label = 'MPC prediction', linewidth  = 1) 
 
     l = 0.42/2; w = 0.19/2
 
@@ -92,7 +93,7 @@ def plot_vehicle_global_position(x_lim_min, y_lim_min, x_lim_max, y_lim_max, map
     plt.legend()
     plt.grid()
 
-    return fig, plt, axtr, line_est, line_ol, line_meas,  line_lpv_pred, line_mpc_pred , rec_est, rec_ol, rec_meas
+    return fig, plt, axtr, line_est, line_ol, line_ref, line_meas,  line_lpv_pred, line_mpc_pred , rec_est, rec_ol, rec_meas
 
 
 #### plotter for vehicle 6 states ####
@@ -290,9 +291,14 @@ class planner_ref(object):
     """Data from estimator"""
     def __init__(self):
 
-        rospy.Subscriber("My_Planning", My_Planning, self.planner_callback)
+        rospy.Subscriber("Offline_Planning", My_Planning, self.planner_callback)
+
+        # rospy.Subscriber("My_Planning", My_Planning, self.planner_callback)
         print "Subscribed to planner"
-    
+        
+        self.x_pt    = []
+        self.y_pt   = []
+        
         self.x_d    = []
         self.y_d    = []
         self.psi_d  = []
@@ -303,6 +309,9 @@ class planner_ref(object):
         """
         Unpack the messages from the planner
         """
+        self.x_pt    = msg.x_pt
+        self.y_pt    = msg.y_pt
+
         self.x_d    = msg.x_d
         self.y_d    = msg.y_d
         self.psi_d  = msg.psi_d
@@ -394,7 +403,7 @@ def main():
     image_dy_his = []
     image_veh_his = []
 
-
+    max_vel_his =[]
     vehicle_visualization = rospy.get_param("MPC_plotter/vehicle_visualization")
     states_visualization  = rospy.get_param("MPC_plotter/states_visualization")
     error_visualization   = rospy.get_param("MPC_plotter/error_visualization")
@@ -416,7 +425,7 @@ def main():
         dynamic_graph_size = False
         ### Vehicle kinematics
 
-        (fig_veh, plt_veh, axtr, line_est, line_ol, line_meas, line_lpv_pred, line_mpc_pred, rec_est, rec_ol, rec_meas) = plot_vehicle_global_position(x_lim_init_min, y_lim_init_min, x_lim_init_max, y_lim_init_max, track_map)
+        (fig_veh, plt_veh, axtr, line_est, line_ol, line_ref, line_meas, line_lpv_pred, line_mpc_pred, rec_est, rec_ol, rec_meas) = plot_vehicle_global_position(x_lim_init_min, y_lim_init_min, x_lim_init_max, y_lim_init_max, track_map)
 
     ol_x_his     = []
     est_x_his    = []
@@ -525,7 +534,11 @@ def main():
             print "planner_info.x_d", planner_info.x_d
             line_ol.set_data(planner_info.x_d, planner_info.y_d)
 
-            line_meas.set_data(meas_x_his, meas_y_his)
+            line_ref.set_data(planner_info.x_d[:20], planner_info.y_d[:20])
+
+            line_meas.set_data(planner_info.x_pt, planner_info.y_pt)
+
+            # line_meas.set_data(meas_x_his, meas_y_his)
 
             # print "lpv_pred_x, lpv_pred_y", lpv_pred_x, lpv_pred_y
 
@@ -561,8 +574,8 @@ def main():
                 if (y_lim_init_min > min_y_lim):
                     y_lim_init_min = min_y_lim
                     axtr.set_ylim( y_lim_init_min, y_lim_init_max )
-
-            StringValue = "vx = "+str(vx_est) 
+            max_vel_his.append(vx_est)
+            StringValue = "vx = "+str(vx_est) + "Max vel = "+ str(max(max_vel_his)) 
             axtr.set_title(StringValue)
 
             fig_veh.canvas.draw()

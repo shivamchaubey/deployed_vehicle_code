@@ -456,7 +456,7 @@ class KeyTeleop():
         self._hz = rospy.get_param('~hz', 1/0.033)
 
         self._num_steps = rospy.get_param('~turbo/steps', 1.01)
-        self._num_steps2 = rospy.get_param('~turbo/steps', 0.36)
+        self._num_steps2 = rospy.get_param('~turbo/steps', 0.355)
 
         forward_min = rospy.get_param('~turbo/linear_forward_min', 0.025)
         forward_max = rospy.get_param('~turbo/linear_forward_max', 0.5)
@@ -466,8 +466,8 @@ class KeyTeleop():
         backward_max = rospy.get_param('~turbo/linear_backward_max', 0.5)
         self._backward = Velocity(backward_min, backward_max, self._num_steps)
 
-        angular_min = rospy.get_param('~turbo/angular_min', 0.4)
-        angular_max = rospy.get_param('~turbo/angular_max', 0.8)
+        angular_min = rospy.get_param('~turbo/angular_min', 0.7)
+        angular_max = rospy.get_param('~turbo/angular_max', 1.2)
         self._rotation = Velocity(angular_min, angular_max, self._num_steps2)
 
     def run(self):
@@ -560,24 +560,16 @@ class KeyTeleop():
         self.time1 = rospy.get_time()
         # print ("time at start publishing",self.time1-self.time0)
 
-
-        # if  (self.past_linear != self._linear): 
+        if  (self.past_linear != self._linear): 
         
-        #     self.accel_commands.publish(self._linear)
+            self.accel_commands.publish(self._linear)
 
-        # if (self.past_angular != self._angular): 
+        if (self.past_angular != self._angular): 
  
-        #     self.steering_commands.publish(self._angular)
+            self.steering_commands.publish(self._angular)
 
-
-        self.accel_commands.publish(self._linear)
-
-        self.steering_commands.publish(self._angular)
-
-
-        # self.past_linear = self._linear 
-        # self.past_angular = self._angular 
-
+        self.past_linear = self._linear 
+        self.past_angular = self._angular 
         
         # self.imu_vx.publish(self.imu_enc.vx)
         # self.imu_vy.publish(self.imu_enc.vy)
@@ -654,4 +646,3 @@ if __name__ == '__main__':
         curses.wrapper(main)
     except rospy.ROSInterruptException:
         pass
-

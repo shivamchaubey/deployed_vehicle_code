@@ -499,6 +499,8 @@ class fiseye_cam():
 
 
         # rospy.Subscriber('pure_cam_pose', Pose, self.pure_cam_pose_callback, queue_size=1)
+        rospy.wait_for_message('fused_cam_pose', Pose)
+
         rospy.Subscriber('fused_cam_pose', Pose, self.fused_cam_pose_callback, queue_size=1)
 
 
@@ -867,9 +869,14 @@ def Continuous_AB_Comp(vx, vy, omega, theta, delta):
     
     eps = 0.0000001
     # eps = 0
-    # if abs(vx)> 0:
+    # # if abs(vx)> 0:
+    # F_flat = 2*Caf*(delta- atan((vy+lf*omega)/(vx+eps)));
+    # Fry = -2*Car*atan((vy - lr*omega)/(vx+eps)) ;
+
+    
     F_flat = 2*Caf*(delta- atan((vy+lf*omega)/(vx+eps)));
     Fry = -2*Car*atan((vy - lr*omega)/(vx+eps)) ;
+
     A11 = -(1/m)*(C0 + C1/(vx+eps) + Cd_A*rho*vx/2);
     A31 = -Fry*lr/((vx+eps)*Iz);
         
@@ -1379,10 +1386,11 @@ def main():
     # yaw_curr = yaw_correction(imu.yaw)
     yaw_curr = (imu.yaw)
 
+    x_init  = rospy.get_param("switching_lqr_observer/x_tf")
     # est_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, fcam.yaw ]).T
     # est_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, yaw_correction(fcam.yaw) ]).T
     # est_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, imu.yaw ]).T
-    est_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, yaw_curr ]).T
+    est_state = np.array([enc.vx, vy, imu.yaw_rate, x_init, fcam.Y, yaw_curr ]).T
 
 
     est_state_hist = [] 
