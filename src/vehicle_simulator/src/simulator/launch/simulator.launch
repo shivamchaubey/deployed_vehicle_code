@@ -24,7 +24,7 @@
     <param name="duty_th"       type="double"   value="0.05" />  <!-- deadzone where the wheel doesn't rotate -->
 
 
-    <arg name="DISTURBANCE" default="1"/>
+    <arg name="DISTURBANCE" default="0"/>
 
     <arg name="NOISE" default="0"/>
 

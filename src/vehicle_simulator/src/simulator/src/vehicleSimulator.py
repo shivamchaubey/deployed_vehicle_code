@@ -643,7 +643,8 @@ class Sensor_Simulator():
 
         n = max(-self.yaw_std*self.n_bound, min(self.yaw_std*randn(), self.yaw_std*self.n_bound))
 
-        self.yaw = wrap(sim.yaw + n)
+        # self.yaw = sim.yaw + n
+        self.yaw = wrap(sim.yaw) + n
 
 
 

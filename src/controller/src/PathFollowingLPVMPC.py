@@ -52,10 +52,10 @@ class PathFollowingLPV_MPC:
         self.etheta_max = rospy.get_param("orient_e_max")
 
         # bounds on steering and dutycycle changes
-        self.dstr_max   = self.str_max*0.5
-        self.dstr_min   = self.str_min*0.5
-        self.dduty_max  = self.duty_max*0.5
-        self.dduty_min  = self.duty_min*0.5
+        self.dstr_max   = self.str_max*0.8
+        self.dstr_min   = self.str_min*0.8
+        self.dduty_max  = self.duty_max*0.8
+        self.dduty_min  = self.duty_min*0.8
 
         # Normalize the weight to be used as normalized objective function
         vx_scale        = 1/((self.vx_max-self.vx_min)**2)
@@ -96,9 +96,9 @@ class PathFollowingLPV_MPC:
 
 
             if self.slew_rate_on:
-                self.Qw  = 0.8 * np.array([0.5*vx_scale, 0.001, 0.001, 0.1*etheta_scale, 0.0, 0.3*ey_scale]) # penality on states 
-                self.Rw  = 0.1 * np.array([0.01*str_scale, 0.05*duty_scale])     # Penality on input (dutycycle, steer)
-                self.dRw = 0.1 * np.array([0.01*dstr_scale,0.01*dduty_scale])  # Penality on Input rate 
+                self.Qw  = 0.7 * np.array([0.3*vx_scale, 0.0001, 0.0001, 0.2*etheta_scale, 0.0, 0.8*ey_scale]) # penality on states 
+                self.Rw  = 0.01 * np.array([0.1*str_scale, 0.1*duty_scale])     # Penality on input (dutycycle, steer)
+                self.dRw = 0.03 * np.array([0.1*dstr_scale,0.1*dduty_scale])  # Penality on Input rate 
 
                 self.Qew = np.array([1, 0, 0, 1, 0, 1])*(10.0e8) # Penality on soft constraints 
 
@@ -765,7 +765,7 @@ class PathFollowingLPV_MPC:
         Ctv = []
 
         dt = self.dt
-        dt_time = int(self.N*0.30)
+        dt_time = int(self.N*0.50)
         dt_counter = 1.0
 
         for i in range(0, self.N):
@@ -775,7 +775,7 @@ class PathFollowingLPV_MPC:
 
             if i > dt_time:
                 # dt_counter += dt            
-                dt +=  dt*0.25
+                dt +=  dt*0.4
 
             vx      = float(states[0])
             vy      = float(states[1])
@@ -799,9 +799,9 @@ class PathFollowingLPV_MPC:
             # print "vel_ref[i,0]", vel_ref
             vx      = float(vel_ref[i])
             
-            # if i == (self.N - 1):
-            #     ey = 0
-            #     epsi = 0
+            if i == (self.N - 1):
+                ey = 0
+                epsi = 0
 
             delta = float(u[i,0])
             dutycycle = float(u[i,1])
