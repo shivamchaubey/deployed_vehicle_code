@@ -333,8 +333,8 @@ def main():
             #     SS = np.ones(N+1,)*S_realDist
 
         else:
-            SS[0] = SS[1]
-            LocalState[:] = np.array([0.5, 0, 0, 0, 0])
+            # SS[0] = SS[1]
+            LocalState[:] = np.array([0.5, 0, 0, 0, 0, 0])
             S_realDist, LocalState[4], LocalState[3], insideTrack = map.getLocalPosition(xp[0], yp[0], yaw[0])
             
         ###################################################################################################
@@ -353,7 +353,7 @@ def main():
             xx, uu = predicted_vectors_generation(N, x0, duty_cycle, delta, planner_dt)
            
             Planner.uPred = uu
-            Planner.xPred = xx[:,:5]
+            Planner.xPred = xx
 
             Planner.uminus1 = Planner.uPred[0,:] 
 

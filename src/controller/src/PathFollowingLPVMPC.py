@@ -91,7 +91,7 @@ class PathFollowingLPV_MPC:
          
         if self.planning_mode == 1:            
 
-            self.Qw  = 0.6 * np.array([0.4*vx_scale, 0.0, 0.00, 0.05*etheta_scale, 0.0, 0.1*ey_scale]) # penality on states 
+            self.Qw  = 0.6 * np.array([0.6*vx_scale, 0.0, 0.00, 0.05*etheta_scale, 0.0, 0.2*ey_scale]) # penality on states 
             self.Rw  = 0.1 * np.array([0.0*str_scale, 0.05*duty_scale])     # Penality on input (dutycycle, steer)
             
         if self.planning_mode == 2:            
@@ -101,7 +101,7 @@ class PathFollowingLPV_MPC:
 
         if self.planning_mode == 3:       #### OFFLINE PLANNER #######     
 
-            self.Qw  = 0.8 * np.array([0.3*vx_scale, 0.0, 0.00, 0.2*etheta_scale, 0.0, 0.5*ey_scale]) # penality on states 
+            self.Qw  = 0.8 * np.array([0.5*vx_scale, 0.0, 0.00, 0.02*etheta_scale, 0.0, 0.05*ey_scale]) # penality on states 
             self.Rw  = 0.1 * np.array([0.001*str_scale, 0.05*duty_scale])     # Penality on input (dutycycle, steer)
 
         # self.Q  = 0.8 * np.array([0.5*vx_scale, 0.0, 0.00, 0.2*etheta_scale, 0.0, 0.3*ey_scale]) # penality on states 
@@ -162,7 +162,7 @@ class PathFollowingLPV_MPC:
         [N,nx,nu] = self.N, self.nx, self.nu 
 
         xr = np.array([vel_ref,0.,0.,0.,0.,0.])
-        u_ref = np.array([0.0,0.0])
+        u_ref = np.array([0.01,0.01])
     
         #################### P formulation ################################
         self.Q  = sparse.diags(self.Qw)
@@ -282,7 +282,7 @@ class PathFollowingLPV_MPC:
         
 
      
-    def MPC_update(self, A_vec, B_vec, u, x0, ref):
+    def MPC_update(self, A_vec, B_vec, x0, ref):
         '''
         Input: LPV Model(A_vec, B_vec) , current estimated state states (x0), previous input if slew_rate == on 
         Ouput: Update the MPO formulation
@@ -821,12 +821,12 @@ class PathFollowingLPV_MPC:
 
             
 
-            Ai = np.array([ [A11    ,  A12 ,  A13 ,  0., 0., 0.],   # [vx]
-                            [ 0.     ,  A22 ,  A23  , 0., 0. , 0.],   # [vy]
-                            [ 0.     ,  A32 ,  A33  , 0., 0., 0.],   # [wz]
-                            [-A1*cur    ,  A1*A2*cur ,   1. ,   0., 0., 0. ],   # [epsi]
-                            [A51    ,  A52 ,   1 ,  0., 0. , 0.],   # [s] 
-                            [0.    ,  1 ,   0. ,  0., 0. ,A4  ]])  # [ey] 
+            # Ai = np.array([ [A11    ,  A12 ,  A13 ,  0., 0., 0.],   # [vx]
+            #                 [ 0.     ,  A22 ,  A23  , 0., 0. , 0.],   # [vy]
+            #                 [ 0.     ,  A32 ,  A33  , 0., 0., 0.],   # [wz]
+            #                 [-A1*cur    ,  A1*A2*cur ,   1. ,   0., 0., 0. ],   # [epsi]
+            #                 [A51    ,  A52 ,   1 ,  0., 0. , 0.],   # [s] 
+            #                 [0.    ,  1 ,   0. ,  0., 0. ,A4  ]])  # [ey] 
 
 
             Bi  = np.array([[ B11, B12 ], #[delta, a]
@@ -838,12 +838,12 @@ class PathFollowingLPV_MPC:
 
             # print "Bi", Bi
 
-            # Ai = np.array([[A11    ,  A12 ,   A13 ,  0., 0., 0.],  # [vx]
-            #                 [0    ,  A22 ,   A23  ,  0., 0., 0.],  # [vy]
-            #                 [0    ,   A32 ,    A33  ,  0., 0., 0.],  # [wz]
-            #                 [-A1*cur    ,  A1*A2*cur ,   1. ,   0., 0, 0. ],  # [epsi]
-            #                 [A51    ,  A52 ,   0. ,  0., 0., 0.],  # [s]
-            #                 [0.    ,  1 ,   0. ,  0., 0., A4 ]]) # [ey]
+            Ai = np.array([[A11    ,  A12 ,   A13 ,  0., 0., 0.],  # [vx]
+                            [0    ,  A22 ,   A23  ,  0., 0., 0.],  # [vy]
+                            [0    ,   A32 ,    A33  ,  0., 0., 0.],  # [wz]
+                            [-A1*cur    ,  A1*A2*cur ,   1. ,   0., 0, 0. ],  # [epsi]
+                            [A51    ,  A52 ,   0. ,  0., 0., 0.],  # [s]
+                            [0.    ,  1 ,   0. ,  0., 0., A4 ]]) # [ey]
 
 
             # Ai = np.array([[A11    ,  A12 ,   A13 ,  0., 0., 0.],  # [vx]
@@ -943,18 +943,20 @@ class PathFollowingLPV_MPC:
             #     vy      = ref[1][i]
             #     omega   = ref[2][i]
             #     epsi    = ref[3][i]
-            #     # s       = ref[4][i]
+            s       = ref[4][i]
             #     ey      = ref[5][i]
             #     cur     = ref[5][i]
-            # omega   = ref[2][i]
-            # epsi    = ref[3][i]
-            # ey      = ref[5][i]
+            omega   = ref[2][i]
+            epsi    = ref[3][i]
+            ey      = ref[5][i]
             # s       = ref[4][i]
             # PointAndTangent = self.map.PointAndTangent
             # cur     = Curvature(s, PointAndTangent)
 
+            # omega   = ref[2][i]
+            vy      = ref[1][i]
             vx      = ref[0][i]
-            cur     = ref[5][i]
+            cur     = ref[6][i]
             # ey      = ref[5][i]
             # epsi    = ref[3][i]
             # if i == (self.N - 1):
@@ -974,15 +976,15 @@ class PathFollowingLPV_MPC:
 
             eps = 0.00
             ## et to not go to nan
-            if abs(vx) > 0.000001:  
-                A11 = -(1/m)*(C0 + C1/(eps+vx) + Cd_A*rho*vx/2);
-                A12 = 2*Caf*sin(delta)/(m*(vx+eps)) 
-                A13 = 2*Caf*lf*sin(delta)/(m*(vx+eps)) + vy
-                A22 = -(2*Car + 2*Caf*cos(delta))/(m*(vx+eps))
-                A23 = (2*Car*lr - 2*Caf*lf*cos(delta))/(m*(vx+eps)) - vx
-                A32 = (2*Car*lr - 2*Caf*lf*cos(delta))/(Iz*(vx+eps))
-                A33 = -(2*Car*lf*lf*cos(delta) + 2*Caf*lr*lr)/(Iz*(vx+eps))
-                B31 = 2*Caf*lf*cos(delta)/(Iz*(vx+eps))
+            # if abs(vx) > 0.000001:  
+            A11 = -(1/m)*(C0 + C1/(eps+vx) + Cd_A*rho*vx/2);
+            A12 = 2*Caf*sin(delta)/(m*(vx+eps)) 
+            A13 = 2*Caf*lf*sin(delta)/(m*(vx+eps)) + vy
+            A22 = -(2*Car + 2*Caf*cos(delta))/(m*(vx+eps))
+            A23 = (2*Car*lr - 2*Caf*lf*cos(delta))/(m*(vx+eps)) - vx
+            A32 = (2*Car*lr - 2*Caf*lf*cos(delta))/(Iz*(vx+eps))
+            A33 = -(2*Car*lf*lf*cos(delta) + 2*Caf*lr*lr)/(Iz*(vx+eps))
+            B31 = 2*Caf*lf*cos(delta)/(Iz*(vx+eps))
 
             A41 = -(cur*cos(epsi))/(1-ey*cur)
             A42 = (cur*sin(epsi))/(1-ey*cur)
@@ -1009,12 +1011,12 @@ class PathFollowingLPV_MPC:
 
             
 
-            Ai = np.array([ [A11    ,  A12 ,  A13 ,  0., 0., 0.],   # [vx]
-                            [ 0.     ,  A22 ,  A23  , 0., 0. , 0.],   # [vy]
-                            [ 0.     ,  A32 ,  A33  , 0., 0., 0.],   # [wz]
-                            [-A1*cur    ,  A1*A2*cur ,   1. ,   0., 0., 0. ],   # [epsi]
-                            [A51    ,  A52 ,   1 ,  0., 0. , 0.],   # [s] 
-                            [0.    ,  1 ,   0. ,  0., 0. ,A4  ]])  # [ey] 
+            # Ai = np.array([ [A11    ,  A12 ,  A13 ,  0., 0., 0.],   # [vx]
+            #                 [ 0.     ,  A22 ,  A23  , 0., 0. , 0.],   # [vy]
+            #                 [ 0.     ,  A32 ,  A33  , 0., 0., 0.],   # [wz]
+            #                 [-A1*cur    ,  A1*A2*cur ,   1. ,   0., 0., 0. ],   # [epsi]
+            #                 [A51    ,  A52 ,   1 ,  0., 0. , 0.],   # [s] 
+            #                 [0.    ,  1 ,   0. ,  0., 0. ,A4  ]])  # [ey] 
 
 
             Bi  = np.array([[ B11, B12 ], #[delta, a]
@@ -1034,12 +1036,12 @@ class PathFollowingLPV_MPC:
             #                 [0.    ,  1 ,   0. ,  0., 0., A4 ]]) # [ey]
 
 
-            # Ai = np.array([[A11    ,  A12 ,   A13 ,  0., 0., 0.],  # [vx]
-            #                 [0    ,  A22 ,   A23  ,  0., 0., 0.],  # [vy]
-            #                 [0    ,   A32 ,    A33  ,  0., 0., 0.],  # [wz]
-            #                 [A41   ,  A42 ,   1. ,   0., 0, 0. ],  # [epsi]
-            #                 [A51    ,  A52 ,   0. ,  0., 0., 0.],  # [s]
-            #                 [A61    ,  A62 ,   0. ,  0., 0., 0. ]]) # [ey]
+            Ai = np.array([[A11    ,  A12 ,   A13 ,  0., 0., 0.],  # [vx]
+                            [0    ,  A22 ,   A23  ,  0., 0., 0.],  # [vy]
+                            [0    ,   A32 ,    A33  ,  0., 0., 0.],  # [wz]
+                            [A41   ,  A42 ,   1. ,   0., 0, 0. ],  # [epsi]
+                            [A51    ,  A52 ,   0. ,  0., 0., 0.],  # [s]
+                            [A61    ,  A62 ,   0. ,  0., 0., 0. ]]) # [ey]
 
             # print "Ai", Ai
 
@@ -1105,6 +1107,31 @@ class PathFollowingLPV_MPC:
         for i in range(0, self.N):
 
 
+            ## new model without atan
+            # Ai = np.array([ [1.0    ,  1.0 ,   1.0  ,  0., 0., 0.],  # [vx]
+            #                 [0.    ,  1.0 ,   1.0   ,  0., 0., 0.],  # [vy]
+            #                 [0.    ,   1.0  ,   1.0   ,  0., 0., 0.],  # [wz]
+            #                 [1.0    ,  1.0 ,   1.0 ,  0., 0., 0.],  # [epsi]
+            #                 [1.0    ,  1.0 ,   0.  ,  0., 0., 0.],  # [s]
+            #                 [1.0    ,  1.0 ,   0.  ,  0., 0., 0.]]) # [ey]
+
+            # Ai = np.array([[1.0    ,  1.0 ,   1.0 ,  0., 0., 0.],  # [vx]
+            #                 [0.    ,  1.0 ,   1.0  ,  0., 0., 0.],  # [vy]
+            #                 [0.    ,   1.0 ,    1.0  ,  0., 0., 0.],  # [wz]
+            #                 [1.0    ,  1.0 ,   1. ,   0., 0, 0. ],  # [epsi]
+            #                 [1.0    ,  1.0 ,   0. ,  0., 0., 0.],  # [s]
+            #                 [0.    ,  1 ,   0. ,  0., 0., 1.0 ]]) # [ey]
+
+
+            ##general model
+            # Ai = np.array([ [1.0    ,  1.0 ,   1.0  ,  0., 0., 0.],  # [vx]
+            #                 [1.0    ,  1.0 ,   1.0   ,  0., 0., 0.],  # [vy]
+            #                 [1.0    ,  1.0  ,   1.0   ,  0., 0., 0.],  # [wz]
+            #                 [1.0    ,  1.0 ,   1.0 ,  0., 0., 0.],  # [epsi]
+            #                 [1.0    ,  1.0 ,   0.  ,  0., 0., 0.],  # [s]
+            #                 [1.0    ,  1.0 ,   0.  ,  0., 0., 1.0]]) # [ey]
+
+            # workoing with -A1*A2*cur model
             Ai = np.array([ [1.0    ,  1.0 ,   0.  ,  0., 0., 0.],  # [vx]
                             [1.0    ,  1.0 ,   0   ,  0., 0., 0.],  # [vy]
                             [1.0    ,   0  ,   0   ,  0., 0., 0.],  # [wz]

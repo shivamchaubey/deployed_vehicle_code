@@ -368,7 +368,7 @@ class Path_planner_MPC:
 
             # print "epsi", epsi
             PointAndTangent = self.map.PointAndTangent         
-            cur     = Curvature(SS[i], PointAndTangent)
+            cur     = Curvature(s, PointAndTangent)
 
             delta   = float(u[i,0])  
             
@@ -418,33 +418,38 @@ class Path_planner_MPC:
             A2      = np.sin(epsi)
             A4 = vx
 
-            # print "\nA1", A1, "A2",A2, "A4", A4 
-            Ai = np.array([ [A11    ,  A12 ,  A13 ,  0., 0. ],   # [vx]
-                            [ 0     ,  A22 ,  A23  , 0., 0. ],   # [vy]
-                            [ 0     ,  A32 ,  A33  , 0., 0. ],   # [wz]
-                            [0    ,  1 ,   0 ,   0., A4 ],   # [ey]
-                            [-A1*cur    ,  A1*A2*cur ,   1 ,  0., 0. ]])  # [epsi] 
+            Bi  = np.array([[ B11, B12 ], #[delta, a]
+                            [ B21, 0 ],
+                            [ B31, 0 ],
+                            [ 0,   0 ],
+                            [ 0,   0 ],
+                            [ 0,   0 ]])
 
-            
+            # print "Bi", Bi
 
-            # Ai = np.array([ [A11    ,  A12 ,  A13 ,  0., 0. ],   # [vx]
-            #                 [ 0     ,  A22 ,  A23  , 0., 0. ],   # [vy]
-            #                 [ 0     ,  A32 ,  A33  , 0., 0. ],   # [wz]
-            #                 [A61    ,  A62 ,   0. ,   0., 0 ],   # [ey]
-            #                 [A41    ,  A42 ,   1 ,  0., 0. ]])  # [epsi] 
+            # Ai = np.array([[A11    ,  A12 ,   A13 ,  0., 0., 0.],  # [vx]
+            #                 [0    ,  A22 ,   A23  ,  0., 0., 0.],  # [vy]
+            #                 [0    ,   A32 ,    A33  ,  0., 0., 0.],  # [wz]
+            #                 [-A1*cur    ,  A1*A2*cur ,   1. ,   0., 0, 0. ],  # [epsi]
+            #                 [A51    ,  A52 ,   0. ,  0., 0., 0.],  # [s]
+            #                 [0.    ,  1 ,   0. ,  0., 0., A4 ]]) # [ey]
 
 
-            Bi  = np.array([[ B11, B12 ], #[steer, dutycycle
-                            [ B21, 0. ],
-                            [ B31, 0. ],
-                            [ 0.,   0. ],
-                            [ 0.,   0. ]])
+            Ai = np.array([[A11    ,  A12 ,   A13 ,  0., 0., 0.],  # [vx]
+                            [0    ,  A22 ,   A23  ,  0., 0., 0.],  # [vy]
+                            [0    ,   A32 ,    A33  ,  0., 0., 0.],  # [wz]
+                            [A41   ,  A42 ,   1. ,   0., 0, 0. ],  # [epsi]
+                            [A51    ,  A52 ,   0. ,  0., 0., 0.],  # [s]
+                            [A61    ,  A62 ,   0. ,  0., 0., 0. ]]) # [ey]
 
-            Ci  = np.array([[ 0. ],
-                            [ 0. ],
-                            [ 0. ],
-                            [ 0. ],
-                            [ 0. ]])
+            # print "Ai", Ai
+
+            Ci  = np.array([[ 0 ],
+                            [ 0 ],
+                            [ 0 ],
+                            [ 0 ],
+                            [ 0 ],
+                            [ 0 ]])
 
    
 
@@ -735,19 +740,22 @@ class Path_planner_MPC:
         for i in range(0, self.N):
 
 
-            Ai = np.array([ [1.0    ,  1.0 ,  1.0  ,  0., 0.],  # [vx]
-                            [0.     ,  1.0 ,  1.0  ,  0., 0.],  # [vy]
-                            [0.     ,  1.0 ,  1.0  ,  0., 0.],  # [wz]
-                            [0.     ,  1.0 ,   0.  ,  0., 1.],  # [ey]
-                            [1.0    ,  1.0 ,   1.  ,  0., 0.]])  # [epsi]]) # [ey]
+            Ai = np.array([ [1.0    ,  1.0 ,  1.0  ,  0., 0., 0.],  # [vx]
+                            [0.     ,  1.0 ,  1.0  ,  0., 0., 0.],  # [vy]
+                            [0.     ,  1.0 ,  1.0  ,  0., 0., 0.],  # [wz]
+                            [1.     ,  1.0 ,   1.  ,  0., 0., 0.],  # [epsi]
+                            [1.0    ,  1.0 ,   0.  ,  0., 0., 0.],  # [s]])
+                            [1.0    ,  1.0 ,   0.  ,  0., 0., 1.]]) # [ey]])  
 
             Bi  = np.array([[ 1.0, 1.0 ], #[delta, a]
                             [ 1.0,  0  ],
                             [ 1.0,  0  ],
                             [  0 ,  0  ],
+                            [  0 ,  0  ],
                             [  0 ,  0  ]])
 
             Ci  = np.array([[ 0 ],
+                            [ 0 ],
                             [ 0 ],
                             [ 0 ],
                             [ 0 ],

@@ -67,11 +67,11 @@ def plot_vehicle_global_position(x_lim_min, y_lim_min, x_lim_max, y_lim_max, map
     plt.plot(Points0[:, 0], Points0[:, 1], '--y' , linewidth  = 2) #outer track
 
 
-    line_ol,        = axtr.plot(xdata, ydata, '-ob', label = 'Planner trajectory', linewidth  = 2)
-    line_ref,        = axtr.plot(xdata, ydata, '-o', color = 'orange', label = 'Controller reference', linewidth  = 4)
+    line_ol,        = axtr.plot(xdata, ydata, '-b', label = 'Planner trajectory', linewidth  = 2)
+    line_ref,        = axtr.plot(xdata, ydata, '-o', color = 'orange', label = 'Controller reference', linewidth  = 4, markersize = 7, alpha = 0.3)
     line_est,       = axtr.plot(xdata, ydata, '-b', label = 'Estimated states')  
     line_meas,      = axtr.plot(xdata, ydata, '-m', label = 'Measured position camera') 
-    line_lpv_pred,  = axtr.plot(xdata, ydata, '-o', color='yellow' , label = 'Model prediction', linewidth  = 1)
+    line_lpv_pred,  = axtr.plot(xdata, ydata, '-o', color='gray' , label = 'Model prediction', linewidth  = 1,  markersize = 5)
     line_mpc_pred,  = axtr.plot(xdata, ydata, '-oc', label = 'MPC prediction', linewidth  = 1) 
 
     l = 0.42/2; w = 0.19/2
@@ -575,7 +575,7 @@ def main():
                     y_lim_init_min = min_y_lim
                     axtr.set_ylim( y_lim_init_min, y_lim_init_max )
             max_vel_his.append(vx_est)
-            StringValue = "vx = "+str(vx_est) + "Max vel = "+ str(max(max_vel_his)) 
+            StringValue = "vx = "+str(vx_est) + "   Max vel = "+ str(max(max_vel_his)) 
             axtr.set_title(StringValue)
 
             fig_veh.canvas.draw()

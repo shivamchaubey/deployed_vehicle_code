@@ -26,7 +26,7 @@
     <param name="max_vel"          type="double"   value="5.0" />
     <param name="min_vel"          type="double"   value="-0.01" />
     <param name="dutycycle_max"     type="double"   value="1.0" />
-    <param name="dutycycle_min"     type="double"   value="-0.05" />
+    <param name="dutycycle_min"     type="double"   value="-0.00" />
     <param name="steer_max"         type="double"   value="0.349" />
     <param name="steer_min"         type="double"   value="-0.349" />
     <param name="lat_e_max"         type="double"   value="0.25" />   <!-- like halfWidth-->
@@ -44,10 +44,10 @@
     <node pkg="planner" type="mpc_planner.py" name="trajectory_planner" output="screen"> 
          <param name="Planning_Track"   type="int"      value="1" /> 
          <param name="N"                type="int"      value="40" /> 
-         <param name="Hz"        type="int"      value="10" /> 
+         <param name="Hz"        type="int"      value="25" /> 
          <param name="vel_ref"        type="double"      value="1.2" /> <!-- reference velocity --> 
          <param name="halfWidth"        type="double"   value="0.25" />
-         <param name="Visualization"    type="int"      value="1" />
+         <param name="Visualization"    type="int"      value="0" />
          <param name="Mode"          type="int"      value="1" /> <!-- 1: for testing without estimator, 2: solution w.r.t the estimator data 3: keyboard input with estimator testing  -->
         <param name="integral_action"   type="bool"     value="false"/>
         <param name="soft_constraints"  type="bool"     value="false"/>

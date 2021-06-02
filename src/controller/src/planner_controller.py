@@ -185,7 +185,8 @@ class predicted_states_msg():
         self.LPV_prediction_state_pub.publish(self.LPV_prediction_states)
     # def MPC_update(self):
 
-def interpolate_references(planner_dt, planner_N, controller_dt, x_ref_p, y_ref_p, yaw_ref_p, vx_ref_p, vy_ref_p, omega_ref_p, epsi_ref_p, ey_ref_p, s_ref_p, curv_ref_p):
+def interpolate_references(planner_dt, planner_N, controller_dt, x_ref_p, y_ref_p, yaw_ref_p, vx_ref_p, vy_ref_p, omega_ref_p, epsi_ref_p,\
+ ey_ref_p, s_ref_p, curv_ref_p, steer_ref_p, duty_ref_p):
 
     msg = "Interpolation starting"
     print msg
@@ -297,6 +298,34 @@ def interpolate_references(planner_dt, planner_N, controller_dt, x_ref_p, y_ref_
     curv_ref_p_interp = np.array(curv_ref_p_interp)
     print 'curv_ref Interpolation done'
 
+
+    msg = 'steer_ref Interpolation'
+    # Filter to be applied.
+    b_filter, a_filter = signal.ellip(4, 0.01, 120, 0.125) 
+    steer_ref_p_interp = []
+    for i in tqdm(range(len(steer_ref_p))):
+        f = interp1d(planner_hz_time, steer_ref_p[i], kind='cubic')
+        # steer_interp_filtered  = signal.filtfilt(b_filter, a_filter, f(controller_hz_time), padlen=25)
+        steer_ref_p_interp.append(f(controller_hz_time))  
+        
+    steer_ref_p_interp = np.array(steer_ref_p_interp)
+    print 'steer_ref Interpolation done'
+
+
+    msg = 'duty_ref Interpolation'
+    # Filter to be applied.
+    b_filter, a_filter = signal.ellip(4, 0.01, 120, 0.125) 
+    duty_ref_p_interp = []
+    for i in tqdm(range(len(duty_ref_p))):
+        f = interp1d(planner_hz_time, duty_ref_p[i], kind='cubic')
+        # duty_interp_filtered  = signal.filtfilt(b_filter, a_filter, f(controller_hz_time), padlen=25)
+        duty_ref_p_interp.append(f(controller_hz_time))  
+        
+    duty_ref_p_interp = np.array(duty_ref_p_interp)
+    print 'duty_ref Interpolation done'
+
+
+
     # f = interp1d(planner_hz_time, curv, kind='cubic')
     # Curv_interp = f(controller_hz_time)     
     # print len(Curv_interp)
@@ -306,7 +335,8 @@ def interpolate_references(planner_dt, planner_N, controller_dt, x_ref_p, y_ref_
     print "Interpolation done"
 
 
-    return interp_factor, x_ref_p_interp, y_ref_p_interp, yaw_ref_p_interp, vx_ref_p_interp, vy_ref_p_interp, omega_ref_p_interp, epsi_ref_p_interp, ey_ref_p_interp, s_ref_p_interp, curv_ref_p_interp
+    return interp_factor, x_ref_p_interp, y_ref_p_interp, yaw_ref_p_interp, vx_ref_p_interp, vy_ref_p_interp, omega_ref_p_interp,\
+     epsi_ref_p_interp, ey_ref_p_interp, s_ref_p_interp, curv_ref_p_interp, steer_ref_p_interp, duty_ref_p_interp
 
 
 
@@ -407,6 +437,7 @@ def main():
         print "offline_path", offline_path
         planner_refs = np.load(offline_path, allow_pickle=True).item()
 
+        planner_time  =  planner_refs['time']
         planner_dt  =  planner_refs['planner_dt']
         planner_N  =  planner_refs['planner_N']
         counter_ref  =  planner_refs['counter'] 
@@ -421,14 +452,19 @@ def main():
         epsi_ref_p   =  planner_refs['epsi_d']   
         ey_ref_p     =  planner_refs['ey_d']     
         s_ref_p      =  planner_refs['s_d']
-        curv_ref_p   =  planner_refs['curv_d'] 
-
-        interp_factor, x_ref_interp, y_ref_interp, yaw_ref_interp, vx_ref_interp, vy_ref_interp, omega_ref_interp, epsi_ref_interp, ey_ref_interp, s_ref_interp, curv_ref_interp \
-        = interpolate_references(planner_dt,planner_N, dt, x_ref_p, y_ref_p, yaw_ref_p, vx_ref_p, vy_ref_p, omega_ref_p, epsi_ref_p, ey_ref_p, s_ref_p, curv_ref_p)
+        curv_ref_p   =  planner_refs['curv_d']
+        steer_ref_p   =  planner_refs['steer_d'] 
+        duty_ref_p   =  planner_refs['duty_d']
+        
+        interp_factor, x_ref_interp, y_ref_interp, yaw_ref_interp, vx_ref_interp, vy_ref_interp, omega_ref_interp, epsi_ref_interp, ey_ref_interp, s_ref_interp, curv_ref_interp, \
+        steer_ref_interp, duty_ref_interp= interpolate_references(planner_dt,planner_N, dt, x_ref_p, y_ref_p, yaw_ref_p, vx_ref_p, vy_ref_p, omega_ref_p, epsi_ref_p, ey_ref_p, s_ref_p,\
+         curv_ref_p, steer_ref_p, duty_ref_p)
 
         offline_counter = 0 
         planner_index = 0   
-            
+        
+        # print "calculated planner time = {}".format(np.mean(planner_time[1:] - planner_time[:-1]))       
+        # print "Received planner time = {}".format(planner_dt)
 
     estimatorData       = EstimatorData()   # observer reading
     
@@ -565,8 +601,10 @@ def main():
             ey_ref      = ey_ref_interp[offline_counter,planner_index:(planner_index+N)]  
             s_ref       = s_ref_interp[offline_counter,planner_index:(planner_index+N)]  
             curv_ref    = curv_ref_interp[offline_counter,planner_index:(planner_index+N)]  
+            steer_ref    = steer_ref_interp[offline_counter,planner_index:(planner_index+N)]  
+            duty_ref    = duty_ref_interp[offline_counter,planner_index:(planner_index+N)]  
 
-            if interp_factor == planner_index: ### when the sampling factor meets then switch to new trajectory
+            if (interp_factor -1) == planner_index: ### when the sampling factor meets then switch to new trajectory
                 planner_index = 0
                 offline_counter += 1
 
@@ -576,14 +614,15 @@ def main():
             # planner_index += 1
 
             print 'planner_index', planner_index, 'offline_counter', offline_counter
-            # OUT: s, ex, ey, epsi
-            # IN: (x, y, psi, xd, yd, psid, s0, vx, vy, curv, dt):
+
 
             # ## OUT: s, ey, epsi       IN: x, y, psi
             LocalState[4], LocalState[5], LocalState[3], insideTrack = map.getLocalPosition(
                 GlobalState[3], GlobalState[4], wrap(GlobalState[5]))
 
             # print "yaw_ref[0]", yaw_ref.shape
+            # OUT: s, ex, ey, epsi
+            # IN: (x, y, psi, xd, yd, psid, s0, vx, vy, curv, dt):
             # LocalState[4], Xerror, LocalState[5], LocalState[3] = Body_Frame_Errors(GlobalState[3], 
             #      GlobalState[4], GlobalState[5], x_ref[0], y_ref[0], yaw_ref[0], SS, LocalState[0],
             #      LocalState[1], curv_ref[0], dt )   
@@ -598,8 +637,8 @@ def main():
             planning_refs_msg.counter    =      offline_counter  
             planning_refs_msg.x_pt       =      xpt_ref_p
             planning_refs_msg.y_pt       =      ypt_ref_p
-            planning_refs_msg.x_d        =      x_ref 
-            planning_refs_msg.y_d        =      y_ref 
+            planning_refs_msg.x_d        =      x_ref_interp[offline_counter,:]#x_ref 
+            planning_refs_msg.y_d        =      y_ref_interp[offline_counter,:]#y_ref 
             planning_refs_msg.psi_d      =      yaw_ref 
             planning_refs_msg.vx_d       =      vx_ref 
             planning_refs_msg.vy_d       =      vy_ref 
@@ -631,10 +670,10 @@ def main():
         ###################################################################################################
         ###################################################################################################
 
-        if first_it < 5:
+        if first_it < 4:
 
             # Controller.planning_mode = 1
-            duty_cycle  = 0.0
+            duty_cycle  = 0.01
 
             delta = 0.01
             # xx, uu      = predicted_vectors_generation(N, LocalState, accel_rate, dt)
@@ -654,26 +693,24 @@ def main():
 
             # print "LPV_States_Prediction", LPV_States_Prediction
             
-            if first_it == 5:
+            if first_it == 4:
                 print "MPC setup"
                 # print "vel_ref, curv_ref", len(vel_ref), len(curv_ref)
-                LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction_setup()
-
-                Controller.MPC_setup(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref) 
-                # Controller.MPC_solve()
                 
-                # Controller.planning_mode = rospy.get_param("planning_mode")
 
-                # if Controller.planning_mode == 1:
-                #     rospy.wait_for_message("My_Planning", My_Planning)
+                if test_gen == 3:
 
-                #     c = 0
-                #     while len(planner.vx_d)==0:
-                #         c+=1
-                #         if c == 10000:
-                #             print "information not received from planner"
-                #             states_info_pub.publish(states_info_msg)
-                #             break
+
+                    LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction_setup()
+
+                    Controller.MPC_setup(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref) 
+
+                else:
+
+                    LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction_setup()
+
+                    Controller.MPC_setup(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref) 
+
 
             else:
                 t1 = time.time() 
@@ -690,25 +727,34 @@ def main():
                     # print "Controller.xPred", Controller.xPred
                     print "MPC update"
                     ref_qp = [Vx_ref, 0, 0, 0, 0, 0]
-                    Controller.MPC_update(A_L, B_L, Controller.uPred, LocalState[0:6], ref_qp) 
+                    Controller.MPC_update(A_L, B_L, LocalState[0:6], ref_qp) 
                     Controller.MPC_solve()
 
                 if test_gen == 3:
 
-                    Controller.update_q = False
+                    Controller.update_q = True
+                    ref_init = [vx_ref[0] , vy_ref[0], omega_ref[0], epsi_ref[0], s_ref[0], ey_ref[0]]
+                    
+                    ref_states = [vx_ref , vy_ref, omega_ref, epsi_ref, s_ref, ey_ref, curv_ref]
+                    ref_u = np.vstack([steer_ref, duty_ref]).T
 
-                    ref_lpv = [vx_ref , vy_ref, omega_ref, epsi_ref, s_ref, ey_ref, curv_ref]
+                    print "ref_u.shape", ref_u.shape, "Controller.uPred.shape", Controller.uPred.shape, steer_ref.shape, duty_ref.shape
                     # print "len(vel_ref), len(curv_ref)",len(vel_ref), len(curv_ref)
-                    LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction_planner(LocalState[0:6], Controller.uPred, ref_lpv)
+                    LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction_planner(ref_init, ref_u, ref_states)
+
+                    # LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction_planner(LocalState[0:6], Controller.uPred, ref_lpv)
                     # LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction(LocalState[0:6], Controller.uPred, vel_ref, curv_ref,  )
-                
-                    # publish_predicted.LPV_msg_update(map, LPV_States_Prediction)
-                    # publish_predicted.LPV_msg_update(map, Controller.xPred)
+
 
                     # print "Controller.xPred", Controller.xPred
                     print "MPC update", vel_ref[0], Vx_ref
-                    ref_qp = [Vx_ref, 0, 0, 0, 0 , 0]
-                    Controller.MPC_update(A_L, B_L, Controller.uPred, LocalState[0:6], ref_qp) 
+                    # ref_qp = [Vx_ref, 0, 0, 0, 0 , 0]
+                    ref_qp = [vx_ref[N-1] , 0., 0., epsi_ref[N-1], 0., ey_ref[N-1]]
+
+                    Controller.MPC_update(A_L, B_L, LocalState[0:6], ref_qp) 
+
+                    # Controller.MPC_update(A_L, B_L, np.array(ref_init), ref_qp) 
+
                     Controller.MPC_solve()
                 
                 print "feasible", Controller.feasible
@@ -743,6 +789,10 @@ def main():
         dutycycle_commands.publish(Controller.uPred[0,1])
         steering_commands.publish(Controller.uPred[0,0])
 
+
+        if predicted_points_pub_on == True:
+            LPV_prediction_state_pub.publish(lpvPrediction_msg)
+
         if Controller.feasible == 1:
             print('control actions',"delta", Controller.uPred[0,0],"dutycycle", Controller.uPred[0,1])
             print('\n')
@@ -753,7 +803,6 @@ def main():
                 
             if predicted_points_pub_on == True:
                 MPC_prediction_state_pub.publish(mpcPrediction_msg)
-                LPV_prediction_state_pub.publish(lpvPrediction_msg)
 
 
         # else:
