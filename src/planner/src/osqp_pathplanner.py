@@ -98,7 +98,7 @@ class Path_planner_MPC:
         # self.R  = 0.1 * np.array([0.01*str_scale, 0.01*duty_scale])     # Penality on input (dutycycle, steer)
         
 
-        self.Q  = 0.8 * np.array([0.6*vx_scale, 0.000000, 0.01, 0.03*ey_scale, 0.0001*etheta_scale]) # penality on states 
+        self.Q  = 0.8 * np.array([0.6*vx_scale, 0.000000, 0.01, 0.3*ey_scale, 0.01*etheta_scale]) # penality on states 
         self.R  = 0.01 * np.array([0.01*str_scale, 0.01*duty_scale])     # Penality on input (dutycycle, steer)
         
 
@@ -371,8 +371,15 @@ class Path_planner_MPC:
             cur     = Curvature(SS[i], PointAndTangent)
 
             delta   = float(u[i,0])  
+            dutycycle   = float(u[i,1])  
             
             # print "delta", delta, "duty", u[i,1] 
+
+            # if abs(dutycycle) <= 0.05:
+            #     vx = 0.0
+            #     vy = 0.0
+            #     omega = 0.0
+
 
             A11 = 0.0
             A12 = 0.0
@@ -388,7 +395,7 @@ class Path_planner_MPC:
             # else:
             #     eps = 0.0
             ## et to not go to nan
-            if abs(vx) > 0.01:  
+            if abs(vx) > 0.0001:  
                 A11 = -(1/m)*(C0 + C1/(vx+eps) + Cd_A*rho*vx/2);
                 A12 = 2*Caf*sin(delta)/(m*(vx+eps)) 
                 A13 = 2*Caf*lf*sin(delta)/(m*(vx+eps)) + vy
@@ -431,7 +438,7 @@ class Path_planner_MPC:
             #                 [ 0     ,  A22 ,  A23  , 0., 0. ],   # [vy]
             #                 [ 0     ,  A32 ,  A33  , 0., 0. ],   # [wz]
             #                 [A61    ,  A62 ,   0. ,   0., 0 ],   # [ey]
-            #                 [A41    ,  A42 ,   1 ,  0., 0. ]])  # [epsi] 
+            #                 [A41    ,  A42 ,   1. ,  0., 0. ]])  # [epsi] 
 
 
             Bi  = np.array([[ B11, B12 ], #[steer, dutycycle
@@ -733,6 +740,12 @@ class Path_planner_MPC:
         u = np.array([1, 1]).T
         states = np.array([1,1,1,1,1]).T
         for i in range(0, self.N):
+
+            # Ai = np.array([ [1.   ,  1. ,  1. ,  0., 0. ],   # [vx]
+            #                 [ 0     ,  1. ,  1.  , 0., 0. ],   # [vy]
+            #                 [ 0     ,  1. ,  1.  , 0., 0. ],   # [wz]
+            #                 [1.    ,  1. ,   0. ,   0., 0 ],   # [ey]
+            #                 [1.    ,  1. ,   0. ,  0., 0. ]])  # [epsi] 
 
 
             Ai = np.array([ [1.0    ,  1.0 ,  1.0  ,  0., 0.],  # [vx]

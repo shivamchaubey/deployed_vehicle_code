@@ -292,7 +292,7 @@ def interpolate_references(planner_dt, planner_N, controller_dt, x_ref_p, y_ref_
     curv_ref_p_interp = []
     for i in tqdm(range(len(curv_ref_p))):
         f = interp1d(planner_hz_time, curv_ref_p[i], kind='cubic')
-        Curv_interp_filtered  = signal.filtfilt(b_filter, a_filter, f(controller_hz_time), padlen=25)
+        Curv_interp_filtered  = signal.filtfilt(b_filter, a_filter, f(controller_hz_time), padlen=np.int(curv_ref_p.shape[1]*0.25))
         curv_ref_p_interp.append(Curv_interp_filtered)  
         
     curv_ref_p_interp = np.array(curv_ref_p_interp)
@@ -604,6 +604,7 @@ def main():
             steer_ref    = steer_ref_interp[offline_counter,planner_index:(planner_index+N)]  
             duty_ref    = duty_ref_interp[offline_counter,planner_index:(planner_index+N)]  
 
+            print "vx_ref.shape", vx_ref.shape
             if (interp_factor -1) == planner_index: ### when the sampling factor meets then switch to new trajectory
                 planner_index = 0
                 offline_counter += 1
@@ -617,17 +618,22 @@ def main():
 
 
             # ## OUT: s, ey, epsi       IN: x, y, psi
-            LocalState[4], LocalState[5], LocalState[3], insideTrack = map.getLocalPosition(
-                GlobalState[3], GlobalState[4], wrap(GlobalState[5]))
+            # LocalState[4], LocalState[5], LocalState[3], insideTrack = map.getLocalPosition(
+            #     GlobalState[3], GlobalState[4], wrap(GlobalState[5]))
 
             # print "yaw_ref[0]", yaw_ref.shape
             # OUT: s, ex, ey, epsi
             # IN: (x, y, psi, xd, yd, psid, s0, vx, vy, curv, dt):
-            # LocalState[4], Xerror, LocalState[5], LocalState[3] = Body_Frame_Errors(GlobalState[3], 
-            #      GlobalState[4], GlobalState[5], x_ref[0], y_ref[0], yaw_ref[0], SS, LocalState[0],
-            #      LocalState[1], curv_ref[0], dt )   
+            LocalState[4], Xerror, LocalState[5], LocalState[3] = Body_Frame_Errors(GlobalState[3], 
+                 GlobalState[4], GlobalState[5], x_ref[0], y_ref[0], yaw_ref[0], SS, LocalState[0],
+                 LocalState[1], curv_ref[0], dt )   
 
             SS = LocalState[4] 
+
+            if offline_counter == counter_ref[-1] -1 :
+                " <<<<<<<<<< offline map finished >>>>>>>>>>>>>>>"
+
+                break 
             
 
             # Vx_ref   = vel_ref[1]
@@ -669,13 +675,16 @@ def main():
 
         ###################################################################################################
         ###################################################################################################
+        # if first_it == 6:
+        #     break
+
 
         if first_it < 4:
 
             # Controller.planning_mode = 1
-            duty_cycle  = 0.01
+            duty_cycle  = 0.0
 
-            delta = 0.01
+            delta = 0.0
             # xx, uu      = predicted_vectors_generation(N, LocalState, accel_rate, dt)
             xx, uu      = predicted_vectors_generation(N, LocalState, duty_cycle, delta, dt)
             
@@ -700,17 +709,26 @@ def main():
 
                 if test_gen == 3:
 
-
+                    # Vx_ref = 1.2
                     LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction_setup()
 
                     Controller.MPC_setup(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref) 
 
                 else:
 
+
                     LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction_setup()
 
                     Controller.MPC_setup(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref) 
 
+                    ######### for full MPC without warm start ##############
+                    # LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction(LocalState[0:6], Controller.uPred, vel_ref, curv_ref)
+                    # ref_qp = [Vx_ref, 0, 0, 0, 0, 0]
+                    # # Controller.MPC_update(A_L, B_L, LocalState[0:6], ref_qp) 
+                    # u_ref = [0,0]
+                    # Controller.MPC_full(A_L, B_L, u_ref, LocalState[0:6], ref_qp)
+
+                    # Controller.MPC_solve()
 
             else:
                 t1 = time.time() 
@@ -725,14 +743,18 @@ def main():
                     # publish_predicted.LPV_msg_update(map, Controller.xPred)
 
                     # print "Controller.xPred", Controller.xPred
-                    print "MPC update"
+                    print "MPC update", Vx_ref 
+
                     ref_qp = [Vx_ref, 0, 0, 0, 0, 0]
                     Controller.MPC_update(A_L, B_L, LocalState[0:6], ref_qp) 
+                    u_ref = [0,0]
+                    # Controller.MPC_full(A_L, B_L, u_ref, LocalState[0:6], ref_qp)
+
                     Controller.MPC_solve()
 
                 if test_gen == 3:
 
-                    Controller.update_q = True
+                    Controller.update_q = False
                     ref_init = [vx_ref[0] , vy_ref[0], omega_ref[0], epsi_ref[0], s_ref[0], ey_ref[0]]
                     
                     ref_states = [vx_ref , vy_ref, omega_ref, epsi_ref, s_ref, ey_ref, curv_ref]
@@ -740,7 +762,9 @@ def main():
 
                     print "ref_u.shape", ref_u.shape, "Controller.uPred.shape", Controller.uPred.shape, steer_ref.shape, duty_ref.shape
                     # print "len(vel_ref), len(curv_ref)",len(vel_ref), len(curv_ref)
-                    LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction_planner(ref_init, ref_u, ref_states)
+                    # LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction_planner(ref_init, ref_u, ref_states)
+
+                    LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction_planner(LocalState[0:6], Controller.uPred, ref_states)
 
                     # LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction_planner(LocalState[0:6], Controller.uPred, ref_lpv)
                     # LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction(LocalState[0:6], Controller.uPred, vel_ref, curv_ref,  )
@@ -749,9 +773,12 @@ def main():
                     # print "Controller.xPred", Controller.xPred
                     print "MPC update", vel_ref[0], Vx_ref
                     # ref_qp = [Vx_ref, 0, 0, 0, 0 , 0]
-                    ref_qp = [vx_ref[N-1] , 0., 0., epsi_ref[N-1], 0., ey_ref[N-1]]
+                    # ref_qp = [vx_ref[N-1] , 0., 0., epsi_ref[N-1], 0., ey_ref[N-1]]
+                    ref_qp = [vx_ref[N-1] , vy_ref[N-1], omega_ref[N-1], epsi_ref[N-1], s_ref[N-1], ey_ref[N-1]]
+                    # ref_qp = [vx_ref[-1] , vy_ref[-1], omega_ref[-1], epsi_ref[-1], s_ref[-1], ey_ref[-1]]
 
                     Controller.MPC_update(A_L, B_L, LocalState[0:6], ref_qp) 
+                    # ref_init = [0 , 0, 0, epsi_ref[0], s_ref[0], ey_ref[0]]
 
                     # Controller.MPC_update(A_L, B_L, np.array(ref_init), ref_qp) 
 

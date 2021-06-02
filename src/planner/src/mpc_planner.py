@@ -588,6 +588,9 @@ def main():
         if rospy.get_param("/trajectory_planner/Visualization") == 1:
             line_trs.set_data(xp[0:N/2], yp[0:N/2])
             line_pred.set_data(xp[N/2:], yp[N/2:])
+            
+            # line_trs.set_data(xp[0:N/2], yp[0:N/2])
+            # line_pred.set_data(xp[N/2:], yp[N/2:])
             x_his.append(xp[0])
             y_his.append(yp[0])
             line_cl.set_data(x_his, y_his)
@@ -708,7 +711,11 @@ def main():
     # print "refs_his_x_d",refs_his_x_d[:-3]
     # print "refs_his_counter", refs_his_counter
 
+    planner_name = rospy.get_param("/trajectory_planner/planner_name")
     np.save(newpath+'/References', refs_his)
+    np.save(newpath+'/'+planner_name, refs_his)
+
+
 
     # np.savetxt(newpath+'/References.dat', References, fmt='%.5e')
 
