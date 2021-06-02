@@ -765,7 +765,7 @@ class PathFollowingLPV_MPC:
         Ctv = []
 
         dt = self.dt
-        dt_time = int(self.N*0.50)
+        dt_time = int(self.N*0.30)
         dt_counter = 1.0
 
         for i in range(0, self.N):
@@ -775,7 +775,7 @@ class PathFollowingLPV_MPC:
 
             if i > dt_time:
                 # dt_counter += dt            
-                dt +=  dt*0.4
+                dt +=  dt*0.5
 
             vx      = float(states[0])
             vy      = float(states[1])
