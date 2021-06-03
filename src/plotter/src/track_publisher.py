@@ -13,7 +13,7 @@ import numpy as np
 def main():
 
     rospy.init_node("track")
-    loop_rate       = 100
+    loop_rate       = 10
     rate            = rospy.Rate(loop_rate)
 
     map = Map()
@@ -30,10 +30,11 @@ def main():
 
     pose_inner = PoseStamped()
     path_inner = Path()
+    path_inner.header.frame_id = "/track"
 
     pose_outer = PoseStamped()
     path_outer = Path()
-
+    path_outer.header.frame_id = "/track"
 
     ################################# MAP ################################################
     Points = int(np.floor(10 * (map.PointAndTangent[-1, 3] + map.PointAndTangent[-1, 4])))
@@ -50,16 +51,17 @@ def main():
 
 
 
-    for i in range(len(Points1[:, 0])):
-        pose_inner.pose.position.x = Points1[i, 0]
-        pose_inner.pose.position.y = Points1[i, 1]
-        pose_inner.header.frame_id = '/map'
-        path_inner.poses.append(pose_inner)
+    # for i in range(len(Points1[:, 0])):
+    #     pose_inner.pose.position.x = Points1[i, 0]
+    #     pose_inner.pose.position.y = Points1[i, 1]
+    #     pose_inner.header.frame_id = '/track'
+    #     path_inner.poses.append(pose_inner)
 
-        pose_outer.pose.position.x = Points2[i, 0]
-        pose_outer.pose.position.y = Points2[i, 1]
-        pose_outer.header.frame_id = '/map'
-        path_outer.poses.append(pose_outer)
+    # for i in range(len(Points2[:, 0])):
+    #     pose_outer.pose.position.x = Points2[i, 0]
+    #     pose_outer.pose.position.y = Points2[i, 1]
+    #     pose_outer.header.frame_id = '/track'
+    #     path_outer.poses.append(pose_outer)
 
 
 
@@ -67,6 +69,8 @@ def main():
     counter_outer = 0
     while not (rospy.is_shutdown()):
 
+        path_inner.header.stamp = rospy.Time.now()
+        path_outer.header.stamp = rospy.Time.now()
         inner_path_pub_rviz.publish(path_inner)
         outer_path_pub_rviz.publish(path_outer)
 
@@ -75,6 +79,20 @@ def main():
 
         track_outer.X = Points2[counter_outer, 0]
         track_outer.Y = Points2[counter_outer, 1]
+
+
+        for i in range(len(Points1[:, 0])):
+            pose_inner.pose.position.x = Points1[i, 0]
+            pose_inner.pose.position.y = Points1[i, 1]
+            pose_inner.header.frame_id = '/track'
+            path_inner.poses.append(pose_inner)
+
+        for i in range(len(Points2[:, 0])):
+            pose_outer.pose.position.x = Points2[i, 0]
+            pose_outer.pose.position.y = Points2[i, 1]
+            pose_outer.header.frame_id = '/track'
+            path_outer.poses.append(pose_outer)
+
 
 
         inner_path_pub_plot.publish(track_inner)
@@ -92,34 +110,6 @@ def main():
 
 
         rate.sleep()
-
-
-# from nav_msgs.msg import Odometry
-# from geometry_msgs.msg import PoseStamped
-
-# path = Path()
-
-# def odom_cb(data):
-#     global path
-#     path.header = data.header
-#     pose = PoseStamped()
-#     pose.header = data.header
-#     pose.pose = data.pose.pose
-#     path.poses.append(pose)
-#     path_pub.publish(path)
-
-# rospy.init_node('path_node')
-
-# odom_sub = rospy.Subscriber('/odom', Odometry, odom_cb)
-# path_pub = rospy.Publisher('/path', Path, queue_size=10)
-
-# if __name__ == '__main__':
-#     rospy.spin()
-
-
-
-
-
 
 
 if __name__ == '__main__':
