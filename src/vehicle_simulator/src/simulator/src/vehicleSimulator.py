@@ -22,7 +22,7 @@
 import rospy
 import geometry_msgs.msg
 from simulator.msg import simulatorStates
-from geometry_msgs.msg import Vector3, Quaternion, Pose, Twist
+from geometry_msgs.msg import Vector3, Quaternion, Pose, Twist, PoseStamped
 from std_msgs.msg import Bool, Float32
 from sensor_msgs.msg import Imu
 from gazebo_msgs.srv import SetModelState
@@ -209,6 +209,7 @@ def main():
         sensor_sim.fcam_update(vehicle_sim)
         sensor_sim.imu_update(vehicle_sim)
         sensor_sim.enc_update(vehicle_sim)
+        sensor_sim.lidar_update(vehicle_sim)
         # gps.update(sim)
 
         # sim.saveHistory()
@@ -216,6 +217,8 @@ def main():
         sensor_sim.fcam_pub()
         sensor_sim.imu_pub()
         sensor_sim.enc_pub()
+        sensor_sim.lidar_pub()
+
 
 
         # if pub_linkStates.get_num_connections() > 0:
@@ -579,6 +582,9 @@ class Sensor_Simulator():
         ### Fisheye camera publisher ###
         self.pub_fcam  = rospy.Publisher("/fused_cam_pose", Pose, queue_size=1)
 
+        ### Lidar publisher ###
+        self.pub_lidar  = rospy.Publisher('/slam_out_pose', PoseStamped, queue_size=1)
+
         ### IMU twist publisher ###
         self.pub_twist = rospy.Publisher('/twist', Twist, queue_size=1)
 
@@ -619,6 +625,7 @@ class Sensor_Simulator():
         
         ### Message type used for publishing ###
         self.msg_fcam = Pose()
+        self.msg_lidar = PoseStamped()
         self.msg_imu_twist = Twist()
         self.msg_imu_pose  = Pose()
         self.msg_enc       = Float32()
@@ -659,6 +666,36 @@ class Sensor_Simulator():
         # else:
             
         #     self.counter_fcam = self.counter_fcam + 1
+
+
+    #### SIMULATE LIDAR ####
+    def lidar_update(self,sim):
+        n = max(-self.x_std*self.n_bound, min(self.x_std*randn(), self.x_std*self.n_bound))
+        # n = 0
+        self.x = sim.x + n
+
+        n = max(-self.y_std*self.n_bound, min(self.y_std*randn(), self.y_std*self.n_bound))
+        # n = 0
+        self.y = sim.y + n
+
+        n = max(-self.yaw_std*self.n_bound, min(self.yaw_std*randn(), self.yaw_std*self.n_bound))
+
+        # self.yaw = sim.yaw + n
+        self.yaw = wrap(sim.yaw) + n
+
+    def lidar_pub(self):
+        # if self.counter_fcam >= self.thUpdate_fcam:
+            self.counter_lidar = 0
+            ## -ve direction is assigned because the real measurement has opposite direction of the vehicle coordinate.
+            self.msg_lidar.pose.position.x = -self.x
+            self.msg_lidar.pose.position.y = -self.y
+
+            quaternion = transformations.quaternion_from_euler(0, 0, self.yaw)
+            self.msg_lidar.pose.orientation.x = quaternion[0]
+            self.msg_lidar.pose.orientation.y = quaternion[1]
+            self.msg_lidar.pose.orientation.z = quaternion[2]
+            self.msg_lidar.pose.orientation.w = quaternion[3]        
+            self.pub_lidar.publish(self.msg_lidar)
 
 
     #### SIMULATE IMU ###

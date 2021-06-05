@@ -608,26 +608,27 @@ def main():
             axtr.set_title(StringValue)
 
 
+        if save_reference == True:
         ### INstead of append extend is used because append was not working for appending array, 
         ##the last array was copied for entire loop so this approach is taken to avoid. It's very strange.   
         
-        tnow = time.time()
-        refs_his_time.append(tnow - time_his)
-        refs_his_counter.append(PlannerCounter)    
-        refs_his_x_t.append(xp[0])
-        refs_his_y_t.append(yp[0])
-        refs_his_x_d.extend(xp)
-        refs_his_y_d.extend(yp)
-        refs_his_psi_d.extend(yaw)
-        refs_his_vx_d.extend(vel)
-        refs_his_vy_d.extend(Planner.xPred[0:N,1])
-        refs_his_omega_d.extend(Planner.xPred[0:N,2])
-        refs_his_epsi_d.extend(Planner.xPred[0:N,4])
-        refs_his_ey_d.extend(Planner.xPred[0:N,3])
-        refs_his_s_d.extend(SS)
-        refs_his_curv_d.extend(curv)
-        refs_his_steer_d.extend(Planner.uPred[:,0])
-        refs_his_duty_d.extend(Planner.uPred[:,1])
+            tnow = time.time()
+            refs_his_time.append(tnow - time_his)
+            refs_his_counter.append(PlannerCounter)    
+            refs_his_x_t.append(xp[0])
+            refs_his_y_t.append(yp[0])
+            refs_his_x_d.extend(xp)
+            refs_his_y_d.extend(yp)
+            refs_his_psi_d.extend(yaw)
+            refs_his_vx_d.extend(vel)
+            refs_his_vy_d.extend(Planner.xPred[0:N,1])
+            refs_his_omega_d.extend(Planner.xPred[0:N,2])
+            refs_his_epsi_d.extend(Planner.xPred[0:N,4])
+            refs_his_ey_d.extend(Planner.xPred[0:N,3])
+            refs_his_s_d.extend(SS)
+            refs_his_curv_d.extend(curv)
+            refs_his_steer_d.extend(Planner.uPred[:,0])
+            refs_his_duty_d.extend(Planner.uPred[:,1])
 
 
 
@@ -647,73 +648,73 @@ def main():
 
 
 
+    if save_reference == True:
+        #############################################################
+        day         = '01_06_20'
+        num_test    = 'References'
 
-    #############################################################
-    day         = '01_06_20'
-    num_test    = 'References'
+        newpath = ('/').join(__file__.split('/')[:-2]) + '/data/'+day+'/'+num_test+'/' 
+        if not os.path.exists(newpath):
+            os.makedirs(newpath)
+        print "newpath+'/References'"
 
-    newpath = ('/').join(__file__.split('/')[:-2]) + '/data/'+day+'/'+num_test+'/' 
-    if not os.path.exists(newpath):
-        os.makedirs(newpath)
-    print "newpath+'/References'"
-
-    refs_his_time    = np.array(refs_his_time)
-    refs_his_counter    = np.array(refs_his_counter)
-    refs_his_x_t    = np.array(refs_his_x_t)
-    refs_his_y_t    = np.array(refs_his_y_t)
-    refs_his_x_d    = np.array(refs_his_x_d)
-    refs_his_y_d    = np.array(refs_his_y_d)
-    refs_his_psi_d  = np.array(refs_his_psi_d)
-    refs_his_vx_d   = np.array(refs_his_vx_d)
-    refs_his_vy_d   = np.array(refs_his_vy_d)
-    refs_his_omega_d    = np.array(refs_his_omega_d)
-    refs_his_epsi_d = np.array(refs_his_epsi_d)
-    refs_his_ey_d   = np.array(refs_his_ey_d)
-    refs_his_s_d    = np.array(refs_his_s_d)
-    refs_his_curv_d = np.array(refs_his_curv_d)
-    refs_his_steer_d = np.array(refs_his_steer_d)
-    refs_his_duty_d = np.array(refs_his_duty_d)
-    
-
-
-    refs_his_x_d = refs_his_x_d.reshape(Counter,len(xp))
-    refs_his_y_d = refs_his_y_d.reshape(Counter, len(yp))
-    refs_his_psi_d = refs_his_psi_d.reshape(Counter, len(yaw))
-    refs_his_vx_d = refs_his_vx_d.reshape(Counter, len(vel))
-    refs_his_vy_d = refs_his_vy_d.reshape(Counter, len((Planner.xPred[0:N,1])))
-    refs_his_omega_d = refs_his_omega_d.reshape(Counter, len((Planner.xPred[0:N,2])))
-    refs_his_epsi_d = refs_his_epsi_d.reshape(Counter, len((Planner.xPred[0:N,4])))
-    refs_his_ey_d = refs_his_ey_d.reshape(Counter, len((Planner.xPred[0:N,3])))
-    refs_his_s_d = refs_his_s_d.reshape(Counter, len(SS))
-    refs_his_curv_d = refs_his_curv_d.reshape(Counter, len(curv))
-    refs_his_steer_d = refs_his_steer_d.reshape(Counter, len(Planner.uPred[:,0]))
-    refs_his_duty_d = refs_his_duty_d.reshape(Counter, len(Planner.uPred[:,1]))
+        refs_his_time    = np.array(refs_his_time)
+        refs_his_counter    = np.array(refs_his_counter)
+        refs_his_x_t    = np.array(refs_his_x_t)
+        refs_his_y_t    = np.array(refs_his_y_t)
+        refs_his_x_d    = np.array(refs_his_x_d)
+        refs_his_y_d    = np.array(refs_his_y_d)
+        refs_his_psi_d  = np.array(refs_his_psi_d)
+        refs_his_vx_d   = np.array(refs_his_vx_d)
+        refs_his_vy_d   = np.array(refs_his_vy_d)
+        refs_his_omega_d    = np.array(refs_his_omega_d)
+        refs_his_epsi_d = np.array(refs_his_epsi_d)
+        refs_his_ey_d   = np.array(refs_his_ey_d)
+        refs_his_s_d    = np.array(refs_his_s_d)
+        refs_his_curv_d = np.array(refs_his_curv_d)
+        refs_his_steer_d = np.array(refs_his_steer_d)
+        refs_his_duty_d = np.array(refs_his_duty_d)
+        
 
 
-    refs_his['time'] = refs_his_time
-    refs_his['counter'] = refs_his_counter
-    refs_his['x_t']= refs_his_x_t
-    refs_his['y_t']= refs_his_y_t
-    refs_his['x_d']= refs_his_x_d
-    refs_his['y_d']= refs_his_y_d
-    refs_his['psi_d']= refs_his_psi_d
-    refs_his['vx_d']= refs_his_vx_d
-    refs_his['vy_d']= refs_his_vy_d
-    refs_his['omega_d']= refs_his_omega_d
-    refs_his['epsi_d']= refs_his_epsi_d
-    refs_his['ey_d']= refs_his_ey_d
-    refs_his['s_d']= refs_his_s_d
-    refs_his['curv_d']= refs_his_curv_d
-    refs_his['steer_d']= refs_his_steer_d
-    refs_his['duty_d']= refs_his_duty_d
+        refs_his_x_d = refs_his_x_d.reshape(Counter,len(xp))
+        refs_his_y_d = refs_his_y_d.reshape(Counter, len(yp))
+        refs_his_psi_d = refs_his_psi_d.reshape(Counter, len(yaw))
+        refs_his_vx_d = refs_his_vx_d.reshape(Counter, len(vel))
+        refs_his_vy_d = refs_his_vy_d.reshape(Counter, len((Planner.xPred[0:N,1])))
+        refs_his_omega_d = refs_his_omega_d.reshape(Counter, len((Planner.xPred[0:N,2])))
+        refs_his_epsi_d = refs_his_epsi_d.reshape(Counter, len((Planner.xPred[0:N,4])))
+        refs_his_ey_d = refs_his_ey_d.reshape(Counter, len((Planner.xPred[0:N,3])))
+        refs_his_s_d = refs_his_s_d.reshape(Counter, len(SS))
+        refs_his_curv_d = refs_his_curv_d.reshape(Counter, len(curv))
+        refs_his_steer_d = refs_his_steer_d.reshape(Counter, len(Planner.uPred[:,0]))
+        refs_his_duty_d = refs_his_duty_d.reshape(Counter, len(Planner.uPred[:,1]))
 
-    # print "refs_his['x_d']",refs_his['x_d'][:-3]
-    # print "refs_his_x_d",refs_his_x_d[:-3]
-    # print "refs_his_counter", refs_his_counter
 
-    planner_name = rospy.get_param("/trajectory_planner/planner_name")
-    np.save(newpath+'/References', refs_his)
-    np.save(newpath+'/'+planner_name, refs_his)
+        refs_his['time'] = refs_his_time
+        refs_his['counter'] = refs_his_counter
+        refs_his['x_t']= refs_his_x_t
+        refs_his['y_t']= refs_his_y_t
+        refs_his['x_d']= refs_his_x_d
+        refs_his['y_d']= refs_his_y_d
+        refs_his['psi_d']= refs_his_psi_d
+        refs_his['vx_d']= refs_his_vx_d
+        refs_his['vy_d']= refs_his_vy_d
+        refs_his['omega_d']= refs_his_omega_d
+        refs_his['epsi_d']= refs_his_epsi_d
+        refs_his['ey_d']= refs_his_ey_d
+        refs_his['s_d']= refs_his_s_d
+        refs_his['curv_d']= refs_his_curv_d
+        refs_his['steer_d']= refs_his_steer_d
+        refs_his['duty_d']= refs_his_duty_d
+
+        # print "refs_his['x_d']",refs_his['x_d'][:-3]
+        # print "refs_his_x_d",refs_his_x_d[:-3]
+        # print "refs_his_counter", refs_his_counter
+
+        planner_name = rospy.get_param("/trajectory_planner/planner_name")
+        np.save(newpath+'/References', refs_his)
+        np.save(newpath+'/'+planner_name, refs_his)
 
 
 

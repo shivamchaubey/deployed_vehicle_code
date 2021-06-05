@@ -1,7 +1,8 @@
 <launch>
 
     <!-- SYSTEM MODEL -->
-    <!-- vehicle parameters -->
+    <!-- vehicle parameters-->
+    
     <param name="m"             type="double"   value="2.424" />
     <param name="rho"             type="double"   value="1.225" />    
     <param name="lr"            type="double"   value="0.1203" />
@@ -15,43 +16,51 @@
     <param name="Car"            type="double"   value="1.6775" />
     <param name="Iz"            type="double"   value="0.02" />
     
+    <!-- Variables limits-->
 
-    <!-- for slew rate
-        <param name="max_vel"          type="double"   value="5.0" />
-    <param name="min_vel"          type="double"   value="-0.5" />
+    <param name="max_vel"           type="double"   value="2.0" />
+    <param name="min_vel"           type="double"   value="-1.0" />
     <param name="dutycycle_max"     type="double"   value="1.0" />
-    <param name="dutycycle_min"     type="double"   value="-1.0" />
-    -->
-
-    <param name="max_vel"          type="double"   value="5.0" />
-    <param name="min_vel"          type="double"   value="-0.01" />
-    <param name="dutycycle_max"     type="double"   value="1.0" />
-    <param name="dutycycle_min"     type="double"   value="-0.01" />
+    <param name="dutycycle_min"     type="double"   value="-.1" />
     <param name="steer_max"         type="double"   value="0.349" />
     <param name="steer_min"         type="double"   value="-0.349" />
     <param name="lat_e_max"         type="double"   value="0.25" />   <!-- like halfWidth-->
     <param name="orient_e_max"      type="double"   value="0.5" />
 
 
-    <!-- Track parameters -->
-    <!--param name="trackShape" type="str" value="L_shape" /-->
+    <!-- PLANNER    -->
+    <param name="duty_th"       type="double"   value="0.05" />  <!-- deadzone where the wheel doesn't rotate -->
+    <param name="planning_mode" type="int"      value="1" /> <!--1: without any planner with fixed reference 2: with planner, 3: with offline planner -->
     <param name="halfWidth"     type="double"   value="0.25" />
+    <param name="trackShape"    type="str"      value="oval_iri" />
 
-    <param name="trackShape" type="str" value="oval_iri" />
+
+    <!--DYNAMIC OBSERVER-->
+    <!--<node pkg="lpv_mpc"     type="stateEstimator.py"    name="state_estimator" output="screen">
+        <param name="loopRate"  type="double"   value="100"	/>
+    </node>-->
 
 
-    <!-- TRAJECTORY PLANNING -->
-    <node pkg="planner" type="mpc_planner.py" name="trajectory_planner" output="screen"> 
+    <!-- CONTROL -->
+    
+    <node pkg="planner"      type="new_mpc_planner.py"    name="planner" output="screen">
+
+        <param name="Horizon"           type="int"      value="40" />
+        <param name="Hz"                type="double"   value="25" />
+        <param name="vel_ref"           type="double"   value="1.0"/>
+        <param name="integral_action"   type="bool"     value="true"/>
+        <param name="soft_constraints"  type="bool"     value="false"/>
+    </node>
+
+    <!--node pkg="planner" type="mpc_planner.py" name="trajectory_planner" output="screen"> 
          <param name="Planning_Track"   type="int"      value="1" /> 
+         <param name="max_vel"          type="double"   value="4.4" />
+         <param name="min_vel"          type="double"   value="-0.1" />
          <param name="N"                type="int"      value="40" /> 
          <param name="Hz"        type="int"      value="25" /> 
-         <param name="vel_ref"        type="double"      value="0.8" /> <!-- reference velocity --> 
          <param name="halfWidth"        type="double"   value="0.25" />
          <param name="Visualization"    type="int"      value="1" />
-         <param name="Mode"          type="int"      value="1" /> <!-- 1: for testing without estimator, 2: solution w.r.t the estimator data 3: keyboard input with estimator testing  -->
-        <param name="integral_action"   type="bool"     value="false"/>
-        <param name="soft_constraints"  type="bool"     value="false"/>
-        <param name="planner_name"  type="string"     value="velocity_0.8_N20_HZ50"/>
-    </node>   
+         <param name="Testing"          type="int"      value="1" />
+    </node-->  
 
 </launch>

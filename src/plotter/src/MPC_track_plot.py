@@ -67,10 +67,12 @@ def plot_vehicle_global_position(x_lim_min, y_lim_min, x_lim_max, y_lim_max, map
     plt.plot(Points0[:, 0], Points0[:, 1], '--y' , linewidth  = 2) #outer track
 
 
-    line_ol,        = axtr.plot(xdata, ydata, '-b', label = 'Planner trajectory', linewidth  = 2)
+    # line_ol,        = axtr.plot(xdata, ydata, '-b', label = 'Planner trajectory', linewidth  = 2)
+    line_ol,        = axtr.plot(xdata, ydata, '-oy', label = 'Lidar trajectory', linewidth  = 2)
+
     line_ref,        = axtr.plot(xdata, ydata, '-o', color = 'orange', label = 'Controller reference', linewidth  = 4, markersize = 7, alpha = 0.3)
     line_est,       = axtr.plot(xdata, ydata, '-b', label = 'Estimated states')  
-    line_meas,      = axtr.plot(xdata, ydata, '-m', label = 'Measured position camera') 
+    line_meas,      = axtr.plot(xdata, ydata, '-om', label = 'Measured position camera') 
     line_lpv_pred,  = axtr.plot(xdata, ydata, '-o', color='gray' , label = 'Model prediction', linewidth  = 1,  markersize = 5)
     line_mpc_pred,  = axtr.plot(xdata, ydata, '-oc', label = 'MPC prediction', linewidth  = 1) 
 
@@ -503,8 +505,11 @@ def main():
         est_x_his.append(X_est)
         est_y_his.append(Y_est)
 
-        ol_x_his.append(planner_info.x_d)
-        ol_y_his.append(planner_info.y_d)
+        ol_x_his.append(X_ol)
+        ol_y_his.append(Y_ol)
+        
+        # ol_x_his.append(planner_info.x_d)
+        # ol_y_his.append(planner_info.y_d)
                     
         meas_x_his.append(X_meas)
         meas_y_his.append(Y_meas)
@@ -530,9 +535,10 @@ def main():
             rec_meas.set_xy(np.array([car_meas_x, car_meas_y]).T)
 
             line_est.set_data(est_x_his, est_y_his)
-            # line_ol.set_data(ol_x_his, ol_y_his)
-            print "planner_info.x_d", planner_info.x_d
-            line_ol.set_data(planner_info.x_d, planner_info.y_d)
+            line_ol.set_data(ol_x_his, ol_y_his)
+            
+            # print "planner_info.x_d", planner_info.x_d
+            # line_ol.set_data(planner_info.x_d, planner_info.y_d)
 
             line_ref.set_data(planner_info.x_d[:20], planner_info.y_d[:20])
 

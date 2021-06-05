@@ -263,6 +263,8 @@ class Path_planner_MPC:
         At = self.A.transpose(copy=True) 
         At.sort_indices()
         (self.col_indices, self.row_indices) = At.nonzero()
+
+
  
 
         #################################### Problem Setup ###################################
@@ -304,6 +306,8 @@ class Path_planner_MPC:
             self.u[(N+1)*nx + (N+1)*nx + (N)*nu:(N+1)*nx + (N+1)*nx + (N)*nu + nu] = self.dumax + self.uminus1  # update constraint on \Delta u0: u0 - u_{-1} <= Dumax
 
         Ax_value = self.A[self.row_indices, self.col_indices].A1
+        # Ax_value = self.A[self.col_indices, self.row_indices].A1
+
         self.prob.update( Ax = Ax_value , l= self.l, u= self.u)
 
 
@@ -390,20 +394,20 @@ class Path_planner_MPC:
             A33 = 0.0
             B31 = 0.0
             eps = 0.0
-            # if abs(vx) == 0.0:
-            #     eps = 0.001
-            # else:
-            #     eps = 0.0
+            if abs(vx) == 0.0:
+                eps = 0.0001
+            else:
+                eps = 0.0
             ## et to not go to nan
-            if abs(vx) > 0.0001:  
-                A11 = -(1/m)*(C0 + C1/(vx+eps) + Cd_A*rho*vx/2);
-                A12 = 2*Caf*sin(delta)/(m*(vx+eps)) 
-                A13 = 2*Caf*lf*sin(delta)/(m*(vx+eps)) + vy
-                A22 = -(2*Car + 2*Caf*cos(delta))/(m*(vx+eps))
-                A23 = (2*Car*lr - 2*Caf*lf*cos(delta))/(m*(vx+eps)) - vx
-                A32 = (2*Car*lr - 2*Caf*lf*cos(delta))/(Iz*(vx+eps))
-                A33 = -(2*Car*lf*lf*cos(delta) + 2*Caf*lr*lr)/(Iz*(vx+eps))
-                B31 = 2*Caf*lf*cos(delta)/(Iz*(vx+eps))
+            # if abs(vx) > 0.0001:  
+            A11 = -(1/m)*(C0 + C1/(vx+eps) + Cd_A*rho*vx/2);
+            A12 = 2*Caf*sin(delta)/(m*(vx+eps)) 
+            A13 = 2*Caf*lf*sin(delta)/(m*(vx+eps)) + vy
+            A22 = -(2*Car + 2*Caf*cos(delta))/(m*(vx+eps))
+            A23 = (2*Car*lr - 2*Caf*lf*cos(delta))/(m*(vx+eps)) - vx
+            A32 = (2*Car*lr - 2*Caf*lf*cos(delta))/(Iz*(vx+eps))
+            A33 = -(2*Car*lf*lf*cos(delta) + 2*Caf*lr*lr)/(Iz*(vx+eps))
+            B31 = 2*Caf*lf*cos(delta)/(Iz*(vx+eps))
 
 
             # print '\n A11',A11,'A12',A12,'A13',A13,'A22',A22,'A23',A23,'A32',A32,'A33',A33,'B31',B31
@@ -549,7 +553,7 @@ class Path_planner_MPC:
             A11 = 0;
 
 
-            eps = 0.000001
+            eps = 0.00000
             # if abs(vx)> 0.0:
 
             # F_flat = 2*Caf*(delta - ((vy+lf*omega)/(vx+eps)));        
@@ -744,15 +748,25 @@ class Path_planner_MPC:
             # Ai = np.array([ [1.   ,  1. ,  1. ,  0., 0. ],   # [vx]
             #                 [ 0     ,  1. ,  1.  , 0., 0. ],   # [vy]
             #                 [ 0     ,  1. ,  1.  , 0., 0. ],   # [wz]
-            #                 [1.    ,  1. ,   0. ,   0., 0 ],   # [ey]
+            #                 [1.    ,  1. ,   1. ,   0., 0 ],   # [ey]
             #                 [1.    ,  1. ,   0. ,  0., 0. ]])  # [epsi] 
 
 
+            #works with A1*A2*curv
             Ai = np.array([ [1.0    ,  1.0 ,  1.0  ,  0., 0.],  # [vx]
                             [0.     ,  1.0 ,  1.0  ,  0., 0.],  # [vy]
                             [0.     ,  1.0 ,  1.0  ,  0., 0.],  # [wz]
                             [0.     ,  1.0 ,   0.  ,  0., 1.],  # [ey]
                             [1.0    ,  1.0 ,   1.  ,  0., 0.]])  # [epsi]]) # [ey]
+
+
+
+
+            # Ai = np.array([ [1.0    ,  1.0 ,  1.0  ,  0., 0.],  # [vx]
+            #                 [1.     ,  1.0 ,  1.0  ,  0., 0.],  # [vy]
+            #                 [1.     ,  1.0 ,  1.0  ,  0., 0.],  # [wz]
+            #                 [1.     ,  1.0 ,   1.  ,  0., 1.],  # [ey]
+            #                 [1.0    ,  1.0 ,   1.  ,  0., 0.]])  # [epsi]]) # [ey]
 
             Bi  = np.array([[ 1.0, 1.0 ], #[delta, a]
                             [ 1.0,  0  ],

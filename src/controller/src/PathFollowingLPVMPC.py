@@ -141,6 +141,8 @@ class PathFollowingLPV_MPC:
 
         self.feasible = 1
         self.update_q = False
+        self.non_uniform_sampling  = rospy.get_param("/control/non_uniform_sampling")
+
 
     def MPC_setup(self, A_vec, B_vec, u, x0, vel_ref):
 
@@ -592,10 +594,10 @@ class PathFollowingLPV_MPC:
             if i==0:
                 states  = np.reshape(x, (6,1))
 
-
-            if i > dt_time:
-                # dt_counter += dt            
-                dt +=  dt*0.3
+            if self.non_uniform_sampling == True:
+                if i > dt_time:
+                    # dt_counter += dt            
+                    dt +=  dt*0.3
 
             vx      = float(states[0])
             vy      = float(states[1])
@@ -638,8 +640,10 @@ class PathFollowingLPV_MPC:
             A31 = 0;
             A11 = 0;
 
-
-            eps = 0.0000001
+            if abs(vx)> 0.0:
+                eps = 0.000000
+            else:
+                eps = 0.0000001
             # if abs(vx)> 0.0:
 
             # F_flat = 2*Caf*(delta - ((vy+lf*omega)/(vx+eps)));        
@@ -655,13 +659,20 @@ class PathFollowingLPV_MPC:
             A22 = 0;
             
             # if abs(vy) > 0.0:
+            if abs(vy)> 0.0:
+                eps = 0.000000
+            else:
+                eps = 0.0000001
             A22 = Fry/(m*(vy+eps));
 
             B11 = 0;
             B31 = 0;
             B21 = 0;
             
-            # if abs(delta) > 0:
+            if abs(delta)> 0.0:
+                eps = 0.000000
+            else:
+                eps = 0.0000001
             B11 = -F_flat*sin(delta)/(m*(delta+eps));
             B21 = F_flat*cos(delta)/(m*(delta+eps));    
             B31 = F_flat*cos(delta)*lf/(Iz*(delta+eps));
@@ -766,16 +777,16 @@ class PathFollowingLPV_MPC:
 
         dt = self.dt
         dt_time = int(self.N*0.30)
-        dt_counter = 1.0
 
         for i in range(0, self.N):
 
             if i==0:
                 states  = np.reshape(x, (6,1))
 
-            if i > dt_time:
-                # dt_counter += dt            
-                dt +=  dt*0.5
+
+            if self.non_uniform_sampling == True:
+                if i > dt_time:           
+                    dt +=  dt*0.20
 
             vx      = float(states[0])
             vy      = float(states[1])
@@ -962,18 +973,18 @@ class PathFollowingLPV_MPC:
             # s       = ref[4][i]
             #     ey      = ref[5][i]
             #     cur     = ref[5][i]
-            omega   = ref[2][i]
+            # omega   = ref[2][i]
             epsi    = ref[3][i]
             ey      = ref[5][i]
-            s       = ref[4][i]
-            PointAndTangent = self.map.PointAndTangent
-            cur     = Curvature(s, PointAndTangent)
+            # s       = ref[4][i]
+            # PointAndTangent = self.map.PointAndTangent
+            # cur     = Curvature(s, PointAndTangent)
 
             # omega   = ref[2][i]
             # vy      = ref[1][i]
             print 'i',i, len(ref[0])
             vx      = ref[0][i]
-            # cur     = ref[6][i]
+            cur     = ref[6][i]
             # ey      = ref[5][i]
             # epsi    = ref[3][i]
             # if i == (self.N - 1):
@@ -1158,6 +1169,14 @@ class PathFollowingLPV_MPC:
             #                 [1.0    ,  1.0 ,   1.0 ,  0., 0., 0.],  # [epsi]
             #                 [1.0    ,  1.0 ,   0.  ,  0., 0., 0.],  # [s]
             #                 [1.0    ,  1.0 ,   0.  ,  0., 0., 1.0]]) # [ey]
+
+            # Ai = np.array([ [A11    ,  A12 ,   0. ,  0., 0., 0.],  # [vx]
+            #                 [A21    ,  A22 ,   0  ,  0., 0., 0.],  # [vy]
+            #                 [A31    ,   0 ,    0  ,  0., 0., 0.],  # [wz]
+            #                 [A51    ,  A52 ,   1. ,  0., 0., 0.],  # [epsi]
+            #                 [A61    ,  A62 ,   0. ,  0., 0., 0.],  # [s]
+            #                 [A7     ,   A8 ,   0. ,  0., 0., 0.]]) # [ey]
+
 
             # working with -A1*A2*cur model
             Ai = np.array([ [1.0    ,  1.0 ,   0.  ,  0., 0., 0.],  # [vx]

@@ -1,71 +1,51 @@
 #!/usr/bin/env python
-"""
-    File name: Online Planner-LPV-MPC.py
-    Author: Eugenio Alcala
-    Email: eugenio.alcala@upc.edu.edu
-    Date: 25/07/2019
-    Python Version: 2.7.12
-"""
+
+##########################################################
+##           IRI 1:10 Autonomous Car                    ##
+##           ```````````````````````                    ##
+##      Supervisor: Puig Cayuela Vicenc                 ##
+##      Author:     Shivam Chaubey                      ##
+##      Email:      shivam.chaubey1006@gmail.com        ##
+##      Date:       18/05/2021                          ##
+##########################################################
+
+''' 
+state estimator subscriber and MPC controller input publisher: This file
+is to setup the MPC problem using the estimated states, previous input if
+weights on input rate is set, and initial constraints. The vehicle has to
+follow a track set on the map    
+
+'''
+
 
 import os
-import sys
-import sys
-sys.path.append(('/').join(sys.path[0].split('/')[:-2])+'/planner/src/')
-sys.path.append(sys.path[0]+'/Utilities')
 import datetime
 import rospy
-from trackInitialization import Map
-from planner.msg import My_Planning
-from sensor_fusion.msg import sensorReading
-from controller.msg import  Racing_Info, states_info
-from std_msgs.msg import Bool, Float32
-import time
 import numpy as np
-from numpy import hstack
-import scipy.io as sio
-import pdb
-import pickle
-from osqp_pathplanner import Path_planner_MPC
+from sensor_fusion.msg import sensorReading
+from controller.msg import states_info
+print 'states_info', states_info()
+from std_msgs.msg import Bool, Float32
+from nav_msgs.msg import Path
+from geometry_msgs.msg import PoseStamped
+import tf
+from new_osqp_pathplanner import PathFollowingLPV_MPC
 
+import time
+import sys
+sys.path.append(('/').join(sys.path[0].split('/')[:-2])+'/planner/src/')
+from trackInitialization import Map
+from controller.msg import mpcPrediction
+from math import pi
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from scipy.interpolate import interp1d
 from scipy import signal
-from math import pi, isnan
+from tqdm import tqdm
+from planner.msg import My_Planning
+
 
 np.set_printoptions(formatter={'float': lambda x: "{0:0.3f}".format(x)})
-
-
-
-class vehicle_control():
-    """ Object collecting CMD command data
-    Attributes:
-        Input command:
-            1.a 2.df
-    """
-    def __init__(self):
-        """ Initialization
-        Arguments:
-            t0: starting measurement time
-        """
-        rospy.Subscriber('control/accel', Float32, self.accel_callback, queue_size=1)
-        rospy.Subscriber('control/steering', Float32, self.steering_callback, queue_size=1)
-
-        # ECU measurement
-        self.duty_cycle  = 0.0 #dutycyle
-        self.steer = 0.0
-
-
-    def accel_callback(self,data):
-        """Unpack message from sensor, ECU"""
-        self.duty_cycle  = data.data
-        if abs(self.duty_cycle) < 0.05:
-            self.duty_cycle = 0.0
-
-    def steering_callback(self,data):
-        self.steer = data.data
-        # if self.steer == 0.0:
-        #     self.steer = 0.001
 
 
 ########## current state estimation from observer #############
@@ -73,90 +53,45 @@ class EstimatorData(object):
     """Data from estimator"""
     def __init__(self):
 
-        print "waiting for estimator information"
-        rospy.wait_for_message('est_state_info', sensorReading)
-
+        print "Waiting for observer message"
+        # rospy.wait_for_message("est_state_info", sensorReading)
         rospy.Subscriber("est_state_info", sensorReading, self.estimator_callback)
         self.CurrentState = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         print "Subscribed to observer"
     
-        self.map             = Map() 
-        self.states_X =0
-        self.states_Y =0
-        self.states_yaw =0
-        self.states_vx =0
-        self.states_vy =0
-        self.states_omega =0
-        
-        self.states_ey =0
-        self.states_epsi =0
-        self.states_s =0
-
-        self.states = np.array([self.states_vx, self.states_vy, self.states_omega, 0, 0]).T
-
-
     def estimator_callback(self, msg):
         """
         Unpack the messages from the estimator
         """
-        self.states_X = msg.X
-        self.states_Y = msg.Y
-        self.states_yaw = (msg.yaw + pi) % (2 * pi) - pi
-        self.states_vx = msg.vx
-        self.states_vy = msg.vy
-        self.states_omega = msg.yaw_rate
+        self.CurrentState = np.array([msg.vx, msg.vy, msg.yaw_rate, msg.X, msg.Y, msg.yaw]).T
 
-        S_realDist, ey, epsi, insideTrack = self.map.getLocalPosition(msg.X, msg.Y, self.states_yaw)
-
-        self.states_ey = ey
-        self.states_epsi = epsi
-        self.states_s = S_realDist
-
-
-        self.CurrentState = np.array([msg.vx, msg.vy, msg.yaw_rate, msg.X, msg.Y, self.states_yaw]).T
-
-
-        self.states = np.array([self.states_vx, self.states_vy, self.states_omega, ey, epsi]).T
-
-
-########## current state of the vehicle from controller #############
-class vehicle_state(object):
+########## Full state estimation from observer #############
+class planner_ref(object):
     """Data from estimator"""
     def __init__(self):
 
-
-        rospy.Subscriber('control/states_info', states_info, self.states_callback)
-        self.map             = Map() 
-        self.states_X =0
-        self.states_Y =0
-        self.states_yaw =0
-        self.states_vx =0
-        self.states_vy =0
-        self.states_omega =0
-        self.states_ey =0
-        self.states_epsi =0
-        self.states_s =0
-        self.states = np.array([self.states_vx, self.states_vy, self.states_omega, self.states_ey, self.states_epsi]).T
-        print "Subscribed to observer"
+        print "Waiting for planner message"
+        rospy.wait_for_message("My_Planning", My_Planning)
+        rospy.Subscriber("My_Planning", My_Planning, self.planner_callback)
+        print "Subscribed to planner"
     
-    def states_callback(self, msg):
-        """
-        Unpack the messages from the estimator
-        """
-        self.states_X = msg.X
-        self.states_Y = msg.Y
-        self.states_yaw = msg.yaw
-        self.states_vx = msg.vx
-        self.states_vy = msg.vy
-        self.states_omega = msg.omega
-        self.states_ey = msg.ey
-        self.states_epsi = msg.epsi
-        self.states_s = msg.s
-        
-        S_realDist, ey, epsi, insideTrack = self.map.getLocalPosition(msg.X, msg.Y, wrap(msg.yaw))
+        self.x_d    = []
+        self.y_d    = []
+        self.psi_d  = []
+        self.vx_d   = []
+        self.curv_d = []
+        self.counter = 0
 
-        # self.states = np.array([self.states_vx, self.states_vy, self.states_omega, self.states_ey, self.states_epsi]).T
-        self.states = np.array([self.states_vx, self.states_vy, self.states_omega, ey, epsi]).T
+    def planner_callback(self, msg):
+        """
+        Unpack the messages from the planner
+        """
+        self.x_d    = msg.x_d
+        self.y_d    = msg.y_d
+        self.psi_d  = msg.psi_d
+        self.vx_d   = msg.vx_d
+        self.curv_d = msg.curv_d
+        self.counter = msg.counter
 
 
 
@@ -171,65 +106,391 @@ def wrap(angle):
 
     return w_angle
 
+######## state and input vector generation for MPC initial setup #########
+def predicted_vectors_generation(Hp, x0, accel_rate, delta, dt):
+
+    Vx      = np.zeros((Hp+1, 1))
+    Vx[0]   = x0[0]
+    S       = np.zeros((Hp+1, 1))
+    S[0]    = 0
+    Vy      = np.zeros((Hp+1, 1))
+    Vy[0]   = x0[1]
+    W       = np.zeros((Hp+1, 1))
+    W[0]    = x0[2]
+    Ey      = np.zeros((Hp+1, 1))
+    Ey[0]   = x0[3]
+    Epsi    = np.zeros((Hp+1, 1))
+    Epsi[0] = x0[4]
+
+    for i in range(0, Hp):
+        Vy[i+1]      = x0[1]
+        W[i+1]       = x0[2]
+        Ey[i+1]      = x0[3]
+        Epsi[i+1]    = x0[4]
+
+    accel   = np.array([[accel_rate for i in range(0, Hp)]])
+    delta   = np.array([[ delta for i in range(0, Hp)]])
+
+    for i in range(0, Hp):
+        Vx[i+1] = Vx[i] + accel[0,i] * dt
+        S[i+1]  = S[i] + Vx[i] * dt
+
+    xx  = np.hstack([ Vx, Vy, W, Epsi ,S ,Ey]) # [vx vy omega theta_e s y_e]
+
+    uu  = np.hstack([delta.transpose(),accel.transpose()])
+
+    return xx, uu
+
+
+
+class predicted_states_msg():
+        
+    def __init__(self):
+        
+        self.LPV_prediction_state_pub   = rospy.Publisher('control/LPV_prediction', Path, queue_size=1)
+        self.MPC_prection_state_pub     = rospy.Publisher('control/MPC_prection', Path, queue_size=1)
+        
+        self.LPV_prediction_states = Path()
+        self.MPC_prediction_states = Path()
+        self.pose_stamp = PoseStamped()
+
+    def LPV_msg_update(self, map, data):
+
+
+        self.LPV_prediction_states.header.stamp = rospy.Time.now()
+        self.LPV_prediction_states.header.frame_id = "/map" #"/lpv_predictions"
+
+        for i in range(len(data)):
+            epsi, s, ey = data[i,3], data[i,4], data[i,5]
+
+            if abs(s) < 0.001:
+                s = 0
+            if abs(ey) < 0.001:
+                ey = 0
+            print "epsi, s, ey", epsi, s, ey
+            x, y, theta  = map.getGlobalPosition(s, ey)
+            print "x, y, theta", x, y, theta
+            quaternion   = tf.transformations.quaternion_from_euler(0, 0, theta)
+            
+            self.pose_stamp.pose.position.x = x
+            self.pose_stamp.pose.position.y = y
+            self.pose_stamp.pose.position.z = 0.0
+
+            self.pose_stamp.pose.orientation.x = quaternion[0]
+            self.pose_stamp.pose.orientation.y = quaternion[1]
+            self.pose_stamp.pose.orientation.z = quaternion[2]
+            self.pose_stamp.pose.orientation.w = quaternion[3]
+            self.LPV_prediction_states.poses.append(self.pose_stamp) 
+
+        self.LPV_prediction_state_pub.publish(self.LPV_prediction_states)
+    # def MPC_update(self):
+
+def interpolate_references(planner_dt, planner_N, controller_dt, x_ref_p, y_ref_p, yaw_ref_p, vx_ref_p, vy_ref_p, omega_ref_p, epsi_ref_p,\
+ ey_ref_p, s_ref_p, curv_ref_p, steer_ref_p, duty_ref_p):
+
+    msg = "Interpolation starting"
+    print msg
+    ##### planner horizon time ###########
+    planner_hz_time = np.linspace(0, planner_N*planner_dt, num=planner_N, endpoint=True) #planner horizon time
+    
+    ##### controller horizon time ###########
+    controller_hz_time = np.linspace(0, planner_N*planner_dt, num=np.around(planner_N*planner_dt/controller_dt), endpoint=True)
+
+
+    #### interpolation factor #####
+    interp_factor = np.around(len(controller_hz_time)/len(planner_hz_time))
+
+    msg = 'x_ref Interpolation'
+    x_ref_p_interp = []
+    for i in tqdm(range(len(x_ref_p))):
+        f = interp1d(planner_hz_time, x_ref_p[i], kind='cubic')
+        x_ref_p_interp.append(f(controller_hz_time))  
+        
+    x_ref_p_interp = np.array(x_ref_p_interp)
+    print (x_ref_p_interp.shape)
+    print 'x_ref Interpolation done'
+
+    msg = 'y_ref Interpolation'
+    y_ref_p_interp = []
+    for i in tqdm(range(len(y_ref_p))):
+        f = interp1d(planner_hz_time, y_ref_p[i], kind='cubic')
+        y_ref_p_interp.append(f(controller_hz_time))  
+        
+    y_ref_p_interp = np.array(y_ref_p_interp)
+    print (y_ref_p_interp.shape)
+    print 'y_ref Interpolation done'
+
+    msg = 'yaw_ref Interpolation'
+    yaw_ref_p_interp = []
+    for i in tqdm(range(len(yaw_ref_p))):
+        f = interp1d(planner_hz_time, yaw_ref_p[i], kind='cubic')
+        yaw_ref_p_interp.append(f(controller_hz_time))  
+        
+    yaw_ref_p_interp = np.array(yaw_ref_p_interp)
+    print (yaw_ref_p_interp.shape)
+    print 'yaw_ref Interpolation done'
+
+    msg = 'vx_ref Interpolation'
+    vx_ref_p_interp = []
+    for i in tqdm(range(len(vx_ref_p))):
+        f = interp1d(planner_hz_time, vx_ref_p[i], kind='cubic')
+        vx_ref_p_interp.append(f(controller_hz_time))  
+        
+    vx_ref_p_interp = np.array(vx_ref_p_interp)
+    print (vx_ref_p_interp.shape)
+    print 'vx_ref Interpolation done'
+
+    msg = 'vy_ref Interpolation'
+    vy_ref_p_interp = []
+    for i in tqdm(range(len(vy_ref_p))):
+        f = interp1d(planner_hz_time, vy_ref_p[i], kind='cubic')
+        vy_ref_p_interp.append(f(controller_hz_time))  
+        
+    vy_ref_p_interp = np.array(vy_ref_p_interp)
+    print 'vy_ref Interpolation done'
+
+    msg = 'omega_ref Interpolation'
+    omega_ref_p_interp = []
+    for i in tqdm(range(len(omega_ref_p))):
+        f = interp1d(planner_hz_time, omega_ref_p[i], kind='cubic')
+        omega_ref_p_interp.append(f(controller_hz_time))  
+        
+    omega_ref_p_interp = np.array(omega_ref_p_interp)
+    print 'omega_ref Interpolation done'
+
+    msg = 'epsi_ref Interpolation'
+    epsi_ref_p_interp = []
+    for i in tqdm(range(len(epsi_ref_p))):
+        f = interp1d(planner_hz_time, epsi_ref_p[i], kind='cubic')
+        epsi_ref_p_interp.append(f(controller_hz_time))  
+        
+    epsi_ref_p_interp = np.array(epsi_ref_p_interp)
+    print 'epsi_ref Interpolation done'
+
+    msg = 'ey_ref Interpolation'
+    ey_ref_p_interp = []
+    for i in tqdm(range(len(ey_ref_p))):
+        f = interp1d(planner_hz_time, ey_ref_p[i], kind='cubic')
+        ey_ref_p_interp.append(f(controller_hz_time))  
+        
+    ey_ref_p_interp = np.array(ey_ref_p_interp)
+    print 'ey_ref Interpolation done'
+
+    msg = 's_ref Interpolation'
+    s_ref_p = s_ref_p[:,:s_ref_p.shape[1]-1]
+    s_ref_p_interp = []
+    for i in tqdm(range(len(s_ref_p))):
+        f = interp1d(planner_hz_time, s_ref_p[i], kind='cubic')
+        s_ref_p_interp.append(f(controller_hz_time))  
+        
+    s_ref_p_interp = np.array(s_ref_p_interp)
+    print 's_ref Interpolation done'
+
+    msg = 'curv_ref Interpolation'
+    # Filter to be applied.
+    b_filter, a_filter = signal.ellip(4, 0.01, 120, 0.125) 
+    curv_ref_p_interp = []
+    for i in tqdm(range(len(curv_ref_p))):
+        f = interp1d(planner_hz_time, curv_ref_p[i], kind='cubic')
+        Curv_interp_filtered  = signal.filtfilt(b_filter, a_filter, f(controller_hz_time), padlen=np.int(curv_ref_p.shape[1]*0.25))
+        curv_ref_p_interp.append(Curv_interp_filtered)  
+        
+    curv_ref_p_interp = np.array(curv_ref_p_interp)
+    print 'curv_ref Interpolation done'
+
+
+    msg = 'steer_ref Interpolation'
+    # Filter to be applied.
+    b_filter, a_filter = signal.ellip(4, 0.01, 120, 0.125) 
+    steer_ref_p_interp = []
+    for i in tqdm(range(len(steer_ref_p))):
+        f = interp1d(planner_hz_time, steer_ref_p[i], kind='cubic')
+        # steer_interp_filtered  = signal.filtfilt(b_filter, a_filter, f(controller_hz_time), padlen=25)
+        steer_ref_p_interp.append(f(controller_hz_time))  
+        
+    steer_ref_p_interp = np.array(steer_ref_p_interp)
+    print 'steer_ref Interpolation done'
+
+
+    msg = 'duty_ref Interpolation'
+    # Filter to be applied.
+    b_filter, a_filter = signal.ellip(4, 0.01, 120, 0.125) 
+    duty_ref_p_interp = []
+    for i in tqdm(range(len(duty_ref_p))):
+        f = interp1d(planner_hz_time, duty_ref_p[i], kind='cubic')
+        # duty_interp_filtered  = signal.filtfilt(b_filter, a_filter, f(controller_hz_time), padlen=25)
+        duty_ref_p_interp.append(f(controller_hz_time))  
+        
+    duty_ref_p_interp = np.array(duty_ref_p_interp)
+    print 'duty_ref Interpolation done'
+
+
+
+    # f = interp1d(planner_hz_time, curv, kind='cubic')
+    # Curv_interp = f(controller_hz_time)     
+    # print len(Curv_interp)
+    # # Curv_interp_filtered  = signal.filtfilt(b_filter, a_filter, Curv_interp, padlen=25)
+
+
+    print "Interpolation done"
+
+
+    return interp_factor, x_ref_p_interp, y_ref_p_interp, yaw_ref_p_interp, vx_ref_p_interp, vy_ref_p_interp, omega_ref_p_interp,\
+     epsi_ref_p_interp, ey_ref_p_interp, s_ref_p_interp, curv_ref_p_interp, steer_ref_p_interp, duty_ref_p_interp
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 def main():
 
-    # Initializa ROS node
-    rospy.init_node("MPC_Planner")
-
-    planning_refs   = rospy.Publisher('My_Planning', My_Planning, queue_size=1)
-
-    map             = Map()  
-
-    refs            = My_Planning()
-
-    refs.counter    = []    
-    refs.x_d        = []
-    refs.y_d        = []
-    refs.psi_d      = []
-    refs.vx_d       = []
-    refs.vy_d       = []
-    refs.omega_d    = []
-    refs.epsi_d     = []
-    refs.ey_d       = []
-    refs.s_d        = []
-    refs.curv_d     = []
-
-
-    HW              = rospy.get_param("/trajectory_planner/halfWidth")
-    loop_rate       = rospy.get_param("/trajectory_planner/Hz") # 20 Hz (50 ms)
-    planner_dt              = 1.0/loop_rate
-    rate            = rospy.Rate(loop_rate)
+    rospy.init_node("LPV_MPC")
     
-    N   = rospy.get_param("/trajectory_planner/N")
+    ########################## Control output ##################################
+    dutycycle_commands  = rospy.Publisher('control/accel', Float32, queue_size=1)
+    steering_commands   = rospy.Publisher('control/steering', Float32, queue_size=1)
     
-    loop_rate_control = 50.0
-    planner_type = rospy.get_param("/trajectory_planner/Mode")
+
+    predicted_points_pub_on = True
+    if predicted_points_pub_on == True:
+        # publish_predicted = predicted_states_msg()
+        LPV_prediction_state_pub   = rospy.Publisher('control/LPV_prediction', mpcPrediction, queue_size=1)
+        MPC_prediction_state_pub   = rospy.Publisher('control/MPC_prediction', mpcPrediction, queue_size=1)
+
+    #     MPC_prection_state_pub     = rospy.Publisher('control/MPC_prection', Path, queue_size=1)
     
-    if planner_type == 2:
-        racing_info     = RacingDataClass()
-        estimatorData   = EstimatorData()
-        loop_rate_control = rospy.get_param("/control/Hz")
-        control_input = vehicle_control()
+
+    ### same message type used for both ##
+    lpvPrediction_msg = mpcPrediction()
+    mpcPrediction_msg = mpcPrediction()
+
+
+    dutycycle_thres     = rospy.get_param("/duty_th") # dutycycle Deadzone
     
-    if planner_type == 3:
-        racing_info     = RacingDataClass()
-        estimatorData   = EstimatorData()
-        mode            = "simulations"
-        control_input = vehicle_control()
+    N                   = rospy.get_param("/planner/Horizon")
+    Vx_ref              = rospy.get_param("/planner/vel_ref")
+    loop_rate           = rospy.get_param("/planner/Hz")
+    dt                  = 1.0/loop_rate
+    rate                = rospy.Rate(loop_rate)
 
-    else:   # planner_type mode
-        mode            = "simulations"
-    #     racing_info     = RacingDataClass()
+    cmd_servo           = Float32()
+    cmd_motor           = Float32()
+    
+    LPV_prediction_states = Path()
+    MPC_prediction_states = Path()
+
+    rospy.sleep(1.2)    # wait for observer initialization or make a flag in that node to know if the observer started.
+
+    map                 = Map()             # Fixed map track
+
+    visualization = False
+    if visualization == True:
+        HW                  = rospy.get_param("halfWidth") 
+        fig, axtr, line_tr, line_pred, line_trs, line_cl, line_gps_cl, rec, rec_sim = InitFigure_XY(map, HW)
+        Xlast           = 0.0
+        Ylast           = 0.0
+        Thetalast       = 0.0
+        Xref            = np.zeros(N+1)
+        Yref            = np.zeros(N+1)
+        Thetaref        = np.zeros(N+1)
+        xp              = np.zeros(N)
+        yp              = np.zeros(N)
+        yaw             = np.zeros(N)  
+        S_dist          = np.zeros(N+1,) 
+        x_his           = []
+        y_his           = []
+
+    first_it            = 0
+
+    GlobalState         = np.zeros(6)       # vehicle kinematic and dynamic states
+    LocalState          = np.zeros(6)       # vehicle dynamic and error states
+    LapNumber           = 0                 
+    HalfTrack           = 0
+
+    '''References for the controller to attain this states'''
+    vel_ref             = np.zeros([N,1])  
+    curv_ref            = np.zeros([N,1])
+    y_ref               = np.zeros([N,1])
+    yaw_ref             = np.zeros([N,1])
+    x_ref               = np.zeros([N,1])
+
+    # Loop running at loop rate
+    TimeCounter         = 0
+    PlannerCounter      = 0
+    test_gen            = rospy.get_param("planning_mode")# test generated plan 0 = offline plan, 1 = vel profile, 2 = map
+    
+    ###### Online planner ########
+    if test_gen == 2:
+            planner = planner_ref()
+            curv_ref_p = planner.curv_d 
+            vel_ref_p  = planner.vx_d
+            y_ref      = planner.y_d
+            yaw_ref    = planner.psi_d
+            x_ref      = planner.x_d
 
 
-    first_it        = 1
+    ##### offline planner #########
+    if test_gen == 3:
+        
+        planning_refs_pub   = rospy.Publisher('Offline_Planning', My_Planning, queue_size=1)
+        planning_refs_msg   = My_Planning()
 
-    Xlast           = 0.0
-    Ylast           = 0.0
-    Thetalast       = 0.0
+        # offline_path = (('/').join(sys.path[0].split('/')[:-2])+'/planner/data/01_06_20/References/References.npy')
+        offline_path = (('/').join(sys.path[0].split('/')[:-2])+'/planner/data/01_06_20/References/velocity_0.8_N40_HZ25.npy')
+        # offline_path = (('/').join(sys.path[0].split('/')[:-2])+'/planner/data/01_06_20/References/velocity_0.8_N20_HZ50.npy')
 
-    Counter         = 0
+        
+        print "offline_path", offline_path
+        planner_refs = np.load(offline_path, allow_pickle=True).item()
+
+        planner_time  =  planner_refs['time']
+        planner_dt  =  planner_refs['planner_dt']
+        planner_N  =  planner_refs['planner_N']
+        counter_ref  =  planner_refs['counter'] 
+        xpt_ref_p      =  planner_refs['x_t']  
+        ypt_ref_p      =  planner_refs['y_t']  
+        x_ref_p        =  planner_refs['x_d']    
+        y_ref_p        =  planner_refs['y_d']    
+        yaw_ref_p      =  planner_refs['psi_d']    
+        vx_ref_p     =  planner_refs['vx_d']     
+        vy_ref_p     =  planner_refs['vy_d']     
+        omega_ref_p  =  planner_refs['omega_d']  
+        epsi_ref_p   =  planner_refs['epsi_d']   
+        ey_ref_p     =  planner_refs['ey_d']     
+        s_ref_p      =  planner_refs['s_d']
+        curv_ref_p   =  planner_refs['curv_d']
+        steer_ref_p   =  planner_refs['steer_d'] 
+        duty_ref_p   =  planner_refs['duty_d']
+        
+        interp_factor, x_ref_interp, y_ref_interp, yaw_ref_interp, vx_ref_interp, vy_ref_interp, omega_ref_interp, epsi_ref_interp, ey_ref_interp, s_ref_interp, curv_ref_interp, \
+        steer_ref_interp, duty_ref_interp= interpolate_references(planner_dt,planner_N, dt, x_ref_p, y_ref_p, yaw_ref_p, vx_ref_p, vy_ref_p, omega_ref_p, epsi_ref_p, ey_ref_p, s_ref_p,\
+         curv_ref_p, steer_ref_p, duty_ref_p)
+
+        offline_counter = 0 
+        planner_index = 0   
+        
+        # print "calculated planner time = {}".format(np.mean(planner_time[1:] - planner_time[:-1]))       
+        # print "Received planner time = {}".format(planner_dt)
+
 
     save_reference = True
     if save_reference == True:
@@ -261,191 +522,396 @@ def main():
 
 
 
-    ELAPSD_TIME     = np.zeros((1000,1))
 
-    TimeCounter     = 0
-    PlannerCounter  = 0
-    start_LapTimer  = datetime.datetime.now()
+    estimatorData       = EstimatorData()   # observer reading
+    
+    SS  = 0.0
+
+    window_iter = 0
+
+    Planner  = PathFollowingLPV_MPC(N, Vx_ref, dt, map)
+    rospy.sleep(1.2)
+
+    print "controller initialized"
+
+    while (not rospy.is_shutdown()):
+
+        startTimer = datetime.datetime.now()
+
+        ''' 
+        The estimator provides 6 states of the vehicle  [vx, vy, omega, X,
+        Y, yaw] but the MPC uses error model for the optimization. We transformed 
+        [X, Y, yaw] states of global states to local states [s, ey, epsi] using the function 
+        map.getLocalPosition which provides error with respect to the track.
+        '''
+
+        # Read Measurements
+        GlobalState[:] = estimatorData.CurrentState  # The current estimated state vector [vx vy w x y psi]
+        GlobalState[5] = (GlobalState[5]  + pi) % (2 * pi) - pi
+        print "GlobalState[5]", GlobalState[5]
+        '''
+        The above code converts the continuous yaw angle between [-pi,pi] because
+        the map.getLocalPosition function work in this domain.  '''
+        LocalState[:]  = estimatorData.CurrentState  # [vx vy w x y psi]
 
 
-    if rospy.get_param("/trajectory_planner/Visualization") == 1:
-        fig, axtr, line_tr, line_pred, line_trs, line_cl, line_gps_cl, rec, rec_sim = InitFigure_XY( map, mode, HW )
+        if -0.01 < LocalState[0] < 0.01:
+            LocalState[0] = 0.01
 
 
-    #####################################################################
+        ## This is for the map case you can add your own cases for example if you want the vehicle to follow other trajectory make another case.
+        if test_gen == 1:
 
 
-    # planner_dt = 0.05
-    Vx_ref              = rospy.get_param("/trajectory_planner/vel_ref")
+            ## OUT: s, ey, epsi       IN: x, y, psi
+            LocalState[4], LocalState[5], LocalState[3], insideTrack = map.getLocalPosition(
+                GlobalState[3], GlobalState[4], wrap(GlobalState[5]))
 
-    Planner  = Path_planner_MPC(N, Vx_ref, planner_dt, map)
+            # print("\n")
+            # print("vx vy w: ", GlobalState[:3])
+            # print("\n")
+            # print("x y yaw: ", GlobalState[3:])
+            # print("\n")
+            # print("epsi s ey: ", LocalState[3:])
+            # print("\n")
+            curv_ref        = 0
+            vel_ref         = np.ones([N,1])*Vx_ref
+            # Check if the lap has finished
+            if map.TrackLength*(1.0-0.1) <= LocalState[4] <= map.TrackLength*(1.0+0.1):
+                HalfTrack = 1
+                print 'the lap has finished'
 
-    # Planner  = LPV_MPC_Planner(Q, R, dR, L, N, planner_dt, map, "OSQP")
+        ########################## ONLINE PLANNER #########################
+        if test_gen == 2:
 
-    #####################################################################
+            # OUT: s, ey, epsi       IN: x, y, psi
+            # LocalState[4], LocalState[5], LocalState[3], insideTrack = map.getLocalPosition(
+            #     GlobalState[3], GlobalState[4], wrap(GlobalState[5]))
 
-    # Filter to be applied.
-    b_filter, a_filter = signal.ellip(4, 0.01, 120, 0.125)  
-
-
-    LPV_X_Pred      = np.zeros((N,5))
-    Xref            = np.zeros(N+1)
-    Yref            = np.zeros(N+1)
-    Thetaref        = np.zeros(N+1)
-    xp              = np.zeros(N)
-    yp              = np.zeros(N)
-    yaw             = np.zeros(N)    
-
-    x_his          = []
-    y_his          = []
-    SS              = np.zeros(N+1,) 
-
-    GlobalState     = np.zeros(6)
-    LocalState      = np.zeros(5)    
-
-    print "Starting iteration"
-    while (not rospy.is_shutdown()):  
-        
-        t0 = time.time()
-        
-        ###################################################################################################
-        # GETTING INITIAL STATE:
-        ###################################################################################################   
-
-        if (planner_type == 2) or (planner_type == 3):
-            # Read Measurements
-            # SS[0] = estimatorData.states_s
-            # GlobalState[:] = estimatorData.CurrentState                 # The current estimated state vector [vx vy w x y psi]
-            # LocalState[:]  = np.array([ GlobalState[0], GlobalState[1], GlobalState[2], estimatorData.states_ey, estimatorData.states_epsi ]) # [vx vy w ey epsi]
-            # S_realDist, LocalState[4], LocalState[3], insideTrack = map.getLocalPosition(GlobalState[3], GlobalState[4], GlobalState[5])
-            LocalState[:] = estimatorData.states                 # The current estimated state vector [vx vy w x y psi]
-            # u = np.array([control_input.steer, control_input.duty_cycle])
-            print "control_input.steer", control_input.steer, "control_input.duty_cycle", control_input.duty_cycle
-            u = np.zeros([N, 2])
-            u[:,0] = control_input.steer
-            u[:,1] = control_input.duty_cycle
-            SS[0] = estimatorData.states_s
-
-            # if LocalState[0] < 0.1:
-            #     LocalState[0] = 1.5
-            # 
-            # if first_it == 1:
-            #     SS = np.ones(N+1,)*S_realDist
-
-        else:
-            # SS[0] = SS[1]
-            LocalState[:] = np.array([0.5, 0, 0, 0, 0, 0])
-            S_realDist, LocalState[4], LocalState[3], insideTrack = map.getLocalPosition(xp[0], yp[0], yaw[0])
+            print "planner.counter", planner.counter
+            curv_ref = planner.curv_d 
+            vel_ref  = planner.vx_d 
+            y_ref      = planner.y_d
+            yaw_ref    = planner.psi_d
+            x_ref      = planner.x_d
             
-        ###################################################################################################
-        # OPTIMIZATION:
-        ###################################################################################################             
+            # OUT: s, ex, ey, epsi
+            LocalState[4], Xerror, LocalState[5], LocalState[3] = Body_Frame_Errors(GlobalState[3], 
+                 GlobalState[4], GlobalState[5], x_ref[0], y_ref[0], yaw_ref[0], SS, LocalState[0],
+                 LocalState[1], curv_ref[0], dt )   
 
-        # if Counter == 3:
+            SS = LocalState[4] 
+            
+
+
+            # ey_ref   = planner.ey_d 
+            # epsi_ref = planner.epsi_d     
+   
+            print "vel_ref",  vel_ref
+            # Vx_ref   = vel_ref[1]
+            # if planner.x_d < 0.5:
+            #     curv_ref = curv_ref*0.0 
+            #     vel_ref  = vel_ref*0.0
+         
+            # Check if the lap has finished
+            if LocalState[4] >= 3*map.TrackLength/4:
+                HalfTrack = 1
+                print 'the lap has finished'
+            
+            window_iter += 1
+            
+            if window_iter == 3:
+                curv_ref_p = planner.curv_d 
+                vel_ref_p  = planner.vx_d
+                
+                window_iter = 0
+
+
+        ########################## OFFLINE PLANNER #########################
+
+        if test_gen == 3:
+
+            # OUT: s, ey, epsi       IN: x, y, psi
+            # LocalState[4], LocalState[5], LocalState[3], insideTrack = map.getLocalPosition(
+            #     GlobalState[3], GlobalState[4], wrap(GlobalState[5]))
+            
+
+            # x_ref       = x_ref_interp[offline_counter,planner_index*N:(planner_index+1)*N]  
+            # y_ref       = y_ref_interp[offline_counter,planner_index*N:(planner_index+1)*N]  
+            # yaw_ref     = yaw_ref_interp[offline_counter,planner_index*N:(planner_index+1)*N]  
+            # vx_ref      = vx_ref_interp[offline_counter,planner_index*N:(planner_index+1)*N]  
+            # vy_ref      = vy_ref_interp[offline_counter,planner_index*N:(planner_index+1)*N]  
+            # omega_ref   = omega_ref_interp[offline_counter,planner_index*N:(planner_index+1)*N]  
+            # epsi_ref    = epsi_ref_interp[offline_counter,planner_index*N:(planner_index+1)*N]  
+            # ey_ref      = ey_ref_interp[offline_counter,planner_index*N:(planner_index+1)*N]  
+            # s_ref       = s_ref_interp[offline_counter,planner_index*N:(planner_index+1)*N]  
+            # curv_ref    = curv_ref_interp[offline_counter,planner_index*N:(planner_index+1)*N] 
+
+
+            x_ref       = x_ref_interp[offline_counter,planner_index:(planner_index+N)]  
+            y_ref       = y_ref_interp[offline_counter,planner_index:(planner_index+N)]  
+            yaw_ref     = yaw_ref_interp[offline_counter,planner_index:(planner_index+N)]  
+            vx_ref      = vx_ref_interp[offline_counter,planner_index:(planner_index+N)]  
+            vy_ref      = vy_ref_interp[offline_counter,planner_index:(planner_index+N)]  
+            omega_ref   = omega_ref_interp[offline_counter,planner_index:(planner_index+N)]  
+            epsi_ref    = epsi_ref_interp[offline_counter,planner_index:(planner_index+N)]  
+            ey_ref      = ey_ref_interp[offline_counter,planner_index:(planner_index+N)]  
+            s_ref       = s_ref_interp[offline_counter,planner_index:(planner_index+N)]  
+            curv_ref    = curv_ref_interp[offline_counter,planner_index:(planner_index+N)]  
+            steer_ref    = steer_ref_interp[offline_counter,planner_index:(planner_index+N)]  
+            duty_ref    = duty_ref_interp[offline_counter,planner_index:(planner_index+N)]  
+
+            print "vx_ref.shape", vx_ref.shape
+            if (interp_factor -1) == planner_index: ### when the sampling factor meets then switch to new trajectory
+                planner_index = 0
+                offline_counter += 1
+
+            else:
+                planner_index += 1
+
+            # planner_index += 1
+
+            print 'planner_index', planner_index, 'offline_counter', offline_counter
+
+
+            # ## OUT: s, ey, epsi       IN: x, y, psi
+            # LocalState[4], LocalState[5], LocalState[3], insideTrack = map.getLocalPosition(
+            #     GlobalState[3], GlobalState[4], wrap(GlobalState[5]))
+
+            # print "yaw_ref[0]", yaw_ref.shape
+            # OUT: s, ex, ey, epsi
+            # IN: (x, y, psi, xd, yd, psid, s0, vx, vy, curv, dt):
+            LocalState[4], Xerror, LocalState[5], LocalState[3] = Body_Frame_Errors(GlobalState[3], 
+                 GlobalState[4], GlobalState[5], x_ref[0], y_ref[0], yaw_ref[0], SS, LocalState[0],
+                 LocalState[1], curv_ref[0], dt )   
+
+            SS = LocalState[4] 
+
+            if offline_counter == counter_ref[-1] -1 :
+                " <<<<<<<<<< offline map finished >>>>>>>>>>>>>>>"
+
+                break 
+            
+
+            # Vx_ref   = vel_ref[1]
+
+
+
+            planning_refs_msg.counter    =      offline_counter  
+            planning_refs_msg.x_pt       =      xpt_ref_p
+            planning_refs_msg.y_pt       =      ypt_ref_p
+            planning_refs_msg.x_d        =      x_ref_interp[offline_counter,:]#x_ref 
+            planning_refs_msg.y_d        =      y_ref_interp[offline_counter,:]#y_ref 
+            planning_refs_msg.psi_d      =      yaw_ref 
+            planning_refs_msg.vx_d       =      vx_ref 
+            planning_refs_msg.vy_d       =      vy_ref 
+            planning_refs_msg.omega_d    =      omega_ref 
+            planning_refs_msg.epsi_d     =      epsi_ref 
+            planning_refs_msg.ey_d       =      ey_ref 
+            planning_refs_msg.s_d        =      s_ref 
+            planning_refs_msg.curv_d     =      curv_ref 
+
+            planning_refs_pub.publish(planning_refs_msg)
+        
+
+
+        SS = LocalState[4] 
+
+        ###################################################################################################
+        ###################################################################################################
+
+        ### END OF THE LAP.
+        # PATH TRACKING:
+        if ( HalfTrack == 1 and (map.TrackLength*(1.0-0.1) <= LocalState[4] <= map.TrackLength*(1.0+0.1))):
+            HalfTrack       = 0
+            LapNumber       += 1
+            SS              = 0
+            print "END OF THE LAP"
+
+
+
+        ###################################################################################################
+        ###################################################################################################
+        # if first_it == 6:
         #     break
 
-        if first_it < 2:
-        
-            x0 = LocalState[:]        # Initial planning state
-            print "x0",x0
-            duty_cycle = 0.0
+
+        if first_it < 4:
+
+            # Planner.planning_mode = 1
+            duty_cycle  = 0.1
+
             delta = 0.0
-            xx, uu = predicted_vectors_generation(N, x0, duty_cycle, delta, planner_dt)
-           
+            # xx, uu      = predicted_vectors_generation(N, LocalState, accel_rate, dt)
+            xx, uu      = predicted_vectors_generation(N, LocalState, duty_cycle, delta, dt)
+            
+            curv_ref        = 0
+            vel_ref         = np.ones([N,1])*Vx_ref
             Planner.uPred = uu
             Planner.xPred = xx
+            
+            # first_it    = first_it + 1
+            Planner.uminus1 = Planner.uPred[0,:]
+
+        else:
+
+            # print "Planner.uminus1", Planner.uminus1
+
+            # print "LPV_States_Prediction", LPV_States_Prediction
+            
+            if first_it == 4:
+                print "MPC setup"
+                # print "vel_ref, curv_ref", len(vel_ref), len(curv_ref)
+                
+
+                if test_gen == 3:
+
+                    # Vx_ref = 1.2
+                    LPV_States_Prediction, A_L, B_L, C_L = Planner.LPVPrediction_setup()
+
+                    Planner.MPC_setup(A_L, B_L, Planner.uPred, LocalState[0:6], Vx_ref) 
+
+                else:
+
+
+                    LPV_States_Prediction, A_L, B_L, C_L = Planner.LPVPrediction_setup()
+
+                    Planner.MPC_setup(A_L, B_L, Planner.uPred, LocalState[0:6], Vx_ref) 
+
+                    ######### for full MPC without warm start ##############
+                    # LPV_States_Prediction, A_L, B_L, C_L = Planner.LPVPrediction(LocalState[0:6], Planner.uPred, vel_ref, curv_ref)
+                    # ref_qp = [Vx_ref, 0, 0, 0, 0, 0]
+                    # # Planner.MPC_update(A_L, B_L, LocalState[0:6], ref_qp) 
+                    # u_ref = [0,0]
+                    # Planner.MPC_full(A_L, B_L, u_ref, LocalState[0:6], ref_qp)
+
+                    # Planner.MPC_solve()
+
+            # else:
+            t1 = time.time() 
+
+            if test_gen == 1:
+                # Planner.update_q = True
+                # print "len(vel_ref), len(curv_ref)",len(vel_ref), len(curv_ref)
+                LPV_States_Prediction, A_L, B_L, C_L = Planner.LPVPrediction(Planner.xPred, Planner.uPred)
+                # LPV_States_Prediction, A_L, B_L, C_L = Planner.LPVPrediction(LocalState[0:6], Planner.uPred, vel_ref, curv_ref,  )
+            
+                # publish_predicted.LPV_msg_update(map, LPV_States_Prediction)
+                # publish_predicted.LPV_msg_update(map, Planner.xPred)
+
+                # print "Planner.xPred", Planner.xPred
+                print "MPC update", Vx_ref 
+
+                ref_qp = [Vx_ref, 0, 0, 0, 0, 0]
+                Planner.MPC_update(A_L, B_L, Planner.xPred[1,:], ref_qp) 
+                u_ref = [0,0]
+                # Planner.MPC_full(A_L, B_L, u_ref, LocalState[0:6], ref_qp)
+
+                Planner.MPC_solve()
+
+            if test_gen == 3:
+
+                Planner.update_q = True
+                ref_init = [vx_ref[0] , vy_ref[0], omega_ref[0], epsi_ref[0], s_ref[0], ey_ref[0]]
+                
+                ref_states = [vx_ref , vy_ref, omega_ref, epsi_ref, s_ref, ey_ref, curv_ref]
+                ref_u = np.vstack([steer_ref, duty_ref]).T
+
+                print "ref_u.shape", ref_u.shape, "Planner.uPred.shape", Planner.uPred.shape, steer_ref.shape, duty_ref.shape
+                # print "len(vel_ref), len(curv_ref)",len(vel_ref), len(curv_ref)
+                LPV_States_Prediction, A_L, B_L, C_L = Planner.LPVPrediction_planner(ref_init, ref_u, ref_states)
+
+                # LPV_States_Prediction, A_L, B_L, C_L = Planner.LPVPrediction_planner(LocalState[0:6], ref_u, ref_states)
+
+                # LPV_States_Prediction, A_L, B_L, C_L = Planner.LPVPrediction_planner(LocalState[0:6], Planner.uPred, ref_states)
+
+                # LPV_States_Prediction, A_L, B_L, C_L = Planner.LPVPrediction_planner(LocalState[0:6], Planner.uPred, ref_lpv)
+                # LPV_States_Prediction, A_L, B_L, C_L = Planner.LPVPrediction(LocalState[0:6], Planner.uPred, vel_ref, curv_ref,  )
+
+
+                # print "Planner.xPred", Planner.xPred
+                print "MPC update", vel_ref[0], Vx_ref
+                # ref_qp = [Vx_ref, 0, 0, 0, 0 , 0]
+                ref_qp = [vx_ref[N-1] , 0., 0., epsi_ref[N-1], 0., ey_ref[N-1]]
+                # ref_qp = [vx_ref[N-1] , vy_ref[N-1], omega_ref[N-1], epsi_ref[N-1], s_ref[N-1], ey_ref[N-1]]
+                # ref_qp = [vx_ref[-1] , vy_ref[-1], omega_ref[-1], epsi_ref[-1], s_ref[-1], ey_ref[-1]]
+
+                Planner.MPC_update(A_L, B_L, LocalState[0:6], ref_qp) 
+                # ref_init = [0 , 0, 0, epsi_ref[0], s_ref[0], ey_ref[0]]
+
+                # Planner.MPC_update(A_L, B_L, np.array(ref_init), ref_qp) 
+
+                Planner.MPC_solve()
+            
+            print "feasible", Planner.feasible
+            print "time taken to solve", time.time() - t1
+
+
+
+
+            if predicted_points_pub_on == True:
+                lpvPrediction_msg.epsi = LPV_States_Prediction[:,3]
+                lpvPrediction_msg.s = LPV_States_Prediction[:,4]
+                lpvPrediction_msg.ey = LPV_States_Prediction[:,5]
+
+                mpcPrediction_msg.epsi = Planner.xPred[:,3]
+                mpcPrediction_msg.s = Planner.xPred[:,4]
+                mpcPrediction_msg.ey = Planner.xPred[:,5]
+
 
             Planner.uminus1 = Planner.uPred[0,:] 
 
-            first_it += 1
+        first_it    = first_it + 1
 
-        else:                               
+        if Planner.feasible == 0.0:
+            Planner.uPred[0,0] = 0.0
+            Planner.uPred[0,1] = 0.0
+
+        print('control actions',"delta", Planner.uPred[0,0],"dutycycle", Planner.uPred[0,1])
+
+        ## Publish controls ##
+        cmd_servo = Planner.uPred[0,0]
+        cmd_motor = Planner.uPred[0,1]
+        dutycycle_commands.publish(Planner.uPred[0,1])
+        steering_commands.publish(Planner.uPred[0,0])
 
 
-            if first_it == 2:
+        if predicted_points_pub_on == True:
+            LPV_prediction_state_pub.publish(lpvPrediction_msg)
+
+        if Planner.feasible == 1:
+            print('control actions',"delta", Planner.uPred[0,0],"dutycycle", Planner.uPred[0,1])
+            print('\n')
+
+            # if Planner.feasible == 0.0:
+            #     Planner.uPred[0,0] = 0.0
+            #     Planner.uPred[0,1] = 0.0
                 
-
-                print "MPC setup"
-
-                A_L, B_L, C_L = Planner.LPVPrediction_setup()
-
-                if planner_type == 1:
-                    Planner.MPC_setup(A_L, B_L, Planner.uPred, Planner.xPred[1,:], Vx_ref) 
-
-                if planner_type == 2 or planner_type == 3:
-
-                    
-                    # SS = np.zeros(N+1,)
-                    
-                    Planner.MPC_setup(A_L, B_L, Planner.uPred, LocalState[:], Vx_ref) 
+            if predicted_points_pub_on == True:
+                MPC_prediction_state_pub.publish(mpcPrediction_msg)
 
 
-                first_it += 1
+        # else:
+        #     print "Not feasible"
+        #     print('\n')
+
+        #     # if Planner.feasible == 0.0:
+        #     #     Planner.uPred[0,0] = 0.0
+        #     #     Planner.uPred[0,1] = 0.0
+                
+        #     ## Publish controls ##
+        #     cmd_servo = Planner.uPred[0,0]
+        #     cmd_motor = Planner.uPred[0,1]
+        #     dutycycle_commands.publish(0.0)
+        #     steering_commands.publish(0.0)
+        #     MPC_prediction_state_pub.publish([])
+        #     LPV_prediction_state_pub.publish([])
 
 
+        ################### visualization ########################
 
-            ### For algorithm testing or finding a shortest route for racing
-            if planner_type == 1:
-               
-                print "Planner.uPred[0,:]", Planner.uPred[0,:]
-
-                print "MPC update"
-                A_L, B_L, C_L = Planner.LPVPrediction( Planner.xPred[1,:], SS[:] , Planner.uPred)    
+        if visualization == 1:
             
-
-                Planner.MPC_update(A_L, B_L, Planner.xPred[1,:]) 
-                Planner.MPC_solve()
-
-
-            ## real time path planner ###
-            if planner_type == 2 or planner_type == 3:
-
-
-                
-                print "MPC update"
-
-
-                # if first_it == 3:
-                #     print "init"
-                #     A_L, B_L, C_L = Planner.LPVPrediction( Planner.xPred[1,:], SS[:] ,  Planner.uPred )    
-            
-                #     Planner.MPC_update(A_L, B_L, Planner.xPred[1,:]) 
-                #     Planner.MPC_solve()
-                #     first_it += 1
-                        
-                
-                A_L, B_L, C_L = Planner.LPVPrediction( LocalState[:]  , SS[:] , u)    
-                
-                Planner.MPC_update(A_L, B_L, LocalState[:]) 
-                Planner.MPC_solve()
-               
-            print "time taken to solve osqp", time.time() - t0
-        # print "Planner.uPred[0,:]", Planner.uPred[0,:]
-        print "feasible", Planner.feasible
-        # print "predicted", Planner.xPred
-        # print "Planner.uPred ", Planner.uPred
-        Planner.uminus1 = Planner.uPred[0,:] 
-
-        if Planner.feasible == 0:
-            print "LocalState[:]", LocalState[:]  , "SS[:]"  , SS[:]
-            # print "predicted", Planner.xPred
-            # print "Planner.uPred ", Planner.uPred
-            Planner.uPred   = np.zeros((Planner.N, Planner.nu))
-            Planner.uminus1 = Planner.uPred[0,:]
-
-
-        if Planner.feasible != 0 :
-            ###################################################################################################
-            ###################################################################################################
-
-            # print "Ey: ", Planner.xPred[:,3] 
-
-            
-            # Saving current control actions to perform then the slew rate:
-            # Planner.OldSteering.append(Planner.uPred[0,0]) 
-            # Planner.OldAccelera.append(Planner.uPred[0,1])
-
-            # pdb.set_trace()
 
             #####################################
             ## Getting vehicle position:
@@ -458,30 +924,26 @@ def main():
 
             # SS[0] = S_realDist
             # SS  = np.zeros(N+1,) 
-
+            S_dist[0] = Planner.xPred[0,4]
             for j in range( 0, N ):
                 PointAndTangent = map.PointAndTangent         
                 
-                curv            = Curvature( SS[j], PointAndTangent )
+                curv            = Curvature( S_dist[j], PointAndTangent )
 
                 # print "Planner.xPred[j,0]", Planner.xPred[j,0], 'Planner.xPred[j,4]', Planner.xPred[j,4], 'Planner.xPred[j,3]', Planner.xPred[j,3] 
-                SS[j+1] = ( SS[j] + ( ( Planner.xPred[j,0]* np.cos(Planner.xPred[j,4])
-                 - Planner.xPred[j,1]*np.sin(Planner.xPred[j,4]) ) / ( 1-Planner.xPred[j,3]*curv ) ) * planner_dt ) 
+                S_dist[j+1] = ( S_dist[j] + ( ( Planner.xPred[j,0]* np.cos(Planner.xPred[j,4])
+                 - Planner.xPred[j,1]*np.sin(Planner.xPred[j,4]) ) / ( 1-Planner.xPred[j,3]*curv ) ) * dt ) 
 
-                '''Only valid if the SS[j+1] value is close to 0'''
-                # if -0.001 < SS[j+1] < 0.001:
-                #     SS[j+1] = 0.0
+                '''Only valid if the S_dist[j+1] value is close to 0'''
+                if -0.001 < S_dist[j+1] < 0.001:
+                    S_dist[j+1] = 0.0
 
-                # print "SS", SS
-                # print 'ssj+1', SS[j+1]
-                # print "map.getGlobalPosition( SS[j+1], 0.0 )", map.getGlobalPosition( SS[j+1], 0.0 )
-                # Xref[j+1], Yref[j+1], Thetaref[j+1] = map.getGlobalPosition( SS[j+1], curr_states.states_ey )
-                Xref[j+1], Yref[j+1], Thetaref[j+1] = map.getGlobalPosition( SS[j+1], 0.0 )
+                # print "S_dist", S_dist
+                # print 'ss_dist+1', S_dist[j+1]
+                # print "map.getGlobalPosition( S_dist[j+1], 0.0 )", map.getGlobalPosition( S_dist[j+1], 0.0 )
+                # Xref[j+1], Yref[j+1], Thetaref[j+1] = map.getGlobalPosition( S_dist[j+1], curr_states.states_ey )
+                Xref[j+1], Yref[j+1], Thetaref[j+1] = map.getGlobalPosition( S_dist[j+1], 0.0 )
 
-            # SS[0] = estimatorData.states_s
-            
-
-        
             Xlast = Xref[1]
             Ylast = Yref[1]
             Thetalast = Thetaref[1]
@@ -489,103 +951,9 @@ def main():
             for i in range(0,N):
                 yaw[i]  = Thetaref[i] + Planner.xPred[i,4]
                 xp[i]   = Xref[i] - Planner.xPred[i,3]*np.sin(yaw[i])
-                yp[i]   = Yref[i] + Planner.xPred[i,3]*np.cos(yaw[i])        
+                yp[i]   = Yref[i] + Planner.xPred[i,3]*np.cos(yaw[i])    
 
 
-            # print "xp", xp, "PlannerCounter", PlannerCounter
-            vel     = Planner.xPred[0:N,0]     
-            curv    = Planner.xPred[0:N,2] / Planner.xPred[0:N,0]  
-
-
-
-
-            
-     
-
-
-            # #####################################
-            # ## Interpolating vehicle references:
-            # #####################################  
-            # controller_dt = 1.0/loop_rate_control
-            # time50ms = np.linspace(0, N*planner_dt, num=N, endpoint=True) #planner horizon time
-            # time33ms = np.linspace(0, N*planner_dt, num=np.around(N*planner_dt/controller_dt), endpoint=True)
-
-            # # X 
-            # f = interp1d(time50ms, xp, kind='cubic')
-            # X_interp = f(time33ms)  
-
-            # # Y
-            # f = interp1d(time50ms, yp, kind='cubic')
-            # Y_interp = f(time33ms)  
-
-            # # Yaw
-            # f = interp1d(time50ms, yaw, kind='cubic')
-            # Yaw_interp = f(time33ms)  
-
-            # # Velocity (Vx)
-            # f = interp1d(time50ms, vel, kind='cubic')
-            # Vx_interp = f(time33ms)
-
-            # # Curvature (K)
-            # f = interp1d(time50ms, curv, kind='cubic')
-            # Curv_interp = f(time33ms)     
-            # print len(Curv_interp)
-            # # Curv_interp_filtered  = signal.filtfilt(b_filter, a_filter, Curv_interp, padlen=25)
-
-            # # plt.clf()
-            # # plt.figure(2)
-            # # plt.plot(Curv_interp, 'k-', label='input')
-            # # plt.plot(Curv_interp_filtered,  'c-', linewidth=1.5, label='pad')
-            # # plt.legend(loc='best')
-            # # plt.show()
-            # # plt.grid()
-
-            # # pdb.set_trace()
-
-
-
-            # #####################################
-            # ## Publishing vehicle references:
-            # #####################################   
-            
-            # refs.counter    = PlannerCounter    
-            # refs.x_d        = X_interp
-            # refs.y_d        = Y_interp
-            # refs.psi_d      = Yaw_interp
-            # refs.vx_d       = Vx_interp
-            # refs.vy_d       = []
-            # refs.omega_d    = []
-            # refs.epsi_d     = []
-            # refs.ey_d       = []
-            # refs.s_d        = []
-            # refs.curv_d     = Curv_interp
-
-            refs.counter    = PlannerCounter    
-            refs.x_d        = xp
-            refs.y_d        = yp
-            refs.psi_d      = yaw
-            refs.vx_d       = vel
-            refs.vy_d       = []
-            refs.omega_d    = []
-            refs.epsi_d     = []
-            refs.ey_d       = []
-            refs.s_d        = []
-            refs.curv_d     = curv
-
-
-            planning_refs.publish(refs)
-
-
-            PlannerCounter  += 1
-        
-        #####################################
-        ## Plotting vehicle position:
-        #####################################     
-
-
-
-
-        if rospy.get_param("/trajectory_planner/Visualization") == 1:
             line_trs.set_data(xp[0:N/2], yp[0:N/2])
             line_pred.set_data(xp[N/2:], yp[N/2:])
             x_his.append(xp[0])
@@ -593,199 +961,39 @@ def main():
             line_cl.set_data(x_his, y_his)
             l = 0.4/2; w = 0.2/2
             car_sim_x, car_sim_y = getCarPosition(xp[0], yp[0], yaw[0], w, l)
-            # car_sim_x, car_sim_y = getCarPosition(xp[N-1], yp[N-1], yaw[N-1], w, l)
             rec_sim.set_xy(np.array([car_sim_x, car_sim_y]).T)
             fig.canvas.draw()
 
             plt.show()
             plt.pause(1/2000.0)
-            # plt.pause(2.0)
-
             StringValue = "vx = "+str(Planner.xPred[0,0]) + " epsi =" + str(Planner.xPred[0,4]) 
             axtr.set_title(StringValue)
 
 
-        ### INstead of append extend is used because append was not working for appending array, 
-        ##the last array was copied for entire loop so this approach is taken to avoid. It's very strange.   
-        
-        tnow = time.time()
-        refs_his_time.append(tnow - time_his)
-        refs_his_counter.append(PlannerCounter)    
-        refs_his_x_t.append(xp[0])
-        refs_his_y_t.append(yp[0])
-        refs_his_x_d.extend(xp)
-        refs_his_y_d.extend(yp)
-        refs_his_psi_d.extend(yaw)
-        refs_his_vx_d.extend(vel)
-        refs_his_vy_d.extend(Planner.xPred[0:N,1])
-        refs_his_omega_d.extend(Planner.xPred[0:N,2])
-        refs_his_epsi_d.extend(Planner.xPred[0:N,4])
-        refs_his_ey_d.extend(Planner.xPred[0:N,3])
-        refs_his_s_d.extend(SS)
-        refs_his_curv_d.extend(curv)
-        refs_his_steer_d.extend(Planner.uPred[:,0])
-        refs_his_duty_d.extend(Planner.uPred[:,1])
 
 
 
-        print "time taken = {}".format(tnow - t0) 
 
 
-        # ALL_LOCAL_DATA[Counter,:]   = np.hstack(( Planner.xPred[0,:], Planner.uPred[0,:] ))
-        # References[Counter,:]       = np.hstack(( refs.x_d[0], refs.y_d[0], refs.psi_d[0], refs.vx_d[0], refs.curv_d[0] ))
 
 
-        # Increase time counter and ROS sleep()
-        TimeCounter     += 1
-        Counter         += 1
+
+
 
 
         rate.sleep()
-
-
-
-
-    #############################################################
-    day         = '01_06_20'
-    num_test    = 'References'
-
-    newpath = ('/').join(__file__.split('/')[:-2]) + '/data/'+day+'/'+num_test+'/' 
-    if not os.path.exists(newpath):
-        os.makedirs(newpath)
-    print "newpath+'/References'"
-
-    refs_his_time    = np.array(refs_his_time)
-    refs_his_counter    = np.array(refs_his_counter)
-    refs_his_x_t    = np.array(refs_his_x_t)
-    refs_his_y_t    = np.array(refs_his_y_t)
-    refs_his_x_d    = np.array(refs_his_x_d)
-    refs_his_y_d    = np.array(refs_his_y_d)
-    refs_his_psi_d  = np.array(refs_his_psi_d)
-    refs_his_vx_d   = np.array(refs_his_vx_d)
-    refs_his_vy_d   = np.array(refs_his_vy_d)
-    refs_his_omega_d    = np.array(refs_his_omega_d)
-    refs_his_epsi_d = np.array(refs_his_epsi_d)
-    refs_his_ey_d   = np.array(refs_his_ey_d)
-    refs_his_s_d    = np.array(refs_his_s_d)
-    refs_his_curv_d = np.array(refs_his_curv_d)
-    refs_his_steer_d = np.array(refs_his_steer_d)
-    refs_his_duty_d = np.array(refs_his_duty_d)
     
+    ### during termination send the 0.0 command to shut off the motors
+    dutycycle_commands.publish(0.0)
+    steering_commands.publish(0.0)
+    rate.sleep()
+
+    quit()
 
 
-    refs_his_x_d = refs_his_x_d.reshape(Counter,len(xp))
-    refs_his_y_d = refs_his_y_d.reshape(Counter, len(yp))
-    refs_his_psi_d = refs_his_psi_d.reshape(Counter, len(yaw))
-    refs_his_vx_d = refs_his_vx_d.reshape(Counter, len(vel))
-    refs_his_vy_d = refs_his_vy_d.reshape(Counter, len((Planner.xPred[0:N,1])))
-    refs_his_omega_d = refs_his_omega_d.reshape(Counter, len((Planner.xPred[0:N,2])))
-    refs_his_epsi_d = refs_his_epsi_d.reshape(Counter, len((Planner.xPred[0:N,4])))
-    refs_his_ey_d = refs_his_ey_d.reshape(Counter, len((Planner.xPred[0:N,3])))
-    refs_his_s_d = refs_his_s_d.reshape(Counter, len(SS))
-    refs_his_curv_d = refs_his_curv_d.reshape(Counter, len(curv))
-    refs_his_steer_d = refs_his_steer_d.reshape(Counter, len(Planner.uPred[:,0]))
-    refs_his_duty_d = refs_his_duty_d.reshape(Counter, len(Planner.uPred[:,1]))
+####################### VISUALIZATION #######################################################
 
-
-    refs_his['time'] = refs_his_time
-    refs_his['counter'] = refs_his_counter
-    refs_his['x_t']= refs_his_x_t
-    refs_his['y_t']= refs_his_y_t
-    refs_his['x_d']= refs_his_x_d
-    refs_his['y_d']= refs_his_y_d
-    refs_his['psi_d']= refs_his_psi_d
-    refs_his['vx_d']= refs_his_vx_d
-    refs_his['vy_d']= refs_his_vy_d
-    refs_his['omega_d']= refs_his_omega_d
-    refs_his['epsi_d']= refs_his_epsi_d
-    refs_his['ey_d']= refs_his_ey_d
-    refs_his['s_d']= refs_his_s_d
-    refs_his['curv_d']= refs_his_curv_d
-    refs_his['steer_d']= refs_his_steer_d
-    refs_his['duty_d']= refs_his_duty_d
-
-    # print "refs_his['x_d']",refs_his['x_d'][:-3]
-    # print "refs_his_x_d",refs_his_x_d[:-3]
-    # print "refs_his_counter", refs_his_counter
-
-    np.save(newpath+'/References', refs_his)
-
-    # np.savetxt(newpath+'/References.dat', References, fmt='%.5e')
-
-
-    # #############################################################
-    # # day         = '29_7_19'
-    # # num_test    = 'Test_1'
-    # newpath = ('/').join(__file__.split('/')[:-2]) + '/data/'+day+'/'+num_test+'/' 
-
-    # if not os.path.exists(newpath):
-    #     os.makedirs(newpath)
-
-    # np.savetxt(newpath+'/ALL_LOCAL_DATA.dat', ALL_LOCAL_DATA, fmt='%.5e')
-    # np.savetxt(newpath+'/PREDICTED_DATA.dat', PREDICTED_DATA, fmt='%.5e')
-    # np.savetxt(newpath+'/GLOBAL_DATA.dat', GLOBAL_DATA, fmt='%.5e')
-    # np.savetxt(newpath+'/Complete_Vel_Vect.dat', Complete_Vel_Vect, fmt='%.5e')
-    # np.savetxt(newpath+'/References.dat', References, fmt='%.5e')
-    # np.savetxt(newpath+'/TLAPTIME.dat', TLAPTIME, fmt='%.5e')
-    # np.savetxt(newpath+'/ELAPSD_TIME.dat', ELAPSD_TIME, fmt='%.5e')
-
-
-    plt.close()
-
-    # time50ms = np.linspace(0, (Counter-1)*dt, num=Counter-1, endpoint=True)
-    # time33ms = np.linspace(0, (Counter-1)*dt, num=np.around((Counter-1)*dt/0.033), endpoint=True)
-    # f = interp1d(time50ms, References[0:Counter-1,3], kind='cubic')
-
-    # plt.figure(2)
-    # plt.subplot(211)
-    # plt.plot(References[0:Counter-1,3], 'o')
-    # plt.legend(['Velocity'], loc='best')
-    # plt.grid()
-    # plt.subplot(212)
-    # # plt.plot(time33ms, f(time33ms), 'o')
-    # # plt.legend(['Velocity interpolated'], loc='best')    
-    # plt.plot(References[0:Counter-1,4], '-')
-    # plt.legend(['Curvature'], loc='best')    
-    # plt.show()
-    # plt.grid()
-    # pdb.set_trace()
-
-
-    # quit() # final del while
-
-
-
-
-
-
-# ==========================================================================================================================
-# ==========================================================================================================================
-# ==========================================================================================================================
-# ==========================================================================================================================
-
-class RacingDataClass(object):
-    """ Object collecting data from racing performance """
-
-    def __init__(self):
-
-        rospy.Subscriber('Racing_Info', Racing_Info, self.racing_info_callback, queue_size=1)
-
-        self.LapNumber          = 0
-        self.PlannerCounter     = 0
-
-    def racing_info_callback(self,data):
-        """ ... """      
-        self.LapNumber          = data.LapNumber
-        self.PlannerCounter     = data.PlannerCounter
-
-
-
-
-# ===============================================================================================================================
-# ==================================================== END OF MAIN ==============================================================
-# ===============================================================================================================================
-
-def InitFigure_XY(map, mode, HW):
+def InitFigure_XY(map,HW):
     xdata = []; ydata = []
     fig = plt.figure(figsize=(10,8))
     plt.ion()
@@ -823,13 +1031,10 @@ def InitFigure_XY(map, mode, HW):
 
     rec_sim = patches.Polygon(v, alpha=0.7,closed=True, fc='G', ec='k',zorder=10)
 
-    if mode == "simulations":
-        axtr.add_patch(rec_sim)
 
     plt.show()
 
     return fig, axtr, line_tr, line_pred, line_trs, line_cl, line_gps_cl, rec, rec_sim
-
 
 
 def getCarPosition(x, y, psi, w, l):
@@ -838,50 +1043,6 @@ def getCarPosition(x, y, psi, w, l):
     car_y = [ y + l * np.sin(psi) + w * np.cos(psi), y + l * np.sin(psi) - w * np.cos(psi),
               y - l * np.sin(psi) - w * np.cos(psi), y - l * np.sin(psi) + w * np.cos(psi)]
     return car_x, car_y
-
-
-
-def predicted_vectors_generation(Hp, x0, accel_rate, delta, dt):
-
-    Vx      = np.zeros((Hp+1, 1))
-    Vx[0]   = x0[0]
-    S       = np.zeros((Hp+1, 1))
-    S[0]    = 0
-    Vy      = np.zeros((Hp+1, 1))
-    Vy[0]   = x0[1]
-    W       = np.zeros((Hp+1, 1))
-    W[0]    = x0[2]
-    Ey      = np.zeros((Hp+1, 1))
-    Ey[0]   = x0[3]
-    Epsi    = np.zeros((Hp+1, 1))
-    Epsi[0] = x0[4]
-
-    curv    = 0
-
-    for i in range(0, Hp): 
-        Vy[i+1]      = x0[1]  
-        W[i+1]       = x0[2] 
-        Ey[i+1]      = x0[3] 
-        Epsi[i+1]    = x0[4] 
-
-    accel   = np.array([[accel_rate for i in range(0, Hp)]])
-    delta   = np.array([[ delta for i in range(0, Hp)]])
-
-    for i in range(0, Hp):
-        Vx[i+1]    = Vx[i] + accel[0,i] * dt
-        S[i+1]      = S[i] + ( (Vx[i]*np.cos(Epsi[i]) - Vy[i]*np.sin(Epsi[i])) / (1-Ey[i]*curv) ) * dt
-
-    # print "Vx = ", Vx
-    # print "Vy = ", np.transpose(Vy)
-    # print "W = ", W
-
-    # pdb.set_trace()
-
-    xx  = np.hstack([ Vx, Vy, W, Ey, Epsi, S])    
-
-    uu  = np.hstack([delta.transpose(),accel.transpose()])
-
-    return xx, uu
 
 
 # EA: Modified for taking also the desired velocity
@@ -907,10 +1068,32 @@ def Curvature(s, PointAndTangent):
     return curvature
 
 
+
+def Body_Frame_Errors (x, y, psi, xd, yd, psid, s0, vx, vy, curv, dt):
+
+    ex = (x-xd)*np.cos(psid) + (y-yd)*np.sin(psid)
+
+    ey = -(x-xd)*np.sin(psid) + (y-yd)*np.cos(psid)
+
+    epsi = wrap(psi - psid)
+
+    #s = s0 + np.sqrt(vx*vx + vy*vy) * dt
+    s = s0 + ( (vx*np.cos(epsi) - vy*np.sin(epsi)) / (1-ey*curv) ) * dt
+
+    return s, ex, ey, epsi
+
+
+
+
+
+
 if __name__ == "__main__":
 
-    try:    
+    try:
         main()
-        
+
     except rospy.ROSInterruptException:
         pass
+
+
+

@@ -368,6 +368,7 @@ def main():
     N                   = rospy.get_param("/control/Horizon")
     Vx_ref              = rospy.get_param("/control/vel_ref")
     loop_rate           = rospy.get_param("/control/Hz")
+    save_reference      = rospy.get_param("/control/save_output")
     dt                  = 1.0/loop_rate
     rate                = rospy.Rate(loop_rate)
 
@@ -402,7 +403,8 @@ def main():
 
     GlobalState         = np.zeros(6)       # vehicle kinematic and dynamic states
     LocalState          = np.zeros(6)       # vehicle dynamic and error states
-    LapNumber           = 0                 
+    LapNumber           = 0   
+    LapNumber_det       = 0              
     HalfTrack           = 0
 
     '''References for the controller to attain this states'''
@@ -414,7 +416,7 @@ def main():
 
     # Loop running at loop rate
     TimeCounter         = 0
-    PlannerCounter      = 0
+    ControllerCounter   = 0
     test_gen            = rospy.get_param("planning_mode")# test generated plan 0 = offline plan, 1 = vel profile, 2 = map
     
     ###### Online planner ########
@@ -433,7 +435,11 @@ def main():
         planning_refs_pub   = rospy.Publisher('Offline_Planning', My_Planning, queue_size=1)
         planning_refs_msg   = My_Planning()
 
-        offline_path = (('/').join(sys.path[0].split('/')[:-2])+'/planner/data/01_06_20/References/References.npy')
+        # offline_path = (('/').join(sys.path[0].split('/')[:-2])+'/planner/data/01_06_20/References/References.npy')
+        offline_path = (('/').join(sys.path[0].split('/')[:-2])+'/planner/data/01_06_20/References/velocity_0.8_N40_HZ25.npy')
+        # offline_path = (('/').join(sys.path[0].split('/')[:-2])+'/planner/data/01_06_20/References/velocity_0.8_N20_HZ50.npy')
+
+        
         print "offline_path", offline_path
         planner_refs = np.load(offline_path, allow_pickle=True).item()
 
@@ -472,10 +478,55 @@ def main():
 
     window_iter = 0
 
+
+
+    if save_reference == True:
+        
+        ############### for controller and observer data saving used for documentation or debugging ################## 
+        contr_his        = {"time": [], "controller_dt": dt, "controller_N": N , "counter": [], "x_est": [], "y_est": [], "yaw_est": [],\
+         "vx_est": [], "vy_est": [], "omega_est": [], "ey_est": [], "epsi_est": [], "s_est": [], "epsi_pred_mod": [], "ey_pred_mod": [], \
+         "s_pred_mod": [], "vx_pred_mod": [], "vy_pred_mod": [], "omega_pred_mod": [], "epsi_pred_cont": [], "ey_pred_cont": [],\
+          "s_pred_cont": [], "vx_pred_cont": [],  "vy_pred_cont": [], "omega_pred_cont": [], "steer_pred_cont": [], "duty_pred_cont": []}
+        
+        time_his = time.time()
+        contr_his_time    = []
+        contr_his_counter    = []
+
+        contr_his_x_est    = []
+        contr_his_y_est    = []
+        contr_his_yaw_est    = []
+        contr_his_vx_est    = []
+        contr_his_vy_est    = []
+        contr_his_omega_est    = []
+        contr_his_epsi_est    = []
+        contr_his_ey_est  = []
+        contr_his_s_est   = []
+        
+        contr_his_epsi_pred_mod    = []
+        contr_his_ey_pred_mod  = []
+        contr_his_s_pred_mod   = []
+        contr_his_vx_pred_mod   = []
+        contr_his_vy_pred_mod    = []
+        contr_his_omega_pred_mod = []
+
+        contr_his_epsi_pred_cont    = []
+        contr_his_ey_pred_cont  = []
+        contr_his_s_pred_cont   = []
+        contr_his_vx_pred_cont   = []
+        contr_his_vy_pred_cont    = []
+        contr_his_omega_pred_cont = []
+        contr_his_steer_pred_cont   = []
+        contr_his_duty_pred_cont    = []
+
+
+
+
     Controller  = PathFollowingLPV_MPC(N, Vx_ref, dt, map)
     rospy.sleep(1.2)
 
     print "controller initialized"
+
+    lap_counter = 1
 
     while (not rospy.is_shutdown()):
 
@@ -522,7 +573,12 @@ def main():
             # Check if the lap has finished
             if map.TrackLength*(1.0-0.1) <= LocalState[4] <= map.TrackLength*(1.0+0.1):
                 HalfTrack = 1
+                lap_counter += 1
                 print 'the lap has finished'
+
+
+        # if lap_counter == 3:
+        #     print lap_counter-1, " lap has completed"
 
         ########################## ONLINE PLANNER #########################
         if test_gen == 2:
@@ -665,12 +721,26 @@ def main():
 
         ### END OF THE LAP.
         # PATH TRACKING:
-        if ( HalfTrack == 1 and (map.TrackLength*(1.0-0.1) <= LocalState[4] <= map.TrackLength*(1.0+0.1))):
+
+        # if ( HalfTrack == 1 and (-0.2 <= GlobalState[3] <= 0.2) and (-0.25 <= GlobalState[4] <= 0.25) and (-0.1 <= GlobalState[5] <= 0.1)):
+
+        if (map.TrackLength*0.98 <= LocalState[4]):#(1.0-0.1) <= LocalState[4] <= map.TrackLength*(1.0+0.1))):
             HalfTrack       = 0
-            LapNumber       += 1
+
+            if (LapNumber_det == 0):
+                LapNumber       += 1
+                
+            LapNumber_det += 1
+
             SS              = 0
             print "END OF THE LAP"
+            print 'LapNumber', LapNumber 
+            if LapNumber == 2:
+                break
 
+            print "LocalState[4]", LocalState[4]
+        else:
+            LapNumber_det = 0
 
 
         ###################################################################################################
@@ -693,6 +763,8 @@ def main():
             Controller.uPred = uu
             Controller.xPred = xx
             
+            LPV_States_Prediction = xx[:N,:]
+
             # first_it    = first_it + 1
             Controller.uminus1 = Controller.uPred[0,:]
 
@@ -736,6 +808,9 @@ def main():
             if test_gen == 1:
                 # Controller.update_q = True
                 # print "len(vel_ref), len(curv_ref)",len(vel_ref), len(curv_ref)
+
+                # [vx], [vy], [wz], [epsi], [s], [ey]
+                # non_uniform_sampling 
                 LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction(LocalState[0:6], Controller.uPred, vel_ref, curv_ref)
                 # LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction(LocalState[0:6], Controller.uPred, vel_ref, curv_ref,  )
             
@@ -754,7 +829,7 @@ def main():
 
             if test_gen == 3:
 
-                Controller.update_q = False
+                Controller.update_q = True
                 ref_init = [vx_ref[0] , vy_ref[0], omega_ref[0], epsi_ref[0], s_ref[0], ey_ref[0]]
                 
                 ref_states = [vx_ref , vy_ref, omega_ref, epsi_ref, s_ref, ey_ref, curv_ref]
@@ -762,9 +837,11 @@ def main():
 
                 print "ref_u.shape", ref_u.shape, "Controller.uPred.shape", Controller.uPred.shape, steer_ref.shape, duty_ref.shape
                 # print "len(vel_ref), len(curv_ref)",len(vel_ref), len(curv_ref)
-                # LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction_planner(ref_init, ref_u, ref_states)
+                LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction_planner(ref_init, ref_u, ref_states)
 
-                LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction_planner(LocalState[0:6], Controller.uPred, ref_states)
+                # LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction_planner(LocalState[0:6], ref_u, ref_states)
+
+                # LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction_planner(LocalState[0:6], Controller.uPred, ref_states)
 
                 # LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction_planner(LocalState[0:6], Controller.uPred, ref_lpv)
                 # LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction(LocalState[0:6], Controller.uPred, vel_ref, curv_ref,  )
@@ -773,8 +850,8 @@ def main():
                 # print "Controller.xPred", Controller.xPred
                 print "MPC update", vel_ref[0], Vx_ref
                 # ref_qp = [Vx_ref, 0, 0, 0, 0 , 0]
-                # ref_qp = [vx_ref[N-1] , 0., 0., epsi_ref[N-1], 0., ey_ref[N-1]]
-                ref_qp = [vx_ref[N-1] , vy_ref[N-1], omega_ref[N-1], epsi_ref[N-1], s_ref[N-1], ey_ref[N-1]]
+                ref_qp = [vx_ref[N-1] , 0., 0., epsi_ref[N-1], 0., ey_ref[N-1]]
+                # ref_qp = [vx_ref[N-1] , vy_ref[N-1], omega_ref[N-1], epsi_ref[N-1], s_ref[N-1], ey_ref[N-1]]
                 # ref_qp = [vx_ref[-1] , vy_ref[-1], omega_ref[-1], epsi_ref[-1], s_ref[-1], ey_ref[-1]]
 
                 Controller.MPC_update(A_L, B_L, LocalState[0:6], ref_qp) 
@@ -803,6 +880,9 @@ def main():
             Controller.uminus1 = Controller.uPred[0,:] 
 
         first_it    = first_it + 1
+
+
+        print ('LPV_States_Prediction', LPV_States_Prediction.shape)
 
         if Controller.feasible == 0.0:
             Controller.uPred[0,0] = 0.0
@@ -851,83 +931,167 @@ def main():
 
         ################### visualization ########################
 
-        if visualization == 1:
-            
 
-            #####################################
-            ## Getting vehicle position:
-            #####################################
-            Xref[0]     = Xlast
-            Yref[0]     = Ylast
-            Thetaref[0] = Thetalast
 
-            # print "SS[0] = ", S_realDist
+        if save_reference == True:
 
-            # SS[0] = S_realDist
-            # SS  = np.zeros(N+1,) 
-            S_dist[0] = Controller.xPred[0,4]
-            for j in range( 0, N ):
-                PointAndTangent = map.PointAndTangent         
+            tnow = time.time()
+            contr_his_time.append(tnow - time_his)
+            contr_his_counter.append(ControllerCounter)    
+
+            contr_his_x_est.append(GlobalState[3])
+            contr_his_y_est.append(GlobalState[4])
+            contr_his_yaw_est.append(GlobalState[5])
+            contr_his_vx_est.append(GlobalState[0])
+            contr_his_vy_est.append(GlobalState[1])
+            contr_his_omega_est.append(GlobalState[2])
+            contr_his_ey_est.append(LocalState[5])
+            contr_his_epsi_est.append(LocalState[3])
+            contr_his_s_est.append(LocalState[4])
                 
-                curv            = Curvature( S_dist[j], PointAndTangent )
 
-                # print "Controller.xPred[j,0]", Controller.xPred[j,0], 'Controller.xPred[j,4]', Controller.xPred[j,4], 'Controller.xPred[j,3]', Controller.xPred[j,3] 
-                S_dist[j+1] = ( S_dist[j] + ( ( Controller.xPred[j,0]* np.cos(Controller.xPred[j,4])
-                 - Controller.xPred[j,1]*np.sin(Controller.xPred[j,4]) ) / ( 1-Controller.xPred[j,3]*curv ) ) * dt ) 
+            contr_his_epsi_pred_mod.extend(LPV_States_Prediction[:,3])
+            contr_his_ey_pred_mod.extend(LPV_States_Prediction[:,5])
+            contr_his_s_pred_mod.extend(LPV_States_Prediction[:,4])
+            contr_his_vx_pred_mod.extend(LPV_States_Prediction[:,0])
+            contr_his_vy_pred_mod.extend(LPV_States_Prediction[:,1])
+            contr_his_omega_pred_mod.extend(LPV_States_Prediction[:,2])
 
-                '''Only valid if the S_dist[j+1] value is close to 0'''
-                if -0.001 < S_dist[j+1] < 0.001:
-                    S_dist[j+1] = 0.0
-
-                # print "S_dist", S_dist
-                # print 'ss_dist+1', S_dist[j+1]
-                # print "map.getGlobalPosition( S_dist[j+1], 0.0 )", map.getGlobalPosition( S_dist[j+1], 0.0 )
-                # Xref[j+1], Yref[j+1], Thetaref[j+1] = map.getGlobalPosition( S_dist[j+1], curr_states.states_ey )
-                Xref[j+1], Yref[j+1], Thetaref[j+1] = map.getGlobalPosition( S_dist[j+1], 0.0 )
-
-            Xlast = Xref[1]
-            Ylast = Yref[1]
-            Thetalast = Thetaref[1]
-
-            for i in range(0,N):
-                yaw[i]  = Thetaref[i] + Controller.xPred[i,4]
-                xp[i]   = Xref[i] - Controller.xPred[i,3]*np.sin(yaw[i])
-                yp[i]   = Yref[i] + Controller.xPred[i,3]*np.cos(yaw[i])    
-
-
-            line_trs.set_data(xp[0:N/2], yp[0:N/2])
-            line_pred.set_data(xp[N/2:], yp[N/2:])
-            x_his.append(xp[0])
-            y_his.append(yp[0])
-            line_cl.set_data(x_his, y_his)
-            l = 0.4/2; w = 0.2/2
-            car_sim_x, car_sim_y = getCarPosition(xp[0], yp[0], yaw[0], w, l)
-            rec_sim.set_xy(np.array([car_sim_x, car_sim_y]).T)
-            fig.canvas.draw()
-
-            plt.show()
-            plt.pause(1/2000.0)
-            StringValue = "vx = "+str(Controller.xPred[0,0]) + " epsi =" + str(Controller.xPred[0,4]) 
-            axtr.set_title(StringValue)
+            contr_his_epsi_pred_cont.extend(Controller.xPred[:,3])
+            contr_his_ey_pred_cont.extend(Controller.xPred[:,5])
+            contr_his_s_pred_cont.extend(Controller.xPred[:,4])
+            contr_his_vx_pred_cont.extend(Controller.xPred[:,0])
+            contr_his_vy_pred_cont.extend(Controller.xPred[:,1])
+            contr_his_omega_pred_cont.extend(Controller.xPred[:,2])
+            contr_his_steer_pred_cont.extend(Controller.uPred[:,0])
+            contr_his_duty_pred_cont.extend(Controller.uPred[:,1])
 
 
 
 
 
 
-
-
-
-
-
-
-
+        ControllerCounter +=1
         rate.sleep()
     
     ### during termination send the 0.0 command to shut off the motors
     dutycycle_commands.publish(0.0)
     steering_commands.publish(0.0)
     rate.sleep()
+
+
+
+
+
+    if save_reference == True:
+
+        contr_his_time      = np.array(contr_his_time)
+        contr_his_counter       = np.array(contr_his_counter)
+        contr_his_time      = np.array(contr_his_time)
+        contr_his_counter       = np.array(contr_his_counter)
+        contr_his_x_est     = np.array(contr_his_x_est)
+        contr_his_y_est     = np.array(contr_his_y_est)
+        contr_his_yaw_est       = np.array(contr_his_yaw_est)
+        contr_his_vx_est        = np.array(contr_his_vx_est)
+        contr_his_vy_est        = np.array(contr_his_vy_est)
+        contr_his_omega_est     = np.array(contr_his_omega_est)
+        contr_his_ey_est        = np.array(contr_his_ey_est)
+        contr_his_epsi_est      = np.array(contr_his_epsi_est)
+        contr_his_s_est     = np.array(contr_his_s_est)
+
+        contr_his_epsi_pred_mod     = np.array(contr_his_epsi_pred_mod)
+        contr_his_ey_pred_mod       = np.array(contr_his_ey_pred_mod)
+        contr_his_s_pred_mod        = np.array(contr_his_s_pred_mod)
+        contr_his_vx_pred_mod       = np.array(contr_his_vx_pred_mod)
+        contr_his_vy_pred_mod       = np.array(contr_his_vy_pred_mod)
+        contr_his_omega_pred_mod        = np.array(contr_his_omega_pred_mod)
+        contr_his_epsi_pred_cont        = np.array(contr_his_epsi_pred_cont)
+        contr_his_ey_pred_cont      = np.array(contr_his_ey_pred_cont)
+        contr_his_s_pred_cont       = np.array(contr_his_s_pred_cont)
+        contr_his_vx_pred_cont      = np.array(contr_his_vx_pred_cont)
+        contr_his_vy_pred_cont      = np.array(contr_his_vy_pred_cont)
+        contr_his_omega_pred_cont       = np.array(contr_his_omega_pred_cont)
+        contr_his_steer_pred_cont       = np.array(contr_his_steer_pred_cont)
+        contr_his_duty_pred_cont        = np.array(contr_his_duty_pred_cont)
+        
+
+
+
+        contr_his_epsi_pred_mod     = contr_his_epsi_pred_mod.reshape(ControllerCounter, len(LPV_States_Prediction[:,3]))
+        contr_his_ey_pred_mod       = contr_his_ey_pred_mod.reshape(ControllerCounter, len(LPV_States_Prediction[:,5]))
+        contr_his_s_pred_mod        = contr_his_s_pred_mod.reshape(ControllerCounter, len(LPV_States_Prediction[:,4]))
+        contr_his_vx_pred_mod       = contr_his_vx_pred_mod.reshape(ControllerCounter, len(LPV_States_Prediction[:,0]))
+        contr_his_vy_pred_mod       = contr_his_vy_pred_mod.reshape(ControllerCounter, len(LPV_States_Prediction[:,1]))
+        contr_his_omega_pred_mod        = contr_his_omega_pred_mod.reshape(ControllerCounter, len(LPV_States_Prediction[:,2]))
+
+        contr_his_epsi_pred_cont        = contr_his_epsi_pred_cont.reshape(ControllerCounter, len(Controller.xPred[:,3]))
+        contr_his_ey_pred_cont      = contr_his_ey_pred_cont.reshape(ControllerCounter, len(Controller.xPred[:,5]))
+        contr_his_s_pred_cont       = contr_his_s_pred_cont.reshape(ControllerCounter, len(Controller.xPred[:,4]))
+        contr_his_vx_pred_cont      = contr_his_vx_pred_cont.reshape(ControllerCounter, len(Controller.xPred[:,0]))
+        contr_his_vy_pred_cont      = contr_his_vy_pred_cont.reshape(ControllerCounter, len(Controller.xPred[:,1]))
+        contr_his_omega_pred_cont       = contr_his_omega_pred_cont.reshape(ControllerCounter, len(Controller.xPred[:,2]))
+        contr_his_steer_pred_cont       = contr_his_steer_pred_cont.reshape(ControllerCounter, len(Controller.uPred[:,0]))
+        contr_his_duty_pred_cont        = contr_his_duty_pred_cont.reshape(ControllerCounter, len(Controller.uPred[:,1]))
+
+
+
+        contr_his["time"]       =   contr_his_time 
+        contr_his["counter"]        =   contr_his_counter 
+        contr_his["x_est"]      =   contr_his_x_est 
+        contr_his["y_est"]      =   contr_his_y_est 
+        contr_his["yaw_est"]        =   contr_his_yaw_est 
+        contr_his["vx_est"]     =   contr_his_vx_est 
+        contr_his["vy_est"]     =   contr_his_vy_est 
+        contr_his["omega_est"]      =   contr_his_omega_est 
+        contr_his["ey_est"]     =   contr_his_epsi_est 
+        contr_his["epsi_est"]       =   contr_his_ey_est 
+        contr_his["s_est"]      =   contr_his_s_est 
+        contr_his["epsi_pred_mod"]      =   contr_his_epsi_pred_mod 
+        contr_his["ey_pred_mod"]        =   contr_his_ey_pred_mod 
+        contr_his["s_pred_mod"]     =   contr_his_s_pred_mod 
+        contr_his["vx_pred_mod"]        =   contr_his_vx_pred_mod 
+        contr_his["vy_pred_mod"]        =   contr_his_vy_pred_mod 
+        contr_his["omega_pred_mod"]     =   contr_his_omega_pred_mod 
+        contr_his["epsi_pred_cont"]     =   contr_his_epsi_pred_cont 
+        contr_his["ey_pred_cont"]       =   contr_his_ey_pred_cont 
+        contr_his["s_pred_cont"]        =   contr_his_s_pred_cont 
+        contr_his["vx_pred_cont"]       =   contr_his_vx_pred_cont 
+        contr_his["vy_pred_cont"]       =   contr_his_vy_pred_cont 
+        contr_his["omega_pred_cont"]        =   contr_his_omega_pred_cont 
+        contr_his["steer_pred_cont"]        =   contr_his_steer_pred_cont 
+        contr_his["duty_pred_cont"]     =   contr_his_duty_pred_cont 
+
+
+
+            #############################################################
+        day         = '04_06_20'
+        num_test    = 'controller_output'
+
+        newpath = ('/').join(__file__.split('/')[:-2]) + '/data/'+day+'/'+num_test+'/' 
+        if not os.path.exists(newpath):
+            os.makedirs(newpath)
+        print "newpath+'/'"
+
+        planner_name = rospy.get_param("/control/trial_name")
+        np.save(newpath+'/'+planner_name, contr_his)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     quit()
 
