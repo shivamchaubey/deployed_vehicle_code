@@ -29,10 +29,12 @@
         <!-- contained in observer/data/-->
         
 
-        <param name="lqr_gain_path"   type="string"  value="/data/LQR_16_04_2021/LIDAR_switching_LQR_gain.mat" if="$(arg SWITCHING_LQR)"/>
+        <!--param name="lqr_gain_path"   type="string"  value="/data/LQR_16_04_2021/LIDAR_switching_LQR_gain.mat" if="$(arg SWITCHING_LQR)"/-->
+        <param name="lqr_gain_path"   type="string"  value="/data/LQR_16_04_2021/steer_035_switching_LQR_gain.mat" if="$(arg SWITCHING_LQR)"/>
 
 
-        <param name="lidar_pose"          type="bool"      value="true" />
+
+        <param name="lidar_pose"          type="bool"      value="false" />
         <param name="cam_pose"            type="bool"      value="true" />
         <param name="fusion_cam_lidar"    type="bool"      value="false" />
  

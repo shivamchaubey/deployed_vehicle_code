@@ -46,8 +46,8 @@
     <node pkg="controller"      type="planner_controller.py"    name="control" output="screen">
 
         <param name="Horizon"           type="int"      value="20" />
-        <param name="Hz"                type="double"   value="50" />
-        <param name="vel_ref"           type="double"   value="0.8"/>
+        <param name="Hz"                type="double"   value="60" />
+        <param name="vel_ref"           type="double"   value="0.7"/>
         <param name="integral_action"   type="bool"     value="false"/>
         <param name="soft_constraints"  type="bool"     value="false"/>
          <param name="trial_name"  type="string"     value="sampling_comparison_nonuniform"/>

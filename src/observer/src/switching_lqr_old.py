@@ -1110,6 +1110,8 @@ def data_retrive_est(msg, est_msg, yaw_measured, AC_sig, CC_sig):
     msg.timestamp_ms = 0
     msg.X  = est_msg[3]
     msg.Y  = est_msg[4]
+    # msg.X  = AC_sig
+    # msg.Y  = CC_sig
     msg.roll  = 0
     msg.yaw  = est_msg[5]
     msg.pitch  = 0
@@ -1412,6 +1414,7 @@ def main():
 
         angle_past = angle_acc
         
+        angle_acc = imu.yaw
 
 
 
@@ -1455,7 +1458,7 @@ def main():
 
         
         
-        if abs(u[0]) > 0.05:
+        if  abs(enc.vx) > 0.00001:
 
 
             yaw_trans = (est_state[5] + pi) % (2 * pi) - pi
@@ -1527,12 +1530,22 @@ def main():
         print "input u", u
         print "dt", dt
 
-        AC_sig = 0
-        CC_sig = 0
+        # AC_sig = lidar.X
+        # CC_sig = lidar.Y
 
-        lidar_state_test[3] = 0
-        lidar_state_test[4] = 0
-        lidar_state_test[5] = 0
+        # lidar_state_test[3] = lidar.X
+        # lidar_state_test[4] = lidar.Y
+        # lidar_state_test[5] = lidar.yaw
+
+
+        AC_sig = 0.0
+        CC_sig = 0.0
+
+        lidar_state_test[3] = 0.0
+        lidar_state_test[4] = 0.0
+        lidar_state_test[5] = 0.0
+
+
 
 
         est_msg = data_retrive_est(est_state_msg, est_state, y_meas[-1], AC_sig, CC_sig)
