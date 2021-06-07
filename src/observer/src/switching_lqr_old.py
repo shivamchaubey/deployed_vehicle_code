@@ -1286,6 +1286,8 @@ def main():
     
     if cam_pose_on == True:
         fcam   = fiseye_cam(time0, N_fcam)
+        fcam_trans_msg = sensorReading()
+        fcam_trans_pub  = rospy.Publisher('fcam_transformed_info', sensorReading, queue_size=1)
     
     if fusion_cam_lidar_on == True:
         lidar  = lidar_pose()
@@ -1295,12 +1297,13 @@ def main():
     enc    = motor_encoder(time0, N_enc)
     imu    = IMU(time0, N_imu)
 
-    time.sleep(1)
-    print  "yaw_offset", fcam.yaw
-    imu.yaw_offset = imu.yaw - fcam.yaw
-    control_input = vehicle_control(time0)
-    time.sleep(1)
+    if cam_pose_on == True:
+        time.sleep(1)
+        print  "yaw_offset", fcam.yaw
+        imu.yaw_offset = imu.yaw - fcam.yaw
+        time.sleep(1)
 
+    control_input = vehicle_control(time0)
     
     if visualization == True:
         x_lim = 10
@@ -1330,12 +1333,7 @@ def main():
                          [0, 0, 0, 0, 1, 0],
                          [0, 0, 0, 0, 0, 1]]) 
 
-    # time.sleep(5)
-    
-    lr = rospy.get_param("lr")
-    lf = rospy.get_param("lf")
-    beta = lr*tan(control_input.steer)/(lr+lf); ## slip angle
-    vy = enc.vx*beta;
+
     vy = 0.0
 
     # yaw_curr = yaw_correction(imu.yaw)
@@ -1378,6 +1376,8 @@ def main():
     meas_state_msg = sensorReading()
     
 
+
+
     control_data = control()
     
     curr_time = rospy.get_rostime().to_sec() - time0
@@ -1387,9 +1387,6 @@ def main():
     u = [0,0]
     
     lidar_state_test = np.zeros(6)
-
-    X_past = fcam.X
-    Y_past = fcam.Y
 
     lidar_meas_his = []
     cam_meas_his = []
@@ -1422,6 +1419,10 @@ def main():
         if cam_pose_on == True:
             y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, angle_acc]).T 
             cam_meas_his.append([fcam.X, fcam.Y])
+
+            fcam_trans_msg.X = fcam.Y
+            fcam_trans_msg.Y = fcam.X
+            fcam_trans_pub.publish(fcam_trans_msg)
     
         if lidar_pose_on == True:
             y_meas = np.array([enc.vx, imu.yaw_rate, lidar.X, lidar.Y, angle_acc]).T 
@@ -1433,6 +1434,11 @@ def main():
             X_curr = alpha*fcam.X + (1-alpha)*lidar.X 
             Y_curr = alpha*fcam.Y + (1-alpha)*lidar.Y
             y_meas = np.array([enc.vx, imu.yaw_rate, X_curr, Y_curr, angle_acc]).T 
+
+
+            fcam_trans_msg.X = fcam.Y
+            fcam_trans_msg.Y = fcam.X
+            fcam_trans_pub.publish(fcam_trans_msg)
 
             lidar_meas_his.append([lidar.X, lidar.Y])
             cam_meas_his.append([fcam.X, fcam.Y])
@@ -1449,7 +1455,7 @@ def main():
 
         
         
-        if u[0] > 0.05:
+        if abs(u[0]) > 0.05:
 
 
             yaw_trans = (est_state[5] + pi) % (2 * pi) - pi
@@ -1538,9 +1544,16 @@ def main():
         meas_msg = meas_retrive(meas_state_msg, y_meas)
         meas_state_pub.publish(meas_msg)
 
+
+
+
+
         ol_state_his.append(ol_state)
         est_state_his.append(est_state)
         control_his.append(u)
+
+
+
 
         prev_time = curr_time 
 

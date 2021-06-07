@@ -1,0 +1,7 @@
+<launch>
+  <node pkg="plotter" type="track_publisher.py" name='track_plot' output="screen">
+  </node>
+
+  <node pkg="tf" type="static_transform_publisher" name="plot_broadcaster" args="0 0 0 0 0 0 1 map track 100" />
+
+</launch>
