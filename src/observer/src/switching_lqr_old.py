@@ -805,7 +805,7 @@ def append_control_data(data,msg):
     data['duty_cycle'].append(msg.duty_cycle)
 
 
-def Continuous_AB_Comp(vx, vy, omega, theta, delta):
+def Continuous_AB_Comp_olf(vx, vy, omega, theta, delta):
 
 
 #     %%% Parameters
@@ -971,7 +971,7 @@ def Continuous_AB_Comp_old(vx, vy, omega, theta, delta):
 
 
 
-def Continuous_AB_Comp_old2(vx, vy, omega, theta, delta):
+def Continuous_AB_Comp(vx, vy, omega, theta, delta):
 
     m = rospy.get_param("m")
     rho = rospy.get_param("rho")
@@ -986,53 +986,54 @@ def Continuous_AB_Comp_old2(vx, vy, omega, theta, delta):
     Car = rospy.get_param("Car")
     Iz = rospy.get_param("Iz")
 
-    
-    F_flat = 0;
-    Fry = 0;
-    Frx = 0;
-    
-    
-    eps = 0.00000001
-    F_flat = 2*Caf*(delta- atan((vy+lf*omega)/(vx+eps)));
-    
-    
-    
-    Fry = -2*Car*atan((vy - lr*omega)/(vx+eps)) ;
-    A11 = -(1/m)*(C0 + C1/(vx+eps) + Cd_A*rho*vx/2);
-    A31 = -Fry*lr/((vx+eps)*Iz);
-        
-    A12 = omega;
-    A21 = -omega;
-    
-    A22 = Fry/(m*(vy+eps));
+
+
+
+
+    A11 = 0.0
+    A12 = 0.0
+    A13 = 0.0
+    A22 = 0.0
+    A23 = 0.0
+    A32 = 0.0
+    A33 = 0.0
+    B32 = 0.0
+
+    eps = 0.00
+    ## et to not go to nan
+    if abs(vx) > 0.000001:  
+        A11 = -(1/m)*(C0 + C1/(eps+vx) + Cd_A*rho*vx/2);
+        A12 = 2*Caf*sin(delta)/(m*(vx+eps)) 
+        A13 = 2*Caf*lf*sin(delta)/(m*(vx+eps)) + vy
+        A22 = -(2*Car + 2*Caf*cos(delta))/(m*(vx+eps))
+        A23 = (2*Car*lr - 2*Caf*lf*cos(delta))/(m*(vx+eps)) - vx
+        A32 = (2*Car*lr - 2*Caf*lf*cos(delta))/(Iz*(vx+eps))
+        A33 = -(2*Car*lf*lf*cos(delta) + 2*Caf*lr*lr)/(Iz*(vx+eps))
+        B32 = 2*Caf*lf*cos(delta)/(Iz*(vx+eps))
 
     A41 = cos(theta);
     A42 = -sin(theta);
     A51 = sin(theta);
     A52 = cos(theta);
+    B12 = -(2*Caf*sin(delta))/m
+    B11 = (Cm0 - Cm1*vx)/m
+    B22 = 2*Caf*cos(delta)/m
 
 
-    B12 = -F_flat*sin(delta)/(m*(delta+eps));
-    B22 = F_flat*cos(delta)/(m*(delta+eps));    
-    B32 = F_flat*cos(delta)*lf/(Iz*(delta+eps));
+    B_obs  = np.array([[ B11, B12 ], #[duty, delta]
+                        [ 0,   B22 ],
+                        [ 0,   B32 ],
+                        [ 0,    0  ],
+                        [ 0,    0  ],
+                        [ 0,    0  ]])
 
 
-
-    B11 = (1/m)*(Cm0 - Cm1*vx);
-    
-    A_obs = np.array([[A11, A12, 0,  0,   0,  0],\
-                  [A21, A22, 0,  0,   0,  0],\
-                  [A31,  0 , 0,  0,   0,  0],\
-                  [A41, A42, 0,  0,   0,  0],\
-                  [A51, A52, 0,  0,   0,  0],\
-                  [ 0 ,  0 , 1,  0,   0,  0]])
-    
-    B_obs = np.array([[B11, B12],\
-                    [ 0,  B22],\
-                    [ 0,  B32],\
-                    [ 0 ,  0 ],\
-                    [ 0 ,  0 ],\
-                    [ 0 ,  0 ]])
+    A_obs = np.array([[A11    ,  A12 ,   A13 ,  0., 0., 0.],  # [vx]
+                    [0    ,  A22 ,   A23  ,  0., 0., 0.],  # [vy]
+                    [0    ,   A32 ,    A33  ,  0., 0., 0.],  # [wz]
+                    [A41   ,  A42 ,   0. ,   0., 0, 0. ],  # [X]
+                    [A51    ,  A52 ,   0. ,  0., 0., 0.],  # [Y]
+                    [0    ,  0 ,   1. ,  0., 0., 0. ]]) # [theta]
 
     
     # print ('self.A_obs',self.A_obs,'self.B_obs',self.B_obs)
@@ -1342,17 +1343,7 @@ def main():
     yaw_curr = (imu.yaw)
 
 
-    if cam_pose_on == True:
-        est_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, yaw_curr ]).T
-        ol_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, yaw_curr ]).T
 
-    if lidar_pose_on == True:
-        est_state = np.array([enc.vx, vy, imu.yaw_rate, lidar.X, lidar.Y, yaw_curr ]).T
-        ol_state = np.array([enc.vx, vy, imu.yaw_rate, lidar.X, lidar.Y, yaw_curr ]).T
-    
-    if fusion_cam_lidar_on == True:
-        est_state = np.array([enc.vx, vy, imu.yaw_rate, lidar.X, lidar.Y, yaw_curr ]).T
-        ol_state = np.array([enc.vx, vy, imu.yaw_rate, lidar.X, lidar.Y, yaw_curr ]).T
 
 
     # x_init  = rospy.get_param("switching_lqr_observer/x_tf")
@@ -1402,19 +1393,34 @@ def main():
 
     angle_past = imu.yaw
 
+
+
+    if cam_pose_on == True:
+        est_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, yaw_curr ]).T
+        ol_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, yaw_curr ]).T
+
+    if lidar_pose_on == True:
+        est_state = np.array([enc.vx, vy, imu.yaw_rate, lidar.X, lidar.Y, yaw_curr ]).T
+        ol_state = np.array([enc.vx, vy, imu.yaw_rate, lidar.X, lidar.Y, yaw_curr ]).T
+    
+    if fusion_cam_lidar_on == True:
+        est_state = np.array([enc.vx, vy, imu.yaw_rate, lidar.X, lidar.Y, yaw_curr ]).T
+        ol_state = np.array([enc.vx, vy, imu.yaw_rate, lidar.X, lidar.Y, yaw_curr ]).T
+
+
     while not (rospy.is_shutdown()):
         curr_time = rospy.get_rostime().to_sec() - time0
 
         u = np.array([control_input.duty_cycle, control_input.steer]).T
 
 
-        angle_cur = imu.yaw
+        angle_cur = imu.yaw_MA
         
         angle_acc = unwrap(angle_past, angle_cur)  
 
         angle_past = angle_acc
         
-        angle_acc = imu.yaw
+        # angle_acc = imu.yaw
 
 
 
@@ -1458,7 +1464,7 @@ def main():
 
         
         
-        if  abs(enc.vx) > 0.00001:
+        if  abs(u[0]) > 0.05:
 
 
             yaw_trans = (est_state[5] + pi) % (2 * pi) - pi
