@@ -861,8 +861,8 @@ def main():
 
                 Controller.MPC_solve()
             
-                print "feasible", Controller.feasible
-                print "time taken to solve", time.time() - t1
+            print "feasible", Controller.feasible
+            print "time taken to solve", time.time() - t1
 
 
 

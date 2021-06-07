@@ -969,7 +969,7 @@ def Continuous_AB_Comp_old(vx, vy, omega, theta, delta):
 
 
 
-def Continuous_AB_Comp_old(vx, vy, omega, theta, delta):
+def Continuous_AB_Comp(vx, vy, omega, theta, delta):
 
     m = rospy.get_param("m")
     rho = rospy.get_param("rho")
@@ -1051,7 +1051,7 @@ def Continuous_AB_Comp_old(vx, vy, omega, theta, delta):
 
 
 
-def Continuous_AB_Comp(vx, vy, omega, theta, delta):
+def Continuous_AB_Comp_old(vx, vy, omega, theta, delta):
 
     # m = rospy.get_param("m")
     # rho = rospy.get_param("rho")
