@@ -41,7 +41,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from scipy.interpolate import interp1d
 from scipy import signal
-from tqdm import tqdm
+# from tqdm import tqdm
 from planner.msg import My_Planning
 
 
@@ -735,8 +735,8 @@ def main():
             SS              = 0
             print "END OF THE LAP"
             print 'LapNumber', LapNumber 
-            if LapNumber == 2:
-                break
+            # if LapNumber == 2:
+            #     break
 
             print "LocalState[4]", LocalState[4]
         else:

@@ -1340,13 +1340,13 @@ def main():
     yaw_curr = (imu.yaw)
 
 
-    if lidar_pose_on == True:
-        est_state = np.array([enc.vx, vy, imu.yaw_rate, lidar.X, lidar.Y, yaw_curr ]).T
-        ol_state = np.array([enc.vx, vy, imu.yaw_rate, lidar.X, lidar.Y, yaw_curr ]).T
-    
     if cam_pose_on == True:
         est_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, yaw_curr ]).T
         ol_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, yaw_curr ]).T
+
+    if lidar_pose_on == True:
+        est_state = np.array([enc.vx, vy, imu.yaw_rate, lidar.X, lidar.Y, yaw_curr ]).T
+        ol_state = np.array([enc.vx, vy, imu.yaw_rate, lidar.X, lidar.Y, yaw_curr ]).T
     
     if fusion_cam_lidar_on == True:
         est_state = np.array([enc.vx, vy, imu.yaw_rate, lidar.X, lidar.Y, yaw_curr ]).T

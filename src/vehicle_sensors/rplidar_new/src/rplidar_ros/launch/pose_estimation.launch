@@ -12,12 +12,12 @@
 <param name="use_tf_pose_start_estimate" value="false"/>
  
 <!-- Map size / start point -->
-<param name="map_resolution" value="0.01"/>
+<param name="map_resolution" value="0.05"/>
 <param name="map_size" value="512"/>
 <param name="map_start_x" value="0.5"/>
 <param name="map_start_y" value="0.5" />
-<param name="laser_z_min_value" value = "0.0" />
-<param name="laser_z_max_value" value = "3.14" />
+<param name="laser_z_min_value" value = "-1.0" />
+<param name="laser_z_max_value" value = "1.0" />
 <param name="map_multi_res_levels" value="2" />
  
 <param name="map_pub_period" value="2" />
