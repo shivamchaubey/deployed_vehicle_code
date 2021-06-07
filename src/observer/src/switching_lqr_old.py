@@ -41,8 +41,14 @@ class lidar_pose():
         # ECU measurement
         self.X = 0.0
         self.Y = 0.0
+        self.X_MA = 0.0
+        self.Y_MA = 0.0
         self.yaw = 0.0
         self.offset_X = 0.13
+        self.N = 20
+        self.X_MA_window = [0.0]*self.N
+        self.Y_MA_window = [0.0]*self.N
+
     def pose_callback(self,msg):
         """Unpack message from lidar sensor"""
         
@@ -51,7 +57,14 @@ class lidar_pose():
         quat = msg.pose.orientation
         euler = tf.transformations.euler_from_quaternion([quat.x, quat.y, quat.z, quat.w])
         self.yaw = euler[2]
-    
+        
+        self.X_MA_window.pop(0)
+        self.X_MA_window.append(self.X)
+        self.X_MA = np.squeeze(np.convolve(self.X_MA_window, np.ones(self.N)/self.N, mode='valid'))
+
+        self.Y_MA_window.pop(0)
+        self.Y_MA_window.append(self.Y)
+        self.Y_MA = np.squeeze(np.convolve(self.Y_MA_window, np.ones(self.N)/self.N, mode='valid'))
 
 
 class vehicle_control(object):
@@ -989,7 +1002,7 @@ def Continuous_AB_Comp(vx, vy, omega, theta, delta):
     rho = 1.225;
     lr = 0.1203;
     lf = 0.132;
-    Cm0 = 10.46853;
+    Cm0 = 11.56853;
     Cm1 = 0.667237;
     C0 = 2.61049;
     C1 =  -0.00213596;
@@ -1444,6 +1457,8 @@ def main():
     if fusion_cam_lidar_on == True:
         lidar  = lidar_pose()
         fcam   = fiseye_cam(time0, N_fcam)
+        fcam_trans_msg = sensorReading()
+        fcam_trans_pub  = rospy.Publisher('fcam_transformed_info', sensorReading, queue_size=1)
 
 
     enc    = motor_encoder(time0, N_enc)
@@ -1727,12 +1742,12 @@ def main():
 
 
         est_msg = data_retrive_est(est_state_msg, est_state, y_meas[-1], AC_sig, CC_sig)
-
-        # meas_est_state =  np.array([enc.vx, est_state[1], imu.yaw_rate, lidar.X, lidar.Y, angle_acc]).T 
+        est_state_pub.publish(est_msg) ## remember we want to check the transformed yaw angle for debugging that's why 
+        
+        # meas_est_state =  np.array([enc.vx_MA, est_state[1], imu.yaw_rate_MA, lidar.X_MA, lidar.Y_MA, angle_acc]).T 
         # meas_est_msg = data_retrive_est(est_state_msg, meas_est_state, y_meas[-1], AC_sig, CC_sig)
 
-        est_state_pub.publish(est_msg) ## remember we want to check the transformed yaw angle for debugging that's why 
-                                                                                    ##publishing this information in the topic of "s" which is not used for any purpose. 
+                                                                                    #publishing this information in the topic of "s" which is not used for any purpose. 
         # est_state_pub.publish(meas_est_msg)
 
         ol_state_pub.publish(data_retrive(ol_state_msg, ol_state))

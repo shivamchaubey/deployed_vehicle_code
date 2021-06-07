@@ -55,12 +55,12 @@
 
         <param name="Horizon"           type="int"      value="20" />
         <param name="Hz"                type="double"   value="65" />
-        <param name="vel_ref"           type="double"   value="0.7"/>
+        <param name="vel_ref"           type="double"   value="0.4"/>
         <param name="integral_action"   type="bool"     value="false"/>
-        <param name="soft_constraints"  type="bool"     value="false"/>
+        <param name="soft_constraints"  type="bool"     value="true"/>
          <param name="trial_name"  type="string"     value="sampling_comparison_nonuniform"/>
          <param name="save_output"          type="bool"      value="0" />
-         <param name="non_uniform_sampling"          type="bool"      value="0" />
+         <param name="non_uniform_sampling"          type="bool"      value="1" />
     </node>
 
     <!--node pkg="planner" type="mpc_planner.py" name="trajectory_planner" output="screen"> 
