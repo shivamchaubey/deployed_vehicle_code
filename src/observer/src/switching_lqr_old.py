@@ -1530,9 +1530,9 @@ def main():
         AC_sig = 0
         CC_sig = 0
 
-        lidar_state_test[3] = lidar.X
-        lidar_state_test[4] = lidar.Y
-        lidar_state_test[5] = lidar.yaw
+        lidar_state_test[3] = 0
+        lidar_state_test[4] = 0
+        lidar_state_test[5] = 0
 
 
         est_msg = data_retrive_est(est_state_msg, est_state, y_meas[-1], AC_sig, CC_sig)
