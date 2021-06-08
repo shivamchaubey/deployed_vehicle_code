@@ -805,22 +805,22 @@ def append_control_data(data,msg):
     data['duty_cycle'].append(msg.duty_cycle)
 
 
-def Continuous_AB_Comp_olf(vx, vy, omega, theta, delta):
+def Continuous_AB_Comp_old(vx, vy, omega, theta, delta):
 
 
 #     %%% Parameters
-    m = 2.424;
-    rho = 1.225;
-    lr = 0.1203;
-    lf = 0.1377;
-    Cm0 = 10.1305;
-    Cm1 = 1.05294;
-    C0 = 3.68918;
-    C1 = 0.0306803;
-    Cd_A = -0.657645;
-    Caf = 1.3958;
-    Car = 1.6775;
-    Iz = 0.02;
+    m = rospy.get_param("m")
+    rho = rospy.get_param("rho")
+    lr = rospy.get_param("lr")
+    lf = rospy.get_param("lf")
+    Cm0 = rospy.get_param("Cm0")
+    Cm1 = rospy.get_param("Cm1")
+    C0 = rospy.get_param("C0")
+    C1 = rospy.get_param("C1")
+    Cd_A = rospy.get_param("Cd_A")
+    Caf = rospy.get_param("Caf")
+    Car = rospy.get_param("Car")
+    Iz = rospy.get_param("Iz")
 
     F_flat = 0;
     Fry = 0;
@@ -891,6 +891,86 @@ def Continuous_AB_Comp_olf(vx, vy, omega, theta, delta):
 
 def Continuous_AB_Comp_old(vx, vy, omega, theta, delta):
 
+
+#     %%% Parameters
+    m = rospy.get_param("m")
+    rho = rospy.get_param("rho")
+    lr = rospy.get_param("lr")
+    lf = rospy.get_param("lf")
+    Cm0 = rospy.get_param("Cm0")
+    Cm1 = rospy.get_param("Cm1")
+    C0 = rospy.get_param("C0")
+    C1 = rospy.get_param("C1")
+    Cd_A = rospy.get_param("Cd_A")
+    Caf = rospy.get_param("Caf")
+    Car = rospy.get_param("Car")
+    Iz = rospy.get_param("Iz")
+
+    F_flat = 0;
+    Fry = 0;
+    Frx = 0;
+    
+    A31 = 0;
+    A11 = 0;
+    
+    eps = 0.0000001
+    # eps = 0
+    # if abs(vx)> 0:
+    F_flat = 2*Caf*(delta- atan((vy+lf*omega)/(vx+eps)));
+    Fry = -2*Car*atan((vy - lr*omega)/(vx+eps)) ;
+    A11 = -(1/m)*(C0 + C1/(vx+eps) + Cd_A*rho*vx/2);
+    A31 = -Fry*lr/((vx+eps)*Iz);
+        
+    A12 = omega;
+    A21 = -omega;
+    A22 = 0;
+    
+    # if abs(vy) > 0.0:
+    A22 = Fry/(m*(vy+eps));
+
+    A41 = cos(theta);
+    A42 = -sin(theta);
+    A51 = sin(theta);
+    A52 = cos(theta);
+
+
+    B12 = 0;
+    B32 = 0;
+    B22 = 0;
+    
+
+    B12 = -F_flat*sin(delta)/(m*(delta+eps));
+    B22 = F_flat*cos(delta)/(m*(delta+eps));    
+    B32 = F_flat*cos(delta)*lf/(Iz*(delta+eps));
+
+
+
+    B11 = (1/m)*(Cm0 - Cm1*vx);
+    
+    A = np.array([[A11, A12, 0,  0,   0,  0],\
+                  [A21, A22, 0,  0,   0,  0],\
+                  [A31,  0 , 0,  0,   0,  0],\
+                  [A41, A42, 0,  0,   0,  0],\
+                  [A51, A52, 0,  0,   0,  0],\
+                  [ 0 ,  0 , 1,  0,   0,  0]])
+    
+    # print "A = {}".format(A), "Det A = {}".format(LA.det(A))
+
+    B = np.array([[B11, B12],\
+                  [ 0,  B22],\
+                  [ 0,  B32],\
+                  [ 0 ,  0 ],\
+                  [ 0 ,  0 ],\
+                  [ 0 ,  0 ]])
+        
+    # print "B = {}".format(B), "Det B = {}".format(LA.det(B))
+
+    return A, B
+
+
+
+def Continuous_AB_Comp_old(vx, vy, omega, theta, delta):
+
     m = rospy.get_param("m")
     rho = rospy.get_param("rho")
     lr = rospy.get_param("lr")
@@ -949,14 +1029,14 @@ def Continuous_AB_Comp_old(vx, vy, omega, theta, delta):
 
     B11 = (1/m)*(Cm0 - Cm1*vx);
     
-    A_obs = np.array([[A11, A12, 0,  0,   0,  0],\
+    A = np.array([[A11, A12, 0,  0,   0,  0],\
                   [A21, A22, 0,  0,   0,  0],\
                   [A31,  0 , 0,  0,   0,  0],\
                   [A41, A42, 0,  0,   0,  0],\
                   [A51, A52, 0,  0,   0,  0],\
                   [ 0 ,  0 , 1,  0,   0,  0]])
     
-    B_obs = np.array([[B11, B12],\
+    B = np.array([[B11, B12],\
                     [ 0,  B22],\
                     [ 0,  B32],\
                     [ 0 ,  0 ],\
@@ -966,28 +1046,44 @@ def Continuous_AB_Comp_old(vx, vy, omega, theta, delta):
     
     # print ('self.A_obs',self.A_obs,'self.B_obs',self.B_obs)
     
-    return A_obs, B_obs
+    return A, B
 
 
 
 
 def Continuous_AB_Comp(vx, vy, omega, theta, delta):
 
-    m = rospy.get_param("m")
-    rho = rospy.get_param("rho")
-    lr = rospy.get_param("lr")
-    lf = rospy.get_param("lf")
-    Cm0 = rospy.get_param("Cm0")
-    Cm1 = rospy.get_param("Cm1")
-    C0 = rospy.get_param("C0")
-    C1 = rospy.get_param("C1")
-    Cd_A = rospy.get_param("Cd_A")
-    Caf = rospy.get_param("Caf")
-    Car = rospy.get_param("Car")
-    Iz = rospy.get_param("Iz")
+    # m = rospy.get_param("m")
+    # rho = rospy.get_param("rho")
+    # lr = rospy.get_param("lr")
+    # lf = rospy.get_param("lf")
+    # Cm0 = rospy.get_param("Cm0")
+    # Cm1 = rospy.get_param("Cm1")
+    # C0 = rospy.get_param("C0")
+    # C1 = rospy.get_param("C1")
+    # Cd_A = rospy.get_param("Cd_A")
+    # Caf = rospy.get_param("Caf")
+    # Car = rospy.get_param("Car")
+    # Iz = rospy.get_param("Iz")
 
 
+    m = 2.424;
+    rho = 1.225;
+    lr = 0.1203;
+    lf = 0.132;
+    Cm0 = 10.1305;
+    Cm1 = 1.05294;
+    C0 = 3.68918;
+    C1 = 0.0306803;
+    Cd_A = -0.657645;
+    Caf = 1.3958;
+    Car = 1.6775;   
+    
+    # Caf = 2.0095;
+    # Car = 3.1816 ;
+    
 
+    Iz = 0.1;
 
 
     A11 = 0.0
@@ -1306,6 +1402,12 @@ def main():
         imu.yaw_offset = imu.yaw - fcam.yaw
         time.sleep(1)
 
+    if lidar_pose_on == True:
+        time.sleep(1)
+        print  "yaw_offset ", lidar.yaw
+        imu.yaw_offset = imu.yaw - lidar.yaw
+        time.sleep(1)
+
     control_input = vehicle_control(time0)
     
     if visualization == True:
@@ -1339,8 +1441,6 @@ def main():
 
     vy = 0.0
 
-    # yaw_curr = yaw_correction(imu.yaw)
-    yaw_curr = (imu.yaw)
 
 
 
@@ -1393,6 +1493,8 @@ def main():
 
     angle_past = imu.yaw
 
+    yaw_curr = (imu.yaw)
+
 
 
     if cam_pose_on == True:
@@ -1408,34 +1510,50 @@ def main():
         ol_state = np.array([enc.vx, vy, imu.yaw_rate, lidar.X, lidar.Y, yaw_curr ]).T
 
 
+    angle_fused_on = False
+
     while not (rospy.is_shutdown()):
         curr_time = rospy.get_rostime().to_sec() - time0
 
         u = np.array([control_input.duty_cycle, control_input.steer]).T
 
+        if angle_fused_on == True:
+    
+            alpha_angle = 0.2
 
-        angle_cur = imu.yaw_MA
+            angle_cur = alpha_angle*imu.yaw + (1 - alpha_angle)*lidar.yaw
+    
+        else:
+
+            angle_cur = imu.yaw
+        # angle_cur = lidar.yaw
         
         angle_acc = unwrap(angle_past, angle_cur)  
 
         angle_past = angle_acc
         
         # angle_acc = imu.yaw
+        # angle_acc = lidar.yaw
 
 
 
 
         if cam_pose_on == True:
             y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, angle_acc]).T 
-            cam_meas_his.append([fcam.X, fcam.Y])
 
             fcam_trans_msg.X = fcam.Y
             fcam_trans_msg.Y = fcam.X
             fcam_trans_pub.publish(fcam_trans_msg)
-    
+
+            if record_data == True:
+                cam_meas_his.append([fcam.X, fcam.Y])
+
+
         if lidar_pose_on == True:
             y_meas = np.array([enc.vx, imu.yaw_rate, lidar.X, lidar.Y, angle_acc]).T 
-            lidar_meas_his.append([lidar.X, lidar.Y])
+
+            if record_data == True:
+                lidar_meas_his.append([lidar.X, lidar.Y])
 
 
         if fusion_cam_lidar_on == True:
@@ -1449,9 +1567,11 @@ def main():
             fcam_trans_msg.Y = fcam.X
             fcam_trans_pub.publish(fcam_trans_msg)
 
-            lidar_meas_his.append([lidar.X, lidar.Y])
-            cam_meas_his.append([fcam.X, fcam.Y])
-            fused_meas_his.append([X_curr, Y_curr])
+            if record_data == True:
+
+                lidar_meas_his.append([lidar.X, lidar.Y])
+                cam_meas_his.append([fcam.X, fcam.Y])
+                fused_meas_his.append([X_curr, Y_curr])
 
         full_meas_his.append(y_meas)
         # y_meas = np.array([enc.vx, imu.yaw_rate, fcam.X, fcam.Y, fcam.yaw]).T
@@ -1464,7 +1584,7 @@ def main():
 
         
         
-        if  abs(u[0]) > 0.05:
+        if  (abs(u[0]) > 0.05 or abs(enc.vx_MA) > 0.0):
 
 
             yaw_trans = (est_state[5] + pi) % (2 * pi) - pi
@@ -1509,14 +1629,14 @@ def main():
             ##### OPEN LOOP SIMULATION ####
             A_sim, B_sim = Continuous_AB_Comp(ol_state[0], ol_state[1], ol_state[2], ol_state[5], u[1])
             ol_state = ol_state + dt*(np.dot(A_sim,ol_state) + np.dot(B_sim,u)) 
-            ol_state_his.append([ol_state[3],ol_state[4]])
 
 
-        # if abs(u[0]) <= 0.05:
-        #         #     # vehicle_sim.vehicle_model(u, simulator_dt)
-        #             # if vehicle_sim.vx <= 0.01 :
-        #     est_state[:-3] = 0.000001 
-        #     ol_state[:-3] = 0.000001
+
+        if abs(u[0]) <= 0.05:
+                #     # vehicle_sim.vehicle_model(u, simulator_dt)
+                    # if vehicle_sim.vx <= 0.01 :
+            est_state[:-3] = 0.000001 
+            ol_state[:-3] = 0.000001
 
 
         print "\n <<<<<<<<< PRE WRAP >>>>>>>>>>>>>"
@@ -1558,18 +1678,18 @@ def main():
         est_state_pub.publish(est_msg) ## remember we want to check the transformed yaw angle for debugging that's why 
                                                                                     ##publishing this information in the topic of "s" which is not used for any purpose. 
 
-        ol_state_pub.publish(data_retrive(ol_state_msg, lidar_state_test))
+        ol_state_pub.publish(data_retrive(ol_state_msg, ol_state))
 
         meas_msg = meas_retrive(meas_state_msg, y_meas)
         meas_state_pub.publish(meas_msg)
 
 
 
+        if record_data == True:
 
-
-        ol_state_his.append(ol_state)
-        est_state_his.append(est_state)
-        control_his.append(u)
+            ol_state_his.append(ol_state)
+            est_state_his.append(est_state)
+            control_his.append(u)
 
 
 
