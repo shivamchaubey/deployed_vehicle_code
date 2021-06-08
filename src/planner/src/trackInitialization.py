@@ -62,7 +62,13 @@ class Map():
             spec = 1.0*np.array([[1.34, 0],
                              [1.125*np.pi, 1.125],
                              [1.34, 0],
-                             [1.14*np.pi, 1.125]])
+                             [1.125*np.pi, 1.125]])
+
+        elif selectedTrack == "oval_iri1":
+            spec = 1.0*np.array([[1.34, 0],
+                             [(1.125 +0.15)*np.pi, (1.125 +0.15)*1.125],
+                             [1.34, 0],
+                             [(1.125 +0.15)*np.pi, (1.125 +0.15)]])
 
 
         # Now given the above segments we compute the (x, y) points of the track and the angle of the tangent vector (psi) at

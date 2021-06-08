@@ -91,7 +91,7 @@ class PathFollowingLPV_MPC:
          
         if self.planning_mode == 1:            
 
-            self.Qw  = 0.6 * np.array([0.5*vx_scale, 0.00, 0.00, 0.4*etheta_scale, 0.0, 0.4*ey_scale]) # penality on states 
+            self.Qw  = 0.6 * np.array([0.4*vx_scale, 0.00, 0.00, 0.2*etheta_scale, 0.0, 0.8*ey_scale]) # penality on states 
             self.Rw  = 0.1 * np.array([0.05*str_scale, 0.05*duty_scale])     # Penality on input (dutycycle, steer)
 
 

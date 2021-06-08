@@ -971,29 +971,78 @@ def Continuous_AB_Comp_old(vx, vy, omega, theta, delta):
 
 def Continuous_AB_Comp(vx, vy, omega, theta, delta):
 
-    m = rospy.get_param("m")
-    rho = rospy.get_param("rho")
-    lr = rospy.get_param("lr")
-    lf = rospy.get_param("lf")
-    Cm0 = rospy.get_param("Cm0")
-    Cm1 = rospy.get_param("Cm1")
-    C0 = rospy.get_param("C0")
-    C1 = rospy.get_param("C1")
-    Cd_A = rospy.get_param("Cd_A")
-    Caf = rospy.get_param("Caf")
-    Car = rospy.get_param("Car")
-    Iz = rospy.get_param("Iz")
+    # m = rospy.get_param("m")
+    # rho = rospy.get_param("rho")
+    # lr = rospy.get_param("lr")
+    # lf = rospy.get_param("lf")
+    # Cm0 = rospy.get_param("Cm0")
+    # Cm1 = rospy.get_param("Cm1")
+    # C0 = rospy.get_param("C0")
+    # C1 = rospy.get_param("C1")
+    # Cd_A = rospy.get_param("Cd_A")
+    # Caf = rospy.get_param("Caf")
+    # Car = rospy.get_param("Car")
+    # Iz = rospy.get_param("Iz")
 
+
+    m = 2.424;
+    rho = 1.225;
+    lr = 0.1203;
+    lf = 0.132;
+    Cm0 = 10.46853;
+    Cm1 = 0.667237;
+    C0 = 2.61049;
+    C1 =  -0.00213596;
+    Cd_A = -0.466602;
+    Caf = 1.3958;
+    Car = 1.6775;   
+    Iz = 0.02;
+
+
+
+    # m = 2.424;
+    # rho = 1.225;
+    # lr = 0.1203;
+    # lf = 0.132;
+    # Cm0 = 10.1305;
+    # Cm1 = 1.05294;
+    # C0 = 3.68918;
+    # C1 = 0.0306803;
+    # Cd_A = -0.657645;
+    # Caf = 1.3958;
+    # Car = 1.6775;   
+    # Iz = 0.04;
+    # Caf = 1.3958;
+    # Car = 1.6775 ;
     
+
+    # m = 2.424;
+    # rho = 1.225;
+    # lr = 0.1203;
+    # lf = 0.132;
+    # Cm0 = 10.1305;
+    # Cm1 = 1.05294;
+    # C0 = 3.68918;
+    # C1 = 0.0306803;
+    # Cd_A = -0.657645;
+    # Caf = 1.3958;
+    # Car = 1.6775;   
+    # Iz = 0.00578667;
+    # Caf = -0.591976;
+    # Car = 1.80927 ;
+
+
     F_flat = 0;
     Fry = 0.0;
     Frx = 0.0;
     A11 = 0.0;
     A31 = 0.0;
     
-    eps = 0.000001
-    
-    # if abs(vx)>0.0:
+    # eps = 0.000001
+    eps = 0.0
+    if abs(vx) == 0.0:
+        eps = 0.001
+
     F_flat = 2*Caf*(delta- atan((vy+lf*omega)/(vx+eps)));
     
     
@@ -1006,7 +1055,9 @@ def Continuous_AB_Comp(vx, vy, omega, theta, delta):
     A21 = -omega;
     A22 = 0.0
 
-    # if abs(vy)>0.0:
+    eps = 0.0
+    if abs(vy) == 0.0:
+        eps = 0.001
 
     A22 = Fry/(m*(vy+eps));
 
@@ -1019,7 +1070,9 @@ def Continuous_AB_Comp(vx, vy, omega, theta, delta):
     B22 = 0.0 
     B32 = 0.0 
 
-    # if abs(delta)>0.0:
+    eps = 0.0
+    if abs(delta) == 0.0:
+        eps = 0.001
 
     B12 = -F_flat*sin(delta)/(m*(delta+eps));
     B22 = F_flat*cos(delta)/(m*(delta+eps));    
@@ -1053,34 +1106,34 @@ def Continuous_AB_Comp(vx, vy, omega, theta, delta):
 
 def Continuous_AB_Comp_old(vx, vy, omega, theta, delta):
 
-    m = rospy.get_param("m")
-    rho = rospy.get_param("rho")
-    lr = rospy.get_param("lr")
-    lf = rospy.get_param("lf")
-    Cm0 = rospy.get_param("Cm0")
-    Cm1 = rospy.get_param("Cm1")
-    C0 = rospy.get_param("C0")
-    C1 = rospy.get_param("C1")
-    Cd_A = rospy.get_param("Cd_A")
-    Caf = rospy.get_param("Caf")
-    Car = rospy.get_param("Car")
-    Iz = rospy.get_param("Iz")
+    # m = rospy.get_param("m")
+    # rho = rospy.get_param("rho")
+    # lr = rospy.get_param("lr")
+    # lf = rospy.get_param("lf")
+    # Cm0 = rospy.get_param("Cm0")
+    # Cm1 = rospy.get_param("Cm1")
+    # C0 = rospy.get_param("C0")
+    # C1 = rospy.get_param("C1")
+    # Cd_A = rospy.get_param("Cd_A")
+    # Caf = rospy.get_param("Caf")
+    # Car = rospy.get_param("Car")
+    # Iz = rospy.get_param("Iz")
 
 
-    # m = 2.424;
-    # rho = 1.225;
-    # lr = 0.1203;
-    # lf = 0.132;
-    # Cm0 = 10.1305;
-    # Cm1 = 1.05294;
-    # C0 = 3.68918;
-    # C1 = 0.0306803;
-    # Cd_A = -0.657645;
-    # Caf = 1.3958;
-    # Car = 1.6775;   
-    # Iz = 0.04;
-    # Caf = 2.0095;
-    # Car = 3.1816 ;
+    m = 2.424;
+    rho = 1.225;
+    lr = 0.1203;
+    lf = 0.132;
+    Cm0 = 10.1305;
+    Cm1 = 1.05294;
+    C0 = 3.68918;
+    C1 = 0.0306803;
+    Cd_A = -0.657645;
+    Caf = 1.3958;
+    Car = 1.6775;   
+    Iz = 0.04;
+    Caf = 2.0095;
+    Car = 3.1816 ;
     
 
 
@@ -1584,7 +1637,7 @@ def main():
 
         
         
-        if  (abs(u[0]) > 0.05 or abs(enc.vx_MA) > 0.0):
+        if  abs(u[0]) > 0.05: # or abs(enc.vx_MA) > 0.0:
 
 
             yaw_trans = (est_state[5] + pi) % (2 * pi) - pi
@@ -1632,11 +1685,11 @@ def main():
 
 
 
-        if abs(u[0]) <= 0.05:
-                #     # vehicle_sim.vehicle_model(u, simulator_dt)
-                    # if vehicle_sim.vx <= 0.01 :
-            est_state[:-3] = 0.000001 
-            ol_state[:-3] = 0.000001
+        # if abs(u[0]) <= 0.05:
+        #         #     # vehicle_sim.vehicle_model(u, simulator_dt)
+        #             # if vehicle_sim.vx <= 0.01 :
+        #     est_state[:-3] = 0.000001 
+        #     ol_state[:-3] = 0.000001
 
 
         print "\n <<<<<<<<< PRE WRAP >>>>>>>>>>>>>"
@@ -1675,12 +1728,12 @@ def main():
 
         est_msg = data_retrive_est(est_state_msg, est_state, y_meas[-1], AC_sig, CC_sig)
 
-        meas_est_state =  np.array([enc.vx, est_state[1], imu.yaw_rate, lidar.X, lidar.Y, angle_acc]).T 
-        meas_est_msg = data_retrive_est(est_state_msg, meas_est_state, y_meas[-1], AC_sig, CC_sig)
+        # meas_est_state =  np.array([enc.vx, est_state[1], imu.yaw_rate, lidar.X, lidar.Y, angle_acc]).T 
+        # meas_est_msg = data_retrive_est(est_state_msg, meas_est_state, y_meas[-1], AC_sig, CC_sig)
 
-        # est_state_pub.publish(est_msg) ## remember we want to check the transformed yaw angle for debugging that's why 
+        est_state_pub.publish(est_msg) ## remember we want to check the transformed yaw angle for debugging that's why 
                                                                                     ##publishing this information in the topic of "s" which is not used for any purpose. 
-        est_state_pub.publish(meas_est_msg)
+        # est_state_pub.publish(meas_est_msg)
 
         ol_state_pub.publish(data_retrive(ol_state_msg, ol_state))
 
@@ -1714,7 +1767,7 @@ def main():
             os.makedirs(path)
 
 
-        data = {'full_meas': full_meas_his, 'lidar_pose': lidar_meas_his, 'cam_pose':cam_meas_his, 'fused_pose':fused_meas_his, 'ol_state':ol_state_his, 'est_state': est_state_his, 'control': control_his}
+        data = {'full_meas': np.array( full_meas_his), 'lidar_pose': np.array( lidar_meas_his), 'cam_pose': np.array(cam_meas_his), 'fused_pose': np.array(fused_meas_his), 'ol_state': np.array(ol_state_his), 'est_state': np.array( est_state_his), 'control': np.array( control_his)}
 
         path = path + '/observer_data'
         

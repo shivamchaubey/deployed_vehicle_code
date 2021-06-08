@@ -16,7 +16,6 @@
 
 
     
-    
     <!-- LOAD ESTIMATOR TYPE -->
 
     <arg name="SWITCHING_LQR" default="1"/>
@@ -31,9 +30,9 @@
         <!-- contained in observer/data/-->
         
 
-        <!--param name="lqr_gain_path"   type="string"  value="/data/LQR_16_04_2021/LIDAR_switching_LQR_gain.mat" if="$(arg SWITCHING_LQR)"/-->
+        <param name="lqr_gain_path"   type="string"  value="/data/LQR_16_04_2021/LIDAR_switching_LQR_gain.mat" if="$(arg SWITCHING_LQR)"/>
         <!--param name="lqr_gain_path"   type="string"  value="/data/LQR_16_04_2021/steer_035_switching_LQR_gain.mat" if="$(arg SWITCHING_LQR)"/-->
-        <param name="lqr_gain_path"   type="string"  value="/data/LQR_16_04_2021/meas_switching_LQR_gain.mat" if="$(arg SWITCHING_LQR)"/>
+        <!--param name="lqr_gain_path"   type="string"  value="/data/LQR_16_04_2021/meas_switching_LQR_gain.mat" if="$(arg SWITCHING_LQR)"/-->
 
 
 
