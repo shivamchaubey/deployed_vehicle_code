@@ -561,13 +561,13 @@ def main():
             LocalState[4], LocalState[5], LocalState[3], insideTrack = map.getLocalPosition(
                 GlobalState[3], GlobalState[4], wrap(GlobalState[5]))
 
-            # print("\n")
-            # print("vx vy w: ", GlobalState[:3])
-            # print("\n")
-            # print("x y yaw: ", GlobalState[3:])
-            # print("\n")
-            # print("epsi s ey: ", LocalState[3:])
-            # print("\n")
+            print("\n")
+            print("vx vy w: ", GlobalState[:3])
+            print("\n")
+            print("x y yaw: ", GlobalState[3:])
+            print("\n")
+            print("epsi s ey: ", LocalState[3:])
+            print("\n")
             curv_ref        = 0
             vel_ref         = np.ones([N,1])*Vx_ref
             # Check if the lap has finished
@@ -735,8 +735,8 @@ def main():
             SS              = 0
             print "END OF THE LAP"
             print 'LapNumber', LapNumber 
-            # if LapNumber == 2:
-            #     break
+            if LapNumber == 3:
+                break
 
             print "LocalState[4]", LocalState[4]
         else:
@@ -752,7 +752,7 @@ def main():
         if first_it < 4:
 
             # Controller.planning_mode = 1
-            duty_cycle  = 0.1
+            duty_cycle  = 0.01
 
             delta = 0.0
             # xx, uu      = predicted_vectors_generation(N, LocalState, accel_rate, dt)
@@ -1064,7 +1064,7 @@ def main():
 
 
             #############################################################
-        day         = '04_06_20'
+        day         = '11_06_20'
         num_test    = 'controller_output'
 
         newpath = ('/').join(__file__.split('/')[:-2]) + '/data/'+day+'/'+num_test+'/' 

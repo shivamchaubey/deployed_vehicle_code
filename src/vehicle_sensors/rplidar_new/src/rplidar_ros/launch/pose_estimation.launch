@@ -20,7 +20,7 @@
 <param name="laser_z_max_value" value = "1.0" />
 <param name="map_multi_res_levels" value="2" />
  
-<param name="map_pub_period" value="2" />
+<param name="map_pub_period" value="0.033" />
 <param name="laser_min_dist" value="0.2" />
 <param name="laser_max_dist" value="5.5" />
 <param name="output_timing" value="false" />

@@ -1010,6 +1010,155 @@ def  LPV_model(states,u):
     # Iz = rospy.get_param("Iz")
 
 
+
+
+
+#     p = np.array([2.07583775e-30, 1.48835031e-02, 9.49681836e-05, 2.75388659e+00,
+#        1.27103552e-02, 1.00000000e+02, 1.00131788e-36, 1.67942761e+01])
+    
+#     Cm0 = p[0]
+# #     print cm0
+#     Cm1 = p[1]
+#     C0 = p[2]
+#     C1 = p[3]
+#     Cd_A = p[4]
+#     Car = p[5]
+#     Caf = p[6]
+#     Iz = p[7]
+    
+
+
+    # Caf = 1.3958;
+    # Car = 1.6775;   
+    # Iz = 0.02;
+
+    # Caf, Car, Iz = np.array([0.53270958, 1.27886038, 0.0101568 ])
+
+    m = 2.483;
+    rho = 1.225;
+    lr = 0.1203;
+    lf = 0.1377;
+    Cm0 = 10.1305;
+    Cm1 = 1.05294;
+    C0 = 3.68918;
+    C1 = 0.0306803;
+    Cd_A = -0.657645;
+    Caf = 40.62927783;
+    Car = 69.55846999;
+    Iz = 1.01950479;
+
+
+
+    F_flat = 0.;
+    Fry = 0.;
+    Frx = 0.;
+    
+    A31 = 0.;
+    A11 = 0.;
+    
+    eps = 0.00
+    # eps = 0
+    if abs(vx)>0.4:
+        Caf = 40.62927783;
+        Car = 69.55846999;
+        # Iz = 1.01950479;
+    else:
+
+        Caf = 1.3958;
+        Car = 1.6775;
+        # Iz = 0.04
+
+    if abs(vx)> 0.:
+
+
+        F_flat = 2*Caf*(delta- np.arctan((vy+lf*omega)/abs(vx+eps)));
+        Fry = -2*Car*np.arctan((vy - lr*omega)/abs(vx+eps)) ;
+
+        A11 = -(1/m)*(C0 + C1/(vx+eps) + Cd_A*rho*vx/2);
+        A31 = -Fry*lr/((vx+eps)*Iz);
+                
+    A12 = omega;
+    A21 = -omega;
+    A22 = 0.;
+    
+    if abs(vy) > 0.0:
+      A22 = Fry/(m*(vy+eps));
+
+    A41 = cos(theta);
+    A42 = -sin(theta);
+    A51 = sin(theta);
+    A52 = cos(theta);
+
+    
+    B12 = 0;
+    B32 = 0;
+    B22 = 0;
+    
+    if delta !=0.0:
+
+        B12 = -F_flat*sin(delta)/(m*(delta+eps));
+        B22 = F_flat*cos(delta)/(m*(delta+eps));    
+        B32 = F_flat*cos(delta)*lf/(Iz*(delta+eps));
+
+
+
+    B11 = (1/m)*(Cm0 - Cm1*vx);
+    
+    A = np.array([[A11, A12, 0.,  0.,   0.,  0.],\
+                  [A21, A22, 0.,  0.,   0.,  0.],\
+                  [A31,  0. , 0.,  0.,   0.,  0.],\
+                  [A41, A42, 0.,  0.,   0.,  0.],\
+                  [A51, A52, 0.,  0.,   0.,  0.],\
+                  [ 0. ,  0. , 1.,  0.,   0.,  0.]])
+#     
+#     print "A = {}".format(A), "Det A = {}".format(LA.det(A))
+
+    B = np.array([[B11, B12],\
+                  [ 0.,  B22],\
+                  [ 0.,  B32],\
+                  [ 0. ,  0. ],\
+                  [ 0. ,  0. ],\
+                  [ 0. ,  0. ]])
+    
+#     A = np.eye(len(A)) + dt * A
+#     B = dt * B
+    
+# #     print "B = {}".format(B), "Det B = {}".format(LA.det(B))
+
+#     states_new = np.dot(A, states) + np.dot(B, u)
+
+    return A, B
+
+
+
+def  LPV_model_high(states,u):
+
+
+    vx = states[0]
+    vy = states[1]
+    omega = states[2]
+    theta = states[5]
+
+    delta = u[1]
+
+
+    #%% Parameters
+    # m = 2.424; # for 5000mAh battery
+
+    # m = rospy.get_param("m")
+    # rho = rospy.get_param("rho")
+    # lr = rospy.get_param("lr")
+    # lf = rospy.get_param("lf")
+    # Cm0 = rospy.get_param("Cm0")
+    # Cm1 = rospy.get_param("Cm1")
+    # C0 = rospy.get_param("C0")
+    # C1 = rospy.get_param("C1")
+    # Cd_A = rospy.get_param("Cd_A")
+    # Caf = rospy.get_param("Caf")
+    # Car = rospy.get_param("Car")
+    # Iz = rospy.get_param("Iz")
+
+
     m = 2.483;
     rho = 1.225;
     lr = 0.1203;
@@ -1774,17 +1923,29 @@ def main():
     enc    = motor_encoder(time0, N_enc)
     imu    = IMU(time0, N_imu)
 
-    if cam_pose_on == True:
+
+
+    if lidar_pose_on and cam_pose_on:
+
         time.sleep(1)
         print  "yaw_offset", fcam.yaw
         imu.yaw_offset = imu.yaw - fcam.yaw
         time.sleep(1)
 
-    if lidar_pose_on == True:
-        time.sleep(1)
-        print  "yaw_offset ", lidar.yaw
-        imu.yaw_offset = imu.yaw - lidar.yaw
-        time.sleep(1)
+    else:
+        if lidar_pose_on == True:
+            time.sleep(1)
+            print  "yaw_offset ", lidar.yaw
+            imu.yaw_offset = imu.yaw -  lidar.yaw
+            time.sleep(1)
+
+
+
+        if cam_pose_on == True:
+            time.sleep(1)
+            print  "yaw_offset", fcam.yaw
+            imu.yaw_offset = imu.yaw - fcam.yaw
+            time.sleep(1)
 
     control_input = vehicle_control(time0)
     
@@ -1964,7 +2125,7 @@ def main():
 
         dt = curr_time - prev_time 
         
-        if  abs(u[0]) > 0.05: # or abs(enc.vx_MA) > 0.0:
+        if  True:#abs(u[0]) > 0.05: # or abs(enc.vx_MA) > 0.0:
 
 
             yaw_trans = (est_state[5] + pi) % (2 * pi) - pi
