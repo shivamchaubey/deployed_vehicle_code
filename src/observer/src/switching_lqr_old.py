@@ -969,7 +969,7 @@ def Continuous_AB_Comp_old(vx, vy, omega, theta, delta):
 
 
 
-def Continuous_AB_Comp_old(vx, vy, omega, theta, delta):
+def Continuous_AB_Comp(vx, vy, omega, theta, delta):
 
     m = rospy.get_param("m")
     rho = rospy.get_param("rho")
@@ -1051,39 +1051,39 @@ def Continuous_AB_Comp_old(vx, vy, omega, theta, delta):
 
 
 
-def Continuous_AB_Comp(vx, vy, omega, theta, delta):
+def Continuous_AB_Comp_old(vx, vy, omega, theta, delta):
 
-    # m = rospy.get_param("m")
-    # rho = rospy.get_param("rho")
-    # lr = rospy.get_param("lr")
-    # lf = rospy.get_param("lf")
-    # Cm0 = rospy.get_param("Cm0")
-    # Cm1 = rospy.get_param("Cm1")
-    # C0 = rospy.get_param("C0")
-    # C1 = rospy.get_param("C1")
-    # Cd_A = rospy.get_param("Cd_A")
-    # Caf = rospy.get_param("Caf")
-    # Car = rospy.get_param("Car")
-    # Iz = rospy.get_param("Iz")
+    m = rospy.get_param("m")
+    rho = rospy.get_param("rho")
+    lr = rospy.get_param("lr")
+    lf = rospy.get_param("lf")
+    Cm0 = rospy.get_param("Cm0")
+    Cm1 = rospy.get_param("Cm1")
+    C0 = rospy.get_param("C0")
+    C1 = rospy.get_param("C1")
+    Cd_A = rospy.get_param("Cd_A")
+    Caf = rospy.get_param("Caf")
+    Car = rospy.get_param("Car")
+    Iz = rospy.get_param("Iz")
 
 
-    m = 2.424;
-    rho = 1.225;
-    lr = 0.1203;
-    lf = 0.132;
-    Cm0 = 10.1305;
-    Cm1 = 1.05294;
-    C0 = 3.68918;
-    C1 = 0.0306803;
-    Cd_A = -0.657645;
-    Caf = 1.3958;
-    Car = 1.6775;   
-    
+    # m = 2.424;
+    # rho = 1.225;
+    # lr = 0.1203;
+    # lf = 0.132;
+    # Cm0 = 10.1305;
+    # Cm1 = 1.05294;
+    # C0 = 3.68918;
+    # C1 = 0.0306803;
+    # Cd_A = -0.657645;
+    # Caf = 1.3958;
+    # Car = 1.6775;   
+    # Iz = 0.04;
     # Caf = 2.0095;
     # Car = 3.1816 ;
     
 
-    Iz = 0.1;
+
 
 
     A11 = 0.0
@@ -1673,10 +1673,14 @@ def main():
 
 
 
-
         est_msg = data_retrive_est(est_state_msg, est_state, y_meas[-1], AC_sig, CC_sig)
-        est_state_pub.publish(est_msg) ## remember we want to check the transformed yaw angle for debugging that's why 
+
+        meas_est_state =  np.array([enc.vx, est_state[1], imu.yaw_rate, lidar.X, lidar.Y, angle_acc]).T 
+        meas_est_msg = data_retrive_est(est_state_msg, meas_est_state, y_meas[-1], AC_sig, CC_sig)
+
+        # est_state_pub.publish(est_msg) ## remember we want to check the transformed yaw angle for debugging that's why 
                                                                                     ##publishing this information in the topic of "s" which is not used for any purpose. 
+        est_state_pub.publish(meas_est_msg)
 
         ol_state_pub.publish(data_retrive(ol_state_msg, ol_state))
 
