@@ -433,13 +433,13 @@ class Vehicle_Simulator(object):
         # eps = 0.0000001
         eps = 0.0
 
-        # if abs(vx)> 0:
-        #     Fry = -2.0*self.Car*atan((vy - self.lr*omega)/abs((vx+eps))) ;
-        #     F_flat = 2.0*self.Caf*(u[1] - atan((vy+self.lf*omega)/abs((vx+eps))));
+        if abs(vx)> 0:
+            Fry = -2.0*self.Car*np.arctan((vy - self.lr*omega)/abs((vx+eps))) ;
+            F_flat = 2.0*self.Caf*(u[1] - np.arctan((vy+self.lf*omega)/abs((vx+eps))));
 
-        if abs(vx)> 0.00001:
-            Fry = -2.0*self.Car*((vy - self.lr*omega)/vx+eps) ;
-            F_flat = 2.0*self.Caf*(u[1] - ((vy+self.lf*omega)/vx+eps));
+        # if abs(vx)> 0.00001:
+        #     Fry = -2.0*self.Car*((vy - self.lr*omega)/vx+eps) ;
+        #     F_flat = 2.0*self.Caf*(u[1] - ((vy+self.lf*omega)/vx+eps));
 
         # if u[0]>0:
         #     Fry = -2.0*self.Car*np.arctan((vy - self.lr*omega)/(vx+eps)) ;

@@ -15,7 +15,7 @@
     <param name="Car"            type="double"   value="69.55846999" />
     <param name="Iz"            type="double"   value="1.01950479" />
     ?>
-
+    <?ignore
     <param name="m"             type="double"   value="2.483" />
     <param name="rho"             type="double"   value="1.225" />    
     <param name="lr"            type="double"   value="0.1203" />
@@ -28,7 +28,7 @@
     <param name="Caf"            type="double"   value="1.3958" />
     <param name="Car"            type="double"   value="1.6775" />
     <param name="Iz"            type="double"   value="0.04698869" />
-
+    ?>
     <!-- LOAD ESTIMATOR TYPE -->
 
     <arg name="SWITCHING_LQR" default="1"/>
@@ -45,9 +45,9 @@
         <!--param name="lqr_gain_path"   type="string"  value="/data/LQR_16_04_2021/scipy_switching_LQR_gain.mat" if="$(arg SWITCHING_LQR)"/-->
        
         <!--param name="lqr_gain_path"   type="string"  value="/data/LQR_16_04_2021/LIDAR_switching_LQR_gain.mat" if="$(arg SWITCHING_LQR)"/-->
-        <param name="lqr_gain_path"   type="string"  value="/data/LQR_16_04_2021/steer_035_switching_LQR_gain.mat" if="$(arg SWITCHING_LQR)"/>
+        <!--param name="lqr_gain_path"   type="string"  value="/data/LQR_16_04_2021/steer_035_switching_LQR_gain.mat" if="$(arg SWITCHING_LQR)"/-->
         <!--param name="lqr_gain_path"   type="string"  value="/data/LQR_16_04_2021/meas_switching_LQR_gain.mat" if="$(arg SWITCHING_LQR)"/-->
-        <!--param name="lqr_gain_path"   type="string"  value="/data/LQR_16_04_2021/changed_weight_switching_LQR_gain.mat" if="$(arg SWITCHING_LQR)"/-->
+        <param name="lqr_gain_path"   type="string"  value="/data/LQR_16_04_2021/changed_weight_switching_LQR_gain.mat" if="$(arg SWITCHING_LQR)"/>
         
 
 
