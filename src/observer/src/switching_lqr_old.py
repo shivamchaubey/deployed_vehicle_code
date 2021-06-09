@@ -41,8 +41,14 @@ class lidar_pose():
         # ECU measurement
         self.X = 0.0
         self.Y = 0.0
+        self.X_MA = 0.0
+        self.Y_MA = 0.0
         self.yaw = 0.0
         self.offset_X = 0.13
+        self.N = 20
+        self.X_MA_window = [0.0]*self.N
+        self.Y_MA_window = [0.0]*self.N
+
     def pose_callback(self,msg):
         """Unpack message from lidar sensor"""
         
@@ -51,7 +57,14 @@ class lidar_pose():
         quat = msg.pose.orientation
         euler = tf.transformations.euler_from_quaternion([quat.x, quat.y, quat.z, quat.w])
         self.yaw = euler[2]
-    
+        
+        self.X_MA_window.pop(0)
+        self.X_MA_window.append(self.X)
+        self.X_MA = np.squeeze(np.convolve(self.X_MA_window, np.ones(self.N)/self.N, mode='valid'))
+
+        self.Y_MA_window.pop(0)
+        self.Y_MA_window.append(self.Y)
+        self.Y_MA = np.squeeze(np.convolve(self.Y_MA_window, np.ones(self.N)/self.N, mode='valid'))
 
 
 class vehicle_control(object):
@@ -969,6 +982,116 @@ def Continuous_AB_Comp_old(vx, vy, omega, theta, delta):
 
 
 
+def  LPV_model(states,u):
+
+
+    vx = states[0]
+    vy = states[1]
+    omega = states[2]
+    theta = states[5]
+
+    delta = u[1]
+
+
+    #%% Parameters
+    # m = 2.424; # for 5000mAh battery
+
+    # m = rospy.get_param("m")
+    # rho = rospy.get_param("rho")
+    # lr = rospy.get_param("lr")
+    # lf = rospy.get_param("lf")
+    # Cm0 = rospy.get_param("Cm0")
+    # Cm1 = rospy.get_param("Cm1")
+    # C0 = rospy.get_param("C0")
+    # C1 = rospy.get_param("C1")
+    # Cd_A = rospy.get_param("Cd_A")
+    # Caf = rospy.get_param("Caf")
+    # Car = rospy.get_param("Car")
+    # Iz = rospy.get_param("Iz")
+
+
+    m = 2.483;
+    rho = 1.225;
+    lr = 0.1203;
+    lf = 0.1377;
+    Cm0 = 10.1305;
+    Cm1 = 1.05294;
+    C0 = 3.68918;
+    C1 = 0.0306803;
+    Cd_A = -0.657645;
+    Caf = 40.62927783;
+    Car = 69.55846999;
+    Iz = 1.01950479;
+
+    F_flat = 0;
+    Fry = 0;
+    Frx = 0;
+    
+    A31 = 0;
+    A11 = 0;
+    
+    eps = 0.00
+    # eps = 0
+    if abs(vx)> 0:
+        F_flat = 2*Caf*(delta- np.arctan((vy+lf*omega)/abs(vx+eps)));
+        Fry = -2*Car*np.arctan((vy - lr*omega)/abs(vx+eps)) ;
+        A11 = -(1/m)*(C0 + C1/(vx+eps) + Cd_A*rho*vx/2);
+        A31 = -Fry*lr/((vx+eps)*Iz);
+            
+    A12 = omega;
+    A21 = -omega;
+    A22 = 0;
+    
+    if abs(vy) > 0.0:
+        A22 = Fry/(m*(vy+eps));
+
+    A41 = cos(theta);
+    A42 = -sin(theta);
+    A51 = sin(theta);
+    A52 = cos(theta);
+
+    
+    B12 = 0;
+    B32 = 0;
+    B22 = 0;
+    
+    if delta !=0.0:
+
+        B12 = -F_flat*sin(delta)/(m*(delta+eps));
+        B22 = F_flat*cos(delta)/(m*(delta+eps));    
+        B32 = F_flat*cos(delta)*lf/(Iz*(delta+eps));
+
+
+
+    B11 = (1/m)*(Cm0 - Cm1*vx);
+    
+    A = np.array([[A11, A12, 0.,  0.,   0.,  0.],\
+                  [A21, A22, 0.,  0.,   0.,  0.],\
+                  [A31,  0. , 0.,  0.,   0.,  0.],\
+                  [A41, A42, 0.,  0.,   0.,  0.],\
+                  [A51, A52, 0.,  0.,   0.,  0.],\
+                  [ 0. ,  0. , 1.,  0.,   0.,  0.]])
+#     
+#     print "A = {}".format(A), "Det A = {}".format(LA.det(A))
+
+    B = np.array([[B11, B12],\
+                  [ 0.,  B22],\
+                  [ 0.,  B32],\
+                  [ 0. ,  0. ],\
+                  [ 0. ,  0. ],\
+                  [ 0. ,  0. ]])
+    
+#     A = np.eye(len(A)) + dt * A
+#     B = dt * B
+    
+# #     print "B = {}".format(B), "Det B = {}".format(LA.det(B))
+
+#     states_new = np.dot(A, states) + np.dot(B, u)
+
+    return A, B
+
+
+
 def Continuous_AB_Comp(vx, vy, omega, theta, delta):
 
     # m = rospy.get_param("m")
@@ -989,15 +1112,27 @@ def Continuous_AB_Comp(vx, vy, omega, theta, delta):
     rho = 1.225;
     lr = 0.1203;
     lf = 0.132;
-    Cm0 = 10.46853;
-    Cm1 = 0.667237;
-    C0 = 2.61049;
-    C1 =  -0.00213596;
-    Cd_A = -0.466602;
-    Caf = 1.3958;
-    Car = 1.6775;   
-    Iz = 0.02;
+    # Cm0 = 11.56853;
+    # Cm1 = 0.667237;
+    # C0 = 2.61049;
+    # C1 =  -0.00213596;
+    # Cd_A = -0.466602;
+    # Caf = 1.3958;
+    # Car = 1.6775;   
+    # Iz = 0.02;
 
+
+    p = np.array([0.01003457, 0.0099731 , 0.0099466 , 0.00994527, 0.00997194, 0.01675736, 0.01012141, 0.0001786 ])
+
+    Cm0 = p[0]
+#     print cm0
+    Cm1 = p[1]
+    C0 = p[2]
+    C1 = p[3]
+    Cd_A = p[4]
+    Car = p[5]
+    Caf = p[6]
+    Iz = p[7]
 
 
     # m = 2.424;
@@ -1040,14 +1175,14 @@ def Continuous_AB_Comp(vx, vy, omega, theta, delta):
     
     # eps = 0.000001
     eps = 0.0
-    if abs(vx) == 0.0:
-        eps = 0.001
+    if abs(vx) != 0.0:
+    #     eps = 0.001
 
-    F_flat = 2*Caf*(delta- atan((vy+lf*omega)/(vx+eps)));
+        F_flat = 2*Caf*(delta- np.arctan((vy+lf*omega)/(vx+eps)));
     
     
     
-    Fry = -2*Car*atan((vy - lr*omega)/(vx+eps)) ;
+    Fry = -2*Car*np.arctan((vy - lr*omega)/(vx+eps)) ;
     A11 = -(1/m)*(C0 + C1/(vx+eps) + Cd_A*rho*vx/2);
     A31 = -Fry*lr/((vx+eps)*Iz);
             
@@ -1055,28 +1190,28 @@ def Continuous_AB_Comp(vx, vy, omega, theta, delta):
     A21 = -omega;
     A22 = 0.0
 
-    eps = 0.0
-    if abs(vy) == 0.0:
-        eps = 0.001
+    # eps = 0.0
+    if abs(vy) != 0.0:
+    #     eps = 0.001
 
-    A22 = Fry/(m*(vy+eps));
+        A22 = Fry/(m*(vy+eps));
 
-    A41 = cos(theta);
-    A42 = -sin(theta);
-    A51 = sin(theta);
-    A52 = cos(theta);
+    A41 = np.cos(theta);
+    A42 = -np.sin(theta);
+    A51 = np.sin(theta);
+    A52 = np.cos(theta);
 
     B12 = 0.0 
     B22 = 0.0 
     B32 = 0.0 
 
-    eps = 0.0
-    if abs(delta) == 0.0:
-        eps = 0.001
+    # eps = 0.0
+    if abs(delta) != 0.0:
+    #     eps = 0.001
 
-    B12 = -F_flat*sin(delta)/(m*(delta+eps));
-    B22 = F_flat*cos(delta)/(m*(delta+eps));    
-    B32 = F_flat*cos(delta)*lf/(Iz*(delta+eps));
+        B12 = -F_flat*np.sin(delta)/(m*(delta+eps));
+        B22 = F_flat*np.cos(delta)/(m*(delta+eps));    
+        B32 = F_flat*np.cos(delta)*lf/(Iz*(delta+eps));
 
 
 
@@ -1102,6 +1237,172 @@ def Continuous_AB_Comp(vx, vy, omega, theta, delta):
     return A, B
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+def Continuous_AB_Comp_old(x, u):
+    
+    m = 2.424;
+    rho = 1.225;
+    lr = 0.1203;
+    lf = 0.1377;
+    
+    
+    vx =    x[0]
+    vy =    x[1]
+    omega = x[2]
+    X =     x[3]
+    Y =     x[4]
+    theta = x[5]
+    D = u[0]
+    delta = u[1]
+    
+    p = np.array([0.01003457, 0.0099731 , 0.0099466 , 0.00994527, 0.00997194, 0.01675736, 0.01012141, 0.0001786 ])
+
+    Cm0 = p[0]
+#     print cm0
+    Cm1 = p[1]
+    C0 = p[2]
+    C1 = p[3]
+    Cd_A = p[4]
+    Car = p[5]
+    Caf = p[6]
+    Iz = p[7]
+    
+    
+    F_flat = 0;
+    Fry = 0.0;
+    Frx = 0.0;
+    A11 = 0.0;
+    A31 = 0.0;
+    
+    # eps = 0.000001
+    eps = 0.0
+    # if abs(vx) == 0.0:
+    #     eps = 0.001
+
+    F_flat = 2*Caf*(delta- np.arctan((vy+lf*omega)/(vx+eps)));
+    
+    
+    
+    Fry = -2*Car*np.arctan((vy - lr*omega)/(vx+eps)) ;
+    A11 = -(1/m)*(C0 + C1/(vx+eps) + Cd_A*rho*vx/2);
+    A31 = -Fry*lr/((vx+eps)*Iz);
+            
+    A12 = omega;
+    A21 = -omega;
+    A22 = 0.0
+
+    # eps = 0.0
+    # if abs(vy) == 0.0:
+    #     eps = 0.001
+
+    A22 = Fry/(m*(vy+eps));
+
+    A41 = np.cos(theta);
+    A42 = -np.sin(theta);
+    A51 = np.sin(theta);
+    A52 = np.cos(theta);
+
+    B12 = 0.0 
+    B22 = 0.0 
+    B32 = 0.0 
+
+    # eps = 0.0
+    # if abs(delta) == 0.0:
+    #     eps = 0.001
+
+    B12 = -F_flat*np.sin(delta)/(m*(delta+eps));
+    B22 = F_flat*np.cos(delta)/(m*(delta+eps));    
+    B32 = F_flat*np.cos(delta)*lf/(Iz*(delta+eps));
+
+
+
+    B11 = (1/m)*(Cm0 - Cm1*vx);
+    
+    A = np.array([[A11, A12, 0,  0,   0,  0],\
+                  [A21, A22, 0,  0,   0,  0],\
+                  [A31,  0 , 0,  0,   0,  0],\
+                  [A41, A42, 0,  0,   0,  0],\
+                  [A51, A52, 0,  0,   0,  0],\
+                  [ 0 ,  0 , 1,  0,   0,  0]])
+    
+    B = np.array([[B11, B12],\
+                    [ 0,  B22],\
+                    [ 0,  B32],\
+                    [ 0 ,  0 ],\
+                    [ 0 ,  0 ],\
+                    [ 0 ,  0 ]])
+
+    
+    return A, B
+
+
+
+
+def dynamic(x,u):
+    
+    m = 2.424;
+    rho = 1.225;
+    lr = 0.1203;
+    lf = 0.1377;
+    
+    
+    vx =    x[0]
+    vy =    x[1]
+    omega = x[2]
+    X =     x[3]
+    Y =     x[4]
+    theta = x[5]
+    D = u[0]
+    delta = u[1]
+    
+    dt = 1.0/100
+    eps = 0.0
+
+    p = np.array([0.01003457, 0.0099731 , 0.0099466 , 0.00994527, 0.00997194, 0.01675736, 0.01012141, 0.0001786 ])
+
+    cm0 = p[0]
+#     print cm0
+    cm1 = p[1]
+    C0 = p[2]
+    C1 = p[3]
+    Cd_A = p[4]
+    Car = p[5]
+    Caf = p[6]
+    Iz = p[7]
+    
+    
+#     print "vx", vx
+    Frx    = (cm0 - cm1*vx)*D - C0*vx - C1 - (Cd_A*rho*vx**2)/2;
+    
+
+    Fry = -2.0*Car*np.arctan((vy - lr*omega)/(vx+eps)) ;
+    F_flat = 2.0*Caf*(delta - np.arctan((vy+lf*omega)/(vx+eps)));
+    
+#     print (Frx - F_flat)#, np.sin(delta)
+    vx = vx + dt*(1/m)*(Frx - F_flat*np.sin(delta) + m*vy*omega);
+
+    vy = vy * dt*(1/m)*(F_flat*np.cos(delta) + Fry - m*vx*omega);
+
+    omega = omega + dt*(1.0/Iz)*(lf*F_flat*np.cos(delta) - lr*Fry);
+        
+    X = X + dt*(vx*np.cos(theta) - vy*np.sin(theta))
+    Y = Y + dt*(vx*np.sin(theta) + vy*np.cos(theta))
+    theta = theta + dt*omega
+    
+    return np.array([vx, vy, omega, X, Y, theta]).T
 
 
 def Continuous_AB_Comp_old(vx, vy, omega, theta, delta):
@@ -1444,6 +1745,8 @@ def main():
     if fusion_cam_lidar_on == True:
         lidar  = lidar_pose()
         fcam   = fiseye_cam(time0, N_fcam)
+        fcam_trans_msg = sensorReading()
+        fcam_trans_pub  = rospy.Publisher('fcam_transformed_info', sensorReading, queue_size=1)
 
 
     enc    = motor_encoder(time0, N_enc)
@@ -1522,8 +1825,6 @@ def main():
     meas_state_msg = sensorReading()
     
 
-
-
     control_data = control()
     
     curr_time = rospy.get_rostime().to_sec() - time0
@@ -1579,6 +1880,7 @@ def main():
         else:
 
             angle_cur = imu.yaw
+
         # angle_cur = lidar.yaw
         
         angle_acc = unwrap(angle_past, angle_cur)  
@@ -1610,6 +1912,7 @@ def main():
 
 
         if fusion_cam_lidar_on == True:
+
             alpha = 0.2
             X_curr = alpha*fcam.X + (1-alpha)*lidar.X 
             Y_curr = alpha*fcam.Y + (1-alpha)*lidar.Y
@@ -1635,7 +1938,7 @@ def main():
 
 
 
-        
+        dt = curr_time - prev_time 
         
         if  abs(u[0]) > 0.05: # or abs(enc.vx_MA) > 0.0:
 
@@ -1670,18 +1973,42 @@ def main():
 
 
             ####### LQR ESTIMATION ########
-            A_obs, B_obs = Continuous_AB_Comp(est_state[0], est_state[1], est_state[2], est_state[5], u[1])
-            # L_gain = L_Computation(est_state[0], est_state[1], est_state[2], est_state[5], u[1], LQR_gain, sched_var, seq)
+            # A_obs, B_obs = Continuous_AB_Comp(est_state[0], est_state[1], est_state[2], est_state[5], u[1])
+            
+            A_obs, B_obs  = LPV_model(est_state, u)
+
+            # A_obs, B_obs = Continuous_AB_Comp(est_state, u)
+
+            # # L_gain = L_Computation(est_state[0], est_state[1], est_state[2], est_state[5], u[1], LQR_gain, sched_var, seq)
             
             est_state  = est_state + ( dt * np.dot( ( A_obs - np.dot(L_gain, C) ), est_state )
                             +    dt * np.dot(B_obs, u)
                             +    dt * np.dot(L_gain, y_meas) )
             
+            # state_curr = dynamic(est_state,u)
+            # est_state  = state_curr + np.dot(L_gain, (y_meas - np.dot(C,state_curr))) 
+            
+
+
+            # est_state  = est_state + ( dt * np.dot( ( A_obs - np.dot(L_gain, C) ), est_state )
+            #                 +    dt * np.dot(B_obs, u)
+            #                 +    dt * np.dot(L_gain, y_meas) )
+            
             # print ("time taken for estimation ={}".format(rospy.get_rostime().to_sec() - time0 - curr_time))
             
             ##### OPEN LOOP SIMULATION ####
-            A_sim, B_sim = Continuous_AB_Comp(ol_state[0], ol_state[1], ol_state[2], ol_state[5], u[1])
-            ol_state = ol_state + dt*(np.dot(A_sim,ol_state) + np.dot(B_sim,u)) 
+            # A_sim, B_sim = Continuous_AB_Comp(ol_state[0], ol_state[1], ol_state[2], ol_state[5], u[1])
+
+
+            # A_sim, B_sim = Continuous_AB_Comp(y_meas[0], ol_state[1], y_meas[1], y_meas[4], u[1])
+
+            ol_meas = np.array([y_meas[0], ol_state[1], y_meas[1], y_meas[2], y_meas[3], y_meas[4]]).T
+    
+            ol_state = dynamic(ol_meas,u)
+    
+            # ol_state = ol_state + dt*(np.dot(A_sim,ol_meas) + np.dot(B_sim,u)) 
+
+            # ol_state = ol_state + dt*(np.dot(A_sim,ol_state) + np.dot(B_sim,u)) 
 
 
 
@@ -1727,12 +2054,12 @@ def main():
 
 
         est_msg = data_retrive_est(est_state_msg, est_state, y_meas[-1], AC_sig, CC_sig)
-
-        # meas_est_state =  np.array([enc.vx, est_state[1], imu.yaw_rate, lidar.X, lidar.Y, angle_acc]).T 
+        est_state_pub.publish(est_msg) ## remember we want to check the transformed yaw angle for debugging that's why 
+        
+        # meas_est_state =  np.array([enc.vx_MA, est_state[1], imu.yaw_rate_MA, lidar.X_MA, lidar.Y_MA, angle_acc]).T 
         # meas_est_msg = data_retrive_est(est_state_msg, meas_est_state, y_meas[-1], AC_sig, CC_sig)
 
-        est_state_pub.publish(est_msg) ## remember we want to check the transformed yaw angle for debugging that's why 
-                                                                                    ##publishing this information in the topic of "s" which is not used for any purpose. 
+                                                                                    #publishing this information in the topic of "s" which is not used for any purpose. 
         # est_state_pub.publish(meas_est_msg)
 
         ol_state_pub.publish(data_retrive(ol_state_msg, ol_state))
