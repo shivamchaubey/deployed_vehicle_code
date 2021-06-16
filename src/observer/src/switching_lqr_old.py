@@ -37,14 +37,19 @@ class lidar_pose():
         print "waiting for lidar message"
         rospy.wait_for_message('/slam_out_pose', PoseStamped)
         rospy.Subscriber("/slam_out_pose", PoseStamped, self.pose_callback, queue_size=1)
-
+        sim_on  = rospy.get_param("switching_lqr_observer/sim_on")
         # ECU measurement
         self.X = 0.0
         self.Y = 0.0
         self.X_MA = 0.0
         self.Y_MA = 0.0
         self.yaw = 0.0
-        self.offset_X = 0.13
+
+        if sim_on == True:
+            self.offset_X = 0.0
+        else:
+            self.offset_X = 0.13
+
         self.N = 20
         self.X_MA_window = [0.0]*self.N
         self.Y_MA_window = [0.0]*self.N
@@ -1047,7 +1052,9 @@ def  LPV_model(states,u):
     Car = 69.55846999;
     Iz = 1.01950479;
 
-
+    # Caf = 1.3958;
+    # Car = 1.6775;
+    # Iz = 0.04
 
     F_flat = 0.;
     Fry = 0.;
@@ -1057,7 +1064,7 @@ def  LPV_model(states,u):
     A11 = 0.;
     
     eps = 0.00
-    # eps = 0
+    # # eps = 0
     if abs(vx)>0.4:
         Caf = 40.62927783;
         Car = 69.55846999;
@@ -1893,6 +1900,7 @@ def main():
     counter     = 0
     record_data =    rospy.get_param("switching_lqr_observer/record_data")
     visualization  = rospy.get_param("switching_lqr_observer/visualization")
+    sim_on  = rospy.get_param("switching_lqr_observer/sim_on")
 
     LQR_gain, seq, sched_var =load_switchingLQRgain()
 
@@ -1924,28 +1932,28 @@ def main():
     imu    = IMU(time0, N_imu)
 
 
+    if sim_on == False:
+        if lidar_pose_on and cam_pose_on:
 
-    if lidar_pose_on and cam_pose_on:
-
-        time.sleep(1)
-        print  "yaw_offset", fcam.yaw
-        imu.yaw_offset = imu.yaw - fcam.yaw
-        time.sleep(1)
-
-    else:
-        if lidar_pose_on == True:
-            time.sleep(1)
-            print  "yaw_offset ", lidar.yaw
-            imu.yaw_offset = imu.yaw -  lidar.yaw
-            time.sleep(1)
-
-
-
-        if cam_pose_on == True:
             time.sleep(1)
             print  "yaw_offset", fcam.yaw
             imu.yaw_offset = imu.yaw - fcam.yaw
             time.sleep(1)
+
+        else:
+            if lidar_pose_on == True:
+                time.sleep(1)
+                print  "yaw_offset ", lidar.yaw
+                imu.yaw_offset = imu.yaw -  lidar.yaw
+                time.sleep(1)
+
+
+
+            if cam_pose_on == True:
+                time.sleep(1)
+                print  "yaw_offset", fcam.yaw
+                imu.yaw_offset = imu.yaw - fcam.yaw
+                time.sleep(1)
 
     control_input = vehicle_control(time0)
     
@@ -1984,8 +1992,12 @@ def main():
 
 
 
+    # if sim_on == True:
+    #     x_init  = rospy.get_param("switching_lqr_observer/x_tf")
+    #     y_init  = rospy.get_param("switching_lqr_observer/y_tf")
+    #     yaw_init  = rospy.get_param("switching_lqr_observer/yaw_tf")
+    #     est_state = np.array([enc.vx, vy, imu.yaw_rate, x_init, y_init, yaw_init ]).T
 
-    # x_init  = rospy.get_param("switching_lqr_observer/x_tf")
     # # est_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, fcam.yaw ]).T
     # # est_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, yaw_correction(fcam.yaw) ]).T
     # # est_state = np.array([enc.vx, vy, imu.yaw_rate, fcam.X, fcam.Y, imu.yaw ]).T
@@ -2125,7 +2137,7 @@ def main():
 
         dt = curr_time - prev_time 
         
-        if  True:#abs(u[0]) > 0.05: # or abs(enc.vx_MA) > 0.0:
+        if  abs(u[0]) > 0.05: # or abs(enc.vx_MA) > 0.0:
 
 
             yaw_trans = (est_state[5] + pi) % (2 * pi) - pi
@@ -2198,11 +2210,11 @@ def main():
 
 
 
-        # if abs(u[0]) <= 0.05:
-        #         #     # vehicle_sim.vehicle_model(u, simulator_dt)
-        #             # if vehicle_sim.vx <= 0.01 :
-        #     est_state[:-3] = 0.000001 
-        #     ol_state[:-3] = 0.000001
+        if abs(u[0]) <= 0.05:
+                #     # vehicle_sim.vehicle_model(u, simulator_dt)
+                    # if vehicle_sim.vx <= 0.01 :
+            est_state[:-3] = 0.000001 
+            ol_state[:-3] = 0.000001
 
 
         print "\n <<<<<<<<< PRE WRAP >>>>>>>>>>>>>"

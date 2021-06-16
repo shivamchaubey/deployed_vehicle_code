@@ -96,7 +96,7 @@ class PathFollowingLPV_MPC:
 
 
             if self.slew_rate_on:
-                self.Qw  = 0.7 * np.array([0.3*vx_scale, 0.000, 0.000, 0.2*etheta_scale, 0.0, 0.8*ey_scale]) # penality on states 
+                self.Qw  = 0.7 * np.array([0.8*vx_scale, 0.000, 0.000, 0.1*etheta_scale, 0.0, 0.8*ey_scale]) # penality on states 
                 self.Rw  = 0.01 * np.array([0.1*str_scale, 0.1*duty_scale])     # Penality on input (dutycycle, steer)
                 self.dRw = 0.03 * np.array([0.1*dstr_scale,0.1*dduty_scale])  # Penality on Input rate 
 
@@ -541,7 +541,7 @@ class PathFollowingLPV_MPC:
 
 
 
-    def LPVPrediction(self, x, u, vel_ref, curv_ref):
+    def LPVPrediction_old(self, x, u, vel_ref, curv_ref):
         '''
         Obtain the LPV model along the horizon (n) using the current state x(i) and set of predicted control input at previous step u(i-1)
         '''
@@ -576,18 +576,18 @@ class PathFollowingLPV_MPC:
         Iz    =   self.Iz;
 
 
-        m = 2.483;
-        rho = 1.225;
-        lr = 0.1203;
-        lf = 0.1377;
-        Cm0 = 10.1305;
-        Cm1 = 1.05294;
-        C0 = 3.68918;
-        C1 = 0.0306803;
-        Cd_A = -0.657645;
-        Caf = 1.3958;
-        Car = 1.6775;
-        Iz = 1.01950479;
+        # m = 2.483;
+        # rho = 1.225;
+        # lr = 0.1203;
+        # lf = 0.1377;
+        # Cm0 = 10.1305;
+        # Cm1 = 1.05294;
+        # C0 = 3.68918;
+        # C1 = 0.0306803;
+        # Cd_A = -0.657645;
+        # Caf = 1.3958;
+        # Car = 1.6775;
+        # Iz = 1.01950479;
 
 
 
@@ -641,16 +641,18 @@ class PathFollowingLPV_MPC:
                 ey = 0
                 epsi = 0
 
+            # if abs(vy) > 1.0:
+            #     vy = 0.1
 
-            if abs(vx)>0.4:
-                Caf = 40.62927783;
-                Car = 69.55846999;
-                Iz = 1.01950479;
-            else:
+            # if abs(vx)>0.4:
+            #     Caf = 40.62927783;
+            #     Car = 69.55846999;
+            #     Iz = 1.01950479;
+            # else:
  
-                Caf = 1.3958;
-                Car = 1.6775;
-                Iz = 1.01950479;
+            #     Caf = 1.3958;
+            #     Car = 1.6775;
+            #     Iz = 1.01950479;
 
 
 
@@ -679,8 +681,8 @@ class PathFollowingLPV_MPC:
             # F_flat = 2*Caf*(delta - ((vy+lf*omega)/(vx+eps)));        
             # Fry = -2*Car*((vy - lr*omega)/(vx+eps)) ;
 
-            F_flat = 2*Caf*(delta- atan((vy+lf*omega)/abs(vx+eps)));        
-            Fry = -2*Car*atan((vy - lr*omega)/abs(vx+eps)) ;
+            F_flat = 2*Caf*(delta- np.arctan((vy+lf*omega)/abs(vx+eps)));        
+            Fry = -2*Car*np.arctan((vy - lr*omega)/abs(vx+eps)) ;
             A11 = -(1/m)*(C0 + C1/(vx+eps) + Cd_A*rho*vx/2);
             A31 = -Fry*lr/((vx+eps)*Iz);
                 
@@ -763,7 +765,7 @@ class PathFollowingLPV_MPC:
 
 
 
-    def LPVPrediction_old(self, x, u, vel_ref, curv_ref):
+    def LPVPrediction(self, x, u, vel_ref, curv_ref):
         '''
         Obtain the LPV model along the horizon (n) using the current state x(i) and set of predicted control input at previous step u(i-1)
         '''
@@ -784,34 +786,34 @@ class PathFollowingLPV_MPC:
         ##   vx, vy, epsi, ey, cur
         #############################################
 
-        # m     =   self.m;
-        # rho   =   self.rho;
-        # lr    =   self.lr;
-        # lf    =   self.lf;
-        # Cm0   =   self.Cm0;
-        # Cm1   =   self.Cm1;
-        # C0    =   self.C0;
-        # C1    =   self.C1;
-        # Cd_A  =   self.Cd_A;
-        # Caf   =   self.Caf;
-        # Car   =   self.Car;
-        # Iz    =   self.Iz;
+        m     =   self.m;
+        rho   =   self.rho;
+        lr    =   self.lr;
+        lf    =   self.lf;
+        Cm0   =   self.Cm0;
+        Cm1   =   self.Cm1;
+        C0    =   self.C0;
+        C1    =   self.C1;
+        Cd_A  =   self.Cd_A;
+        Caf   =   self.Caf;
+        Car   =   self.Car;
+        Iz    =   self.Iz;
 
         
 
 
-        m = 2.483;
-        rho = 1.225;
-        lr = 0.1203;
-        lf = 0.1377;
-        Cm0 = 10.1305;
-        Cm1 = 1.05294;
-        C0 = 3.68918;
-        C1 = 0.0306803;
-        Cd_A = -0.657645;
-        Caf = 1.3958;
-        Car = 1.6775;
-        Iz = 1.01950479;
+        # m = 2.483;
+        # rho = 1.225;
+        # lr = 0.1203;
+        # lf = 0.1377;
+        # Cm0 = 10.1305;
+        # Cm1 = 1.05294;
+        # C0 = 3.68918;
+        # C1 = 0.0306803;
+        # Cd_A = -0.657645;
+        # Caf = 1.3958;
+        # Car = 1.6775;
+        # Iz = 1.01950479;
 
 
 
@@ -859,6 +861,9 @@ class PathFollowingLPV_MPC:
             vx      = float(vel_ref[i])
 
 
+            # if abs(vy) > 1.0:
+            #     vy = 0.1
+
             # F_flat = 0;
             # Fry = 0;
             # Frx = 0;
@@ -880,9 +885,9 @@ class PathFollowingLPV_MPC:
 
 
             
-            if i == (self.N - 1):
-                ey = 0
-                epsi = 0
+            # if i == (self.N - 1):
+            #     ey = 0
+            #     epsi = 0
 
             delta = float(u[i,0])
             dutycycle = float(u[i,1])
@@ -1231,7 +1236,7 @@ class PathFollowingLPV_MPC:
             # Ai = np.zeros([6,6])
 
             # Bi = np.ones([6,2])
-            # # Bi = np.zeros([6,2])
+            # # # Bi = np.zeros([6,2])
             # Ai = np.array([[1.0    ,  1.0 ,   1.0 ,  0., 0., 0.],  # [vx]
             #                 [0.    ,  1.0 ,   1.0  ,  0., 0., 0.],  # [vy]
             #                 [0.    ,   1.0 ,    1.0  ,  0., 0., 0.],  # [wz]
@@ -1256,23 +1261,29 @@ class PathFollowingLPV_MPC:
             #                 [A7     ,   A8 ,   0. ,  0., 0., 0.]]) # [ey]
 
 
-            Ai = np.array([ [1.0    ,  1.0 ,   0. ,  0., 0., 0.],  # [vx]
-                            [1.0    ,  1.0 ,   0  ,  0., 0., 0.],  # [vy]
-                            [1.0    ,   0. ,    0.  ,  0., 0., 0.],  # [wz]
-                            [1.0    ,  1.0 ,   1. ,  0., 0., 0.],  # [epsi]
-                            [1.0    ,  1.0 ,   0. ,  0., 0., 0.],  # [s]
-                            [1.0     ,   1.0 ,   0. ,  0., 0., 0.]]) # [ey]
+            # Ai = np.array([ [1.0    ,  1.0 ,   0. ,  0., 0., 0.],  # [vx]
+            #                 [1.0    ,  1.0 ,   0  ,  0., 0., 0.],  # [vy]
+            #                 [1.0    ,   0. ,    0.  ,  0., 0., 0.],  # [wz]
+            #                 [1.0    ,  1.0 ,   1. ,  0., 0., 0.],  # [epsi]
+            #                 [1.0    ,  1.0 ,   0. ,  0., 0., 0.],  # [s]
+            #                 [1.0     ,   1.0 ,   0. ,  0., 0., 0.]]) # [ey]
 
 
+            # Ai = np.array([[A11    ,  A12 ,   A13 ,  0., 0., 0.],  # [vx]
+            #                 [0    ,  A22 ,   A23  ,  0., 0., 0.],  # [vy]
+            #                 [0    ,   A32 ,    A33  ,  0., 0., 0.],  # [wz]
+            #                 [A41   ,  A42 ,   1. ,   0., 0, 0. ],  # [epsi]
+            #                 [A51    ,  A52 ,   0. ,  0., 0., 0.],  # [s]
+            #                 [A61    ,  A62 ,   0. ,  0., 0., 0. ]]) # [ey]
 
 
             # working with -A1*A2*cur model
-            # Ai = np.array([ [1.0    ,  1.0 ,   0.  ,  0., 0., 0.],  # [vx]
-            #                 [1.0    ,  1.0 ,   0.0   ,  0., 0., 0.],  # [vy]
-            #                 [1.0    ,   0.0  ,   0.0   ,  0., 0., 0.],  # [wz]
-            #                 [1.0    ,  1.0 ,   1.0 ,  0., 0., 0.],  # [epsi]
-            #                 [1.0    ,  1.0 ,   0.  ,  0., 0., 0.],  # [s]
-            #                 [1.0    ,  1.0 ,   0.  ,  0., 0., 0.]]) # [ey]
+            Ai = np.array([ [1.0    ,  1.0 ,   0.  ,  0., 0., 0.],  # [vx]
+                            [1.0    ,  1.0 ,   0.0   ,  0., 0., 0.],  # [vy]
+                            [1.0    ,   0.0  ,   0.0   ,  0., 0., 0.],  # [wz]
+                            [1.0    ,  1.0 ,   1.0 ,  0., 0., 0.],  # [epsi]
+                            [1.0    ,  1.0 ,   0.  ,  0., 0., 0.],  # [s]
+                            [1.0    ,  1.0 ,   0.  ,  0., 0., 0.]]) # [ey]
 
             Bi  = np.array([[ 1.0, 1.0 ], #[delta, a]
                             [ 1.0,  0  ],

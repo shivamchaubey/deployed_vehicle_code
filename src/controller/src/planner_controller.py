@@ -369,6 +369,7 @@ def main():
     Vx_ref              = rospy.get_param("/control/vel_ref")
     loop_rate           = rospy.get_param("/control/Hz")
     save_reference      = rospy.get_param("/control/save_output")
+    lap_required        = rospy.get_param("/control/lap_required")
     dt                  = 1.0/loop_rate
     rate                = rospy.Rate(loop_rate)
 
@@ -483,12 +484,14 @@ def main():
     if save_reference == True:
         
         ############### for controller and observer data saving used for documentation or debugging ################## 
-        contr_his        = {"time": [], "controller_dt": dt, "controller_N": N , "counter": [], "x_est": [], "y_est": [], "yaw_est": [],\
+        contr_his        = {"opti_time": [], "pred_time": [], "time": [], "controller_dt": dt, "controller_N": N , "counter": [], "x_est": [], "y_est": [], "yaw_est": [],\
          "vx_est": [], "vy_est": [], "omega_est": [], "ey_est": [], "epsi_est": [], "s_est": [], "epsi_pred_mod": [], "ey_pred_mod": [], \
          "s_pred_mod": [], "vx_pred_mod": [], "vy_pred_mod": [], "omega_pred_mod": [], "epsi_pred_cont": [], "ey_pred_cont": [],\
           "s_pred_cont": [], "vx_pred_cont": [],  "vy_pred_cont": [], "omega_pred_cont": [], "steer_pred_cont": [], "duty_pred_cont": []}
         
         time_his = time.time()
+        contr_his_opti_time = []
+        contr_his_pred_time = []
         contr_his_time    = []
         contr_his_counter    = []
 
@@ -735,7 +738,7 @@ def main():
             SS              = 0
             print "END OF THE LAP"
             print 'LapNumber', LapNumber 
-            if LapNumber == 3:
+            if LapNumber == lap_required:
                 break
 
             print "LocalState[4]", LocalState[4]
@@ -788,11 +791,11 @@ def main():
 
                 else:
 
-
+                    
                     LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction_setup()
-
+                    
                     Controller.MPC_setup(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref) 
-
+                    
                     ######### for full MPC without warm start ##############
                     # LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction(LocalState[0:6], Controller.uPred, vel_ref, curv_ref)
                     # ref_qp = [Vx_ref, 0, 0, 0, 0, 0]
@@ -811,21 +814,37 @@ def main():
 
                 # [vx], [vy], [wz], [epsi], [s], [ey]
                 # non_uniform_sampling 
-                LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction(LocalState[0:6], Controller.uPred, vel_ref, curv_ref)
-                # LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction(LocalState[0:6], Controller.uPred, vel_ref, curv_ref,  )
-            
-                # publish_predicted.LPV_msg_update(map, LPV_States_Prediction)
-                # publish_predicted.LPV_msg_update(map, Controller.xPred)
+                
+                if save_reference == True:
+                    ref_qp = [Vx_ref, 0, 0, 0, 0, 0]
+                    
+                    tpred = time.time()
+                    LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction(LocalState[0:6], Controller.uPred, vel_ref, curv_ref)
+                    contr_his_pred_time.append(time.time() - tpred)
 
-                # print "Controller.xPred", Controller.xPred
-                print "MPC update", Vx_ref 
+                    tcpu = time.time()
+                    Controller.MPC_update(A_L, B_L, LocalState[0:6], ref_qp) 
+                    Controller.MPC_solve()
+                    contr_his_opti_time.append(time.time() - tcpu)
 
-                ref_qp = [Vx_ref, 0, 0, 0, 0, 0]
-                Controller.MPC_update(A_L, B_L, LocalState[0:6], ref_qp) 
-                u_ref = [0,0]
-                # Controller.MPC_full(A_L, B_L, u_ref, LocalState[0:6], ref_qp)
 
-                Controller.MPC_solve()
+                else:
+                    LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction(LocalState[0:6], Controller.uPred, vel_ref, curv_ref)
+
+                    # LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction(LocalState[0:6], Controller.uPred, vel_ref, curv_ref,  )
+                
+                    # publish_predicted.LPV_msg_update(map, LPV_States_Prediction)
+                    # publish_predicted.LPV_msg_update(map, Controller.xPred)
+
+                    # print "Controller.xPred", Controller.xPred
+                    print "MPC update", Vx_ref 
+
+                    ref_qp = [Vx_ref, 0, 0, 0, 0, 0]
+                    Controller.MPC_update(A_L, B_L, LocalState[0:6], ref_qp) 
+                    u_ref = [0,0]
+                    # Controller.MPC_full(A_L, B_L, u_ref, LocalState[0:6], ref_qp)
+
+                    Controller.MPC_solve()
 
             if test_gen == 3:
 
@@ -936,6 +955,8 @@ def main():
         if save_reference == True:
 
             tnow = time.time()
+            
+            
             contr_his_time.append(tnow - time_his)
             contr_his_counter.append(ControllerCounter)    
 
@@ -985,6 +1006,9 @@ def main():
 
     if save_reference == True:
 
+
+        contr_his_pred_time = np.array(contr_his_pred_time)
+        contr_his_opti_time = np.array(contr_his_opti_time)
         contr_his_time      = np.array(contr_his_time)
         contr_his_counter       = np.array(contr_his_counter)
         contr_his_time      = np.array(contr_his_time)
@@ -1034,7 +1058,8 @@ def main():
         contr_his_duty_pred_cont        = contr_his_duty_pred_cont.reshape(ControllerCounter, len(Controller.uPred[:,1]))
 
 
-
+        contr_his["pred_time"]       =   contr_his_pred_time
+        contr_his["opti_time"]       =   contr_his_opti_time
         contr_his["time"]       =   contr_his_time 
         contr_his["counter"]        =   contr_his_counter 
         contr_his["x_est"]      =   contr_his_x_est 

@@ -28,10 +28,16 @@
     <param name="C0"            type="double"   value="3.68918" />
     <param name="C1"            type="double"   value="0.0306803" />
     <param name="Cd_A"            type="double"   value="-0.657645" />
+    <param name="Caf"            type="double"   value="1.3958" />
+    <param name="Car"            type="double"   value="1.6775" />
+    <param name="Iz"            type="double"   value="0.04" />
+
+    <?ignore
     <param name="Caf"            type="double"   value="40.62927783" />
     <param name="Car"            type="double"   value="69.55846999" />
     <param name="Iz"            type="double"   value="1.01950479" />
-    
+    ?>
+
 
         <!-- SYSTEM MODEL -->
     <?ignore
@@ -58,7 +64,7 @@
     <param name="duty_th"       type="double"   value="0.05" />  <!-- deadzone where the wheel doesn't rotate -->
 
 
-    <arg name="DISTURBANCE" default="1"/>
+    <arg name="DISTURBANCE" default="0"/>
 
     <arg name="NOISE" default="1"/>
 
@@ -84,47 +90,49 @@
         <param name="delay_df"    type="double" value="0.0" />
         <param name="delay_a"     type="double" value="0.0" />
 
-        <!-- simulator sensor noise -->
-        <param name="n_bound_pr"     type="double" value="2.0" if="$(arg NOISE)"/>
-        <param name="x_std_pr"       type="double" value="0.02" if="$(arg NOISE)"/>
-        <param name="y_std_pr"       type="double" value="0.02" if="$(arg NOISE)"/>
-        <param name="psi_std_pr"     type="double" value="0.02" if="$(arg NOISE)"/>
-        <param name="vx_std_pr"       type="double" value="0.1" if="$(arg NOISE)"/>
-        <param name="vy_std_pr"       type="double" value="0.045" if="$(arg NOISE)"/>
-        <param name="psiDot_std_pr"  type="double" value="0.035" if="$(arg NOISE)"/> -->
-
-        <param name="n_bound_pr"     type="double" value="0.0" unless="$(arg NOISE)"/>
-        <param name="x_std_pr"       type="double" value="0.0" unless="$(arg NOISE)"/>
-        <param name="y_std_pr"       type="double" value="0.0" unless="$(arg NOISE)"/>
-        <param name="psi_std_pr"     type="double" value="0.0" unless="$(arg NOISE)"/>
-        <param name="vx_std_pr"       type="double" value="0.0" unless="$(arg NOISE)"/>
-        <param name="vy_std_pr"       type="double" value="0.0" unless="$(arg NOISE)"/>
-        <param name="psiDot_std_pr"  type="double" value="0.0" unless="$(arg NOISE)"/> -->
-
-
         <!-- simulator disturbance parameters -->
-        <param name="n_bound"     type="double" value="1.0" if="$(arg DISTURBANCE)"/>
-        <param name="x_std"       type="double" value="0.05" if="$(arg DISTURBANCE)"/>
-        <param name="y_std"       type="double" value="0.05" if="$(arg DISTURBANCE)"/>
-        <param name="yaw_std"     type="double" value="0.01" if="$(arg DISTURBANCE)"/>
-        <param name="vx_std"       type="double" value="0.1" if="$(arg DISTURBANCE)"/>
-        <param name="vy_std"       type="double" value="0.08" if="$(arg DISTURBANCE)"/>
-        <param name="omega_std"  type="double" value="0.1" if="$(arg DISTURBANCE)"/>
-        <param name="du_0"        type="double" value="0.01" if="$(arg DISTURBANCE)"/>
-        <param name="du_1"        type="double" value="0.05" if="$(arg DISTURBANCE)"/>
-        <param name="u_bound"     type="double" value="1.0" if="$(arg DISTURBANCE)"/>
+        <param name="disturbance_on" type="bool" value="1" if="$(arg DISTURBANCE)"/>
+        <param name="n_bound_pr"     type="double" value="2.0" if="$(arg DISTURBANCE)"/>
+        <param name="x_std_pr"       type="double" value="0.02" if="$(arg DISTURBANCE)"/>
+        <param name="y_std_pr"       type="double" value="0.02" if="$(arg DISTURBANCE)"/>
+        <param name="psi_std_pr"     type="double" value="0.02" if="$(arg DISTURBANCE)"/>
+        <param name="vx_std_pr"       type="double" value="0.1" if="$(arg DISTURBANCE)"/>
+        <param name="vy_std_pr"       type="double" value="0.045" if="$(arg DISTURBANCE)"/>
+        <param name="psiDot_std_pr"  type="double" value="0.035" if="$(arg DISTURBANCE)"/> -->
+
+        <param name="disturbance_on" type="bool" value="0" unless="$(arg DISTURBANCE)"/>
+        <param name="n_bound_pr"     type="double" value="0.0" unless="$(arg DISTURBANCE)"/>
+        <param name="x_std_pr"       type="double" value="0.0" unless="$(arg DISTURBANCE)"/>
+        <param name="y_std_pr"       type="double" value="0.0" unless="$(arg DISTURBANCE)"/>
+        <param name="psi_std_pr"     type="double" value="0.0" unless="$(arg DISTURBANCE)"/>
+        <param name="vx_std_pr"       type="double" value="0.0" unless="$(arg DISTURBANCE)"/>
+        <param name="vy_std_pr"       type="double" value="0.0" unless="$(arg DISTURBANCE)"/>
+        <param name="psiDot_std_pr"  type="double" value="0.0" unless="$(arg DISTURBANCE)"/> -->
 
 
-        <param name="n_bound"     type="double" value="0.0" unless="$(arg DISTURBANCE)"/>
-        <param name="x_std"       type="double" value="0.0" unless="$(arg DISTURBANCE)"/>
-        <param name="y_std"       type="double" value="0.0" unless="$(arg DISTURBANCE)"/>
-        <param name="yaw_std"     type="double" value="0.0" unless="$(arg DISTURBANCE)"/>
-        <param name="vx_std"       type="double" value="0.0" unless="$(arg DISTURBANCE)"/>
-        <param name="vy_std"       type="double" value="0.0" unless="$(arg DISTURBANCE)"/>
-        <param name="omega_std"  type="double" value="0.0" unless="$(arg DISTURBANCE)"/>
-        <param name="du_0"        type="double" value="0.0" unless="$(arg DISTURBANCE)"/>
-        <param name="du_1"        type="double" value="0.0" unless="$(arg DISTURBANCE)"/>
-        <param name="u_bound"     type="double" value="0.0" unless="$(arg DISTURBANCE)"/>
+        <!-- simulator sensor noise -->        
+        <param name="n_bound"     type="double" value="1.0" if="$(arg NOISE)"/>
+        <param name="x_std"       type="double" value="0.05" if="$(arg NOISE)"/>
+        <param name="y_std"       type="double" value="0.05" if="$(arg NOISE)"/>
+        <param name="yaw_std"     type="double" value="0.01" if="$(arg NOISE)"/>
+        <param name="vx_std"       type="double" value="0.1" if="$(arg NOISE)"/>
+        <param name="vy_std"       type="double" value="0.08" if="$(arg NOISE)"/>
+        <param name="omega_std"  type="double" value="0.1" if="$(arg NOISE)"/>
+        <param name="du_0"        type="double" value="0.01" if="$(arg NOISE)"/>
+        <param name="du_1"        type="double" value="0.05" if="$(arg NOISE)"/>
+        <param name="u_bound"     type="double" value="1.0" if="$(arg NOISE)"/>
+
+
+        <param name="n_bound"     type="double" value="0.0" unless="$(arg NOISE)"/>
+        <param name="x_std"       type="double" value="0.0" unless="$(arg NOISE)"/>
+        <param name="y_std"       type="double" value="0.0" unless="$(arg NOISE)"/>
+        <param name="yaw_std"     type="double" value="0.0" unless="$(arg NOISE)"/>
+        <param name="vx_std"       type="double" value="0.0" unless="$(arg NOISE)"/>
+        <param name="vy_std"       type="double" value="0.0" unless="$(arg NOISE)"/>
+        <param name="omega_std"  type="double" value="0.0" unless="$(arg NOISE)"/>
+        <param name="du_0"        type="double" value="0.0" unless="$(arg NOISE)"/>
+        <param name="du_1"        type="double" value="0.0" unless="$(arg NOISE)"/>
+        <param name="u_bound"     type="double" value="0.0" unless="$(arg NOISE)"/>
 
 
         <!-- drag force parameters -->

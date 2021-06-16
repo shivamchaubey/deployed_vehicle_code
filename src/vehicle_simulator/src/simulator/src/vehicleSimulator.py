@@ -402,6 +402,7 @@ class Vehicle_Simulator(object):
         self.omega_std       = rospy.get_param("simulator/psiDot_std_pr")
         self.yaw_std         = rospy.get_param("simulator/psi_std_pr")
         self.n_bound         = rospy.get_param("simulator/n_bound_pr")
+        self.disturbance_on         = rospy.get_param("simulator/disturbance_on")
         self.disturbance     = np.array([0, 0, 0, 0, 0, 0]).T
         self.states          = np.array([self.vx, self.vy, self.omega, self.x, self.y, self.yaw])
 
@@ -432,6 +433,16 @@ class Vehicle_Simulator(object):
         
         # eps = 0.0000001
         eps = 0.0
+
+        if abs(vx)>0.4:
+            self.Caf = 40.62927783;
+            self.Car = 69.55846999;
+            self.Iz = 1.01950479;
+        else:
+
+            self.Caf = 1.3958;
+            self.Car = 1.6775;
+            self.Iz = 1.01950479;
 
         if abs(vx)> 0:
             Fry = -2.0*self.Car*np.arctan((vy - self.lr*omega)/abs((vx+eps))) ;
@@ -500,16 +511,17 @@ class Vehicle_Simulator(object):
 
         self.states          = np.array([self.vx, self.vy, self.omega, self.x, self.y, self.yaw])
 
-        self.w_vx    = max(-self.vx_std*self.n_bound, min(self.vx_std*(randn()), self.vx_std*self.n_bound))  
-        self.w_vy    = max(-self.vy_std*self.n_bound, min(self.vy_std*(randn()), self.vy_std*self.n_bound)) 
-        self.w_omega = max(-self.omega_std*self.n_bound, min(self.omega_std*(randn()), self.omega_std*self.n_bound)) 
-        self.w_X     = max(-self.x_std*self.n_bound, min(self.x_std*(randn()), self.x_std*self.n_bound))
-        self.W_Y     = max(-self.y_std*self.n_bound, min(self.y_std*(randn()), self.y_std*self.n_bound))
-        self.W_yaw   = max(-self.yaw_std*self.n_bound, min(self.yaw_std*0.1*(randn()), self.yaw_std*self.n_bound))
+        if self.disturbance_on == True:
+            self.w_vx    = max(-self.vx_std*self.n_bound, min(self.vx_std*(randn()), self.vx_std*self.n_bound))  
+            self.w_vy    = max(-self.vy_std*self.n_bound, min(self.vy_std*(randn()), self.vy_std*self.n_bound)) 
+            self.w_omega = max(-self.omega_std*self.n_bound, min(self.omega_std*(randn()), self.omega_std*self.n_bound)) 
+            self.w_X     = max(-self.x_std*self.n_bound, min(self.x_std*(randn()), self.x_std*self.n_bound))
+            self.W_Y     = max(-self.y_std*self.n_bound, min(self.y_std*(randn()), self.y_std*self.n_bound))
+            self.W_yaw   = max(-self.yaw_std*self.n_bound, min(self.yaw_std*0.1*(randn()), self.yaw_std*self.n_bound))
 
-        self.disturbance    = np.array([self.w_vx,self.w_vy,self.w_omega,self.w_X,self.W_Y,self.W_yaw]).T
+            self.disturbance    = np.array([self.w_vx,self.w_vy,self.w_omega,self.w_X,self.W_Y,self.W_yaw]).T
 
-        self.states = self.states +  self.disturbance
+            self.states = self.states +  self.disturbance
 
         # self.noise_hist.append([n1,n2,n6,n4,n5,n3])
 
