@@ -52,10 +52,10 @@ class PathFollowingLPV_MPC:
         self.etheta_max = rospy.get_param("orient_e_max")
 
         # bounds on steering and dutycycle changes
-        self.dstr_max   = self.str_max*0.8
-        self.dstr_min   = self.str_min*0.8
-        self.dduty_max  = self.duty_max*0.8
-        self.dduty_min  = self.duty_min*0.8
+        self.dstr_max   = self.str_max*0.4
+        self.dstr_min   = self.str_min*0.4
+        self.dduty_max  = self.duty_max*0.4
+        self.dduty_min  = self.duty_min*0.4
 
         # Normalize the weight to be used as normalized objective function
         vx_scale        = 1/((self.vx_max-self.vx_min)**2)
@@ -97,10 +97,11 @@ class PathFollowingLPV_MPC:
 
             if self.slew_rate_on:
                 self.Qw  = 0.7 * np.array([0.8*vx_scale, 0.000, 0.000, 0.1*etheta_scale, 0.0, 0.8*ey_scale]) # penality on states 
-                self.Rw  = 0.01 * np.array([0.1*str_scale, 0.1*duty_scale])     # Penality on input (dutycycle, steer)
-                self.dRw = 0.03 * np.array([0.1*dstr_scale,0.1*dduty_scale])  # Penality on Input rate 
+                self.Rw  = 0.001 * np.array([0.1*str_scale, 0.1*duty_scale])     # Penality on input (dutycycle, steer)
+                self.dRw = 0.05 * np.array([0.1*dstr_scale,0.1*dduty_scale])  # Penality on Input rate 
 
-                self.Qew = np.array([1, 0, 0, 1, 0, 1])*(10.0e8) # Penality on soft constraints 
+                if self.soft_constraints_on:
+                    self.Qew = np.array([1, 0, 0, 1, 0, 1])*(10.0e8) # Penality on soft constraints 
 
             
         if self.planning_mode == 2:            

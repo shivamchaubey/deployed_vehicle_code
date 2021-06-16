@@ -817,7 +817,7 @@ def main():
                 
                 if save_reference == True:
                     ref_qp = [Vx_ref, 0, 0, 0, 0, 0]
-                    
+
                     tpred = time.time()
                     LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction(LocalState[0:6], Controller.uPred, vel_ref, curv_ref)
                     contr_his_pred_time.append(time.time() - tpred)
@@ -966,10 +966,13 @@ def main():
             contr_his_vx_est.append(GlobalState[0])
             contr_his_vy_est.append(GlobalState[1])
             contr_his_omega_est.append(GlobalState[2])
-            contr_his_ey_est.append(LocalState[5])
-            contr_his_epsi_est.append(LocalState[3])
+            contr_his_ey_est.append(LocalState[3])
+            contr_his_epsi_est.append(LocalState[5])
             contr_his_s_est.append(LocalState[4])
                 
+
+            ## OUT: s, ey, epsi       IN: x, y, psi looks wrong
+            LocalState[4], LocalState[5], LocalState[3]
 
             contr_his_epsi_pred_mod.extend(LPV_States_Prediction[:,3])
             contr_his_ey_pred_mod.extend(LPV_States_Prediction[:,5])
