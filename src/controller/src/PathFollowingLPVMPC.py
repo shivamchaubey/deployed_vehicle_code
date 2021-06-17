@@ -98,7 +98,7 @@ class PathFollowingLPV_MPC:
             if self.slew_rate_on:
                 self.Qw  = 0.7 * np.array([0.8*vx_scale, 0.000, 0.000, 0.1*etheta_scale, 0.0, 0.8*ey_scale]) # penality on states 
                 self.Rw  = 0.001 * np.array([0.1*str_scale, 0.1*duty_scale])     # Penality on input (dutycycle, steer)
-                self.dRw = 0.05 * np.array([0.1*dstr_scale,0.1*dduty_scale])  # Penality on Input rate 
+                self.dRw = 0.03 * np.array([0.1*dstr_scale,0.1*dduty_scale])  # Penality on Input rate 
 
                 if self.soft_constraints_on:
                     self.Qew = np.array([1, 0, 0, 1, 0, 1])*(10.0e8) # Penality on soft constraints 
