@@ -7,7 +7,7 @@
 <br />
 estimation of the robot navigating in a 2D map. <br />
 <br />
-First, the Gauss-Newton scan matching approach roughly estimate the state ![equation](https://latex.codecogs.com/gif.latex?[X,&space;Y,&space;\theta]^T) from the LIDAR endpoints and then model-based Takagi-Sugeno Kalman filter is applied to correct and estimate the full state of the vehicle. <br />
+First, the Gauss-Newton scan matching approach roughly estimate the state ![equation](https://latex.codecogs.com/gif.latex?[X,&space;Y,&space;\theta]^T) from the LIDAR endpoints using [HectorSLAM](http://wiki.ros.org/hector_slam) and then model-based Takagi-Sugeno Kalman filter is applied to correct and estimate the full state of the vehicle. <br />
 LIDAR, and IMU sensors are used.<br />
 <br />
 
