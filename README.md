@@ -1,8 +1,5 @@
 #### Takagi-Sugeno SLAM with MPC controller
 
-## Repository documentation in process!!!
-- ![#f03c15](https://via.placeholder.com/15/f03c15/000000?text= ) `#f03c15`
- 
 ## - ![#f03c15](https://via.placeholder.com/15/f03c15/000000?text=+) ` Repository documentation in process!!!`
 
 **Takagi-SugenoSLAM** is a python-ROS based package for real-time 6 states, <br />
