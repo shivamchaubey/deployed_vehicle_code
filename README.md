@@ -35,8 +35,9 @@ Launch files are independent of each other at this stage of development. A singl
    `roslaunch plotter mpc_plot.launch` <br />
    
 * To run on the real vehicle: <br /> 
-   
-
+   `roslaunch observer state_estimator.launch sim:='1'`
+   `roslaunch controller controller.launch`
+   `roslaunch plotter mpc_plot.launch`   
 
 #### ROS implementation
 Nodes:
