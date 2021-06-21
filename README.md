@@ -28,7 +28,7 @@ Nodes:
       * control/MPC_prediction  -> Publishes optimizor generated states
       * control/accel -> MPC control output 1. Motor dutycycle 
       * control/steering -> MPC control output 2. Steering angle
-  <br \>
+  <br />
   * *Subscribed Topics*: 
       * /est_state_info -> Subscribed to estimated state from the node *switching_lqr_observer*
 
