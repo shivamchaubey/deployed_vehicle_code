@@ -29,9 +29,13 @@ Following libraries needed to be installed:
 #### To launch
 Launch files are independent of each other at this stage of development. A single launch file can be created to launch all the nodes together. 
 * To run on the simulation: <br />
+   > roslaunch simulator simulator.launch
+   > roslaunch observer state_estimator.launch sim:='1'
+   > roslaunch controller controller.launch
+   > roslaunch plotter mpc_plot.launch
    
 * To run on the real vehicle: <br /> 
-
+   
 
 
 #### ROS implementation
