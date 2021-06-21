@@ -9,7 +9,7 @@ First, the Gauss-Newton scan matching approach roughly estimate the state ![equa
 LIDAR, and IMU sensors are used.<br />
 <br />
 
-**MPC controller** is also added to the ROS package for full body control of the vehicle following limits and constraints. The pipeline for SLAM, estimation and controller can be seen in the figure below 
+**MPC controller** is also added to the ROS package for full-body control of the vehicle following limits and constraints. The pipeline for SLAM, estimation, and controller can be seen in the figure below 
 ![Alt text](https://i.ibb.co/zsq8ZD6/scheme.png)
 
 <!---
@@ -72,6 +72,6 @@ Nodes:
       * `/est_state_info` -> Subscribed to estimated state from the node *switching_lqr_observer*
 
 
-Detail interconnection of nodes, topics is shown in the below image. 
+Detailed interconnection of nodes, topics are shown in the below image. 
 
 ![Alt text](https://i.ibb.co/FhZ9kkw/rosgraph-real.png)
