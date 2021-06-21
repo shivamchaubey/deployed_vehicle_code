@@ -15,11 +15,12 @@ LIDAR, and IMU sensors are used.<br />
 **MPC controller** is also added to the ROS package for full body control of the vehicle following limits and constraints. The pipeline for SLAM, estimation and controller can be seen in the figure below 
 ![Alt text](https://i.ibb.co/zsq8ZD6/scheme.png)
 
+<!---
 The vehicle model is represented as, <br /> <br />
 ![equation](https://latex.codecogs.com/gif.latex?\dot{v_x}&space;=&space;\frac{1}{m}(F_{rx}&space;-&space;F_{flat}\sin(\delta)&space;&plus;&space;mv_y&space;\omega)&space;\newline&space;\dot{v_y}&space;=&space;\frac{1}{m}(F_{flat}\cos(\delta)&space;&plus;&space;F_{ry}&space;-&space;mv_x&space;\omega)\newline&space;\dot{\omega}&space;=&space;\frac{1}{I_z}(l_f&space;F_{flat}\cos(\delta)&space;-&space;l_r&space;F_{ry})&space;\newline&space;\dot{X}&space;=&space;v_x&space;cos(\theta)&space;-&space;v_y&space;sin(\theta)&space;\label{eq:mod_final_X}\newline&space;\dot{Y}&space;=&space;v_x&space;sin(\theta)&space;&plus;&space;v_y&space;cos(\theta)&space;\label{eq:mod_final_Y}\newline&space;\dot{\theta}&space;=&space;\omega&space;\newline) <br /> <br />
 where the longitudinal force and lateral forces are, <br /> <br />
 ![equation](https://latex.codecogs.com/gif.latex?F_{rx}&space;=&space;(C_{m0}&space;-&space;C_{m_1}v_x)D&space;-C_{0}v_x&space;-&space;C_1&space;-&space;\frac{C_D&space;A&space;\rho&space;v_x^2}{2}&space;\label{eq:mod_final_frx}&space;\newline&space;F_{flat}&space;=&space;2C_{af}\left(&space;\delta&space;-&space;\arctan&space;\left(\frac{v_y&space;&plus;&space;l_f&space;\dot{\theta}}{v_x}&space;\right)\right)&space;\label{eq:mod_final_fflat}&space;\newline&space;F_{ry}&space;=&space;-&space;2C_{ar}\arctan&space;\left(&space;\frac{v_y&space;-&space;l_r&space;\dot{\theta}}{v_x}\right)) 
-
+--->
 #### Requirements
 The code is developed in `Ubunutu 16.04` with `ROS Kinetic Kame`.
 Following libraries needed to be installed:
