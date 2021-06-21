@@ -21,4 +21,14 @@ where the longitudinal force and lateral forces are, <br /> <br />
 ![equation](https://latex.codecogs.com/gif.latex?F_{rx}&space;=&space;(C_{m0}&space;-&space;C_{m_1}v_x)D&space;-C_{0}v_x&space;-&space;C_1&space;-&space;\frac{C_D&space;A&space;\rho&space;v_x^2}{2}&space;\label{eq:mod_final_frx}&space;\newline&space;F_{flat}&space;=&space;2C_{af}\left(&space;\delta&space;-&space;\arctan&space;\left(\frac{v_y&space;&plus;&space;l_f&space;\dot{\theta}}{v_x}&space;\right)\right)&space;\label{eq:mod_final_fflat}&space;\newline&space;F_{ry}&space;=&space;-&space;2C_{ar}\arctan&space;\left(&space;\frac{v_y&space;-&space;l_r&space;\dot{\theta}}{v_x}\right)) 
 
 #### ROS implementation
+Nodes:
+* LPV_MPC:
+* * control/LPV_prediction
+* * control/MPC_prediction
+* 
+*
+
+Topics:
+
+
 ![Alt text](https://i.ibb.co/FhZ9kkw/rosgraph-real.png)
