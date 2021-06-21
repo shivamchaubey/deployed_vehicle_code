@@ -13,3 +13,11 @@ ssty.arduino
 .catkin_tools/
 .catkin_workspace
 
+
+error.txt
+log.txt
+nano.save
+nano.save.1
+out.txt
+sim.log
+stty.arduino
