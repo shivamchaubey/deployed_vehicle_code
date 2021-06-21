@@ -36,7 +36,7 @@ Nodes:
       * /twist -> Subscribes to angular velocity from IMU
       * /pose -> Subscribes to orientation from IMU
       * /fused_cam_pose -> Subscribes to pose obtained from fisheye cam if used.
-<br />
+
 * control: MPC controller implementation <br /> 
   * *Published Topics*: 
       * control/LPV_prediction -> Publishes model predicted states using LPV model
