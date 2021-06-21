@@ -23,8 +23,8 @@ where the longitudinal force and lateral forces are, <br /> <br />
 #### ROS implementation
 Nodes:
 * LPV_MPC:
- - control/LPV_prediction
- - control/MPC_prediction
+ *- control/LPV_prediction
+ *- control/MPC_prediction
 
 
 Topics:
