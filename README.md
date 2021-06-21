@@ -61,8 +61,6 @@ Nodes:
       * /est_state_info -> Subscribed to estimated state from the node *switching_lqr_observer*
 
 
-
-
 Detail interconnection of nodes, topics is shown in the below image. 
 
 ![Alt text](https://i.ibb.co/FhZ9kkw/rosgraph-real.png)
