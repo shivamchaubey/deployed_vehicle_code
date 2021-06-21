@@ -3,7 +3,7 @@
 ## Repository documentation in process!!!
 - ![#f03c15](https://via.placeholder.com/15/f03c15/000000?text= ) `#f03c15`
  
-- ![#f03c15](https://via.placeholder.com/15/f03c15/000000?text=+) `#f03c15`
+- ![#f03c15](https://via.placeholder.com/15/f03c15/000000?text=+) `## Repository documentation in process!!!`
 
 **Takagi-SugenoSLAM** is a python-ROS based package for real-time 6 states, <br />
 ![equation](https://latex.codecogs.com/gif.latex?[v_x,&space;v_y,&space;\omega,&space;X,&space;Y,&space;\theta]^T) 
