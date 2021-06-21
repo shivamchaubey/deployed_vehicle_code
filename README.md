@@ -20,6 +20,20 @@ The vehicle model is represented as, <br /> <br />
 where the longitudinal force and lateral forces are, <br /> <br />
 ![equation](https://latex.codecogs.com/gif.latex?F_{rx}&space;=&space;(C_{m0}&space;-&space;C_{m_1}v_x)D&space;-C_{0}v_x&space;-&space;C_1&space;-&space;\frac{C_D&space;A&space;\rho&space;v_x^2}{2}&space;\label{eq:mod_final_frx}&space;\newline&space;F_{flat}&space;=&space;2C_{af}\left(&space;\delta&space;-&space;\arctan&space;\left(\frac{v_y&space;&plus;&space;l_f&space;\dot{\theta}}{v_x}&space;\right)\right)&space;\label{eq:mod_final_fflat}&space;\newline&space;F_{ry}&space;=&space;-&space;2C_{ar}\arctan&space;\left(&space;\frac{v_y&space;-&space;l_r&space;\dot{\theta}}{v_x}\right)) 
 
+#### Requirements
+The code is developed in `Ubunutu 16.04` with `ROS Kinetic Kame`.
+Following libraries needed to be installed:
+* OSQP
+* scipy
+
+#### To launch
+Launch files are dependent of each other at this stage of development. A single launch file can be created to launch all the nodes together. 
+* To run on the simulation: <br />
+   
+* To run on the real vehicle: <br /> 
+
+
+
 #### ROS implementation
 Nodes:
 
