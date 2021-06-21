@@ -4,7 +4,7 @@
 
 
 **Takagi-SugenoSLAM** is a python-ROS based package for real-time 6 states, <br />
-![equation](https://latex.codecogs.com/gif.latex?[v_x, v_y, \omega, X,&space;Y,&space;\theta]^T) 
+![equation](https://latex.codecogs.com/gif.latex?[v_x,&space;v_y,&space;\omega,&space;X,&space;Y,&space;\theta]^T) 
 <br />
 estimation of the robot navigating in a 2D map. <br />
 <br />
