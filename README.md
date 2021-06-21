@@ -22,10 +22,27 @@ where the longitudinal force and lateral forces are, <br /> <br />
 
 #### ROS implementation
 Nodes:
-* LPV_MPC: <br /> 
-  Topics: 
+* control: MPC controller implementation <br /> 
+  *Topics Publisher*: 
+  * control/LPV_prediction -> Model prediction
+  * control/MPC_prediction  -> Optimizor prediction
+  * control/accel -> Motor dutycycle 
+  * control/steering -> Steering angle
+<br />
+*Topics Subscriber*: 
+  * control/LPV_prediction -> Model prediction
+  * control/MPC_prediction  -> Optimizor prediction
+  * control/accel -> Motor dutycycle 
+  * control/steering -> Steering angle
+
+
+<br />
+* switching_lqr_observer: <br /> 
+  *Topics*: 
   * control/LPV_prediction
   * control/MPC_prediction
+  * control/accel
+  * control/steering
 
 
 Topics:
