@@ -1,4 +1,4 @@
-#### Takagi-SugenoSLAM with MPC controller
+#### Takagi-Sugeno SLAM with MPC controller
 
 ## Repository documentation in process!!! 
 
