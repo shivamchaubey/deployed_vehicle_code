@@ -25,7 +25,7 @@ Following libraries needed to be installed:
 * `scipy`: For sparse matrix formulation
 
 #### To build
-`cd deployed_vehicle_code`
+`cd deployed_vehicle_code` <br />
 `catkin build`
 #### To launch
 Launch files are independent of each other at this stage of development. A single launch file can be created to launch all the nodes together. 
