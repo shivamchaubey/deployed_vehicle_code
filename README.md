@@ -27,7 +27,7 @@ Following libraries needed to be installed:
 * scipy
 
 #### To launch
-Launch files are dependent of each other at this stage of development. A single launch file can be created to launch all the nodes together. 
+Launch files are independent of each other at this stage of development. A single launch file can be created to launch all the nodes together. 
 * To run on the simulation: <br />
    
 * To run on the real vehicle: <br /> 
