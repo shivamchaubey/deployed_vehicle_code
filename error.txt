@@ -1,5 +1,0 @@
-1st error:
-OpenCV Error: Bad argument (The function can not solve under-determined linear systems) in solve, file /tmp/binarydeb/ros-kinetic-opencv3-3.3.1/modules/core/src/lapack.cpp, line 1250
-terminate called after throwing an instance of 'cv::Exception'
-  what():  /tmp/binarydeb/ros-kinetic-opencv3-3.3.1/modules/core/src/lapack.cpp:1250: error: (-5) The function can not solve under-determined linear systems in function solve
-
