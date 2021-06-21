@@ -26,19 +26,27 @@ Following libraries needed to be installed:
 * OSQP
 * scipy
 
+#### To build
+`cd deployed_vehicle_code`
+`catkin build`
 #### To launch
 Launch files are independent of each other at this stage of development. A single launch file can be created to launch all the nodes together. 
 * To run on the simulation: <br />
-   `roslaunch simulator simulator.launch` <br />
-   `roslaunch observer state_estimator.launch sim:='1'` <br />
-   `roslaunch controller controller.launch` <br />
-   `roslaunch plotter mpc_plot.launch` <br />
+   `roslaunch simulator simulator.launch` : To launch simulation <br />
+   `roslaunch observer state_estimator.launch sim:='1'` : To launch Takagi-Sugeno estimator <br />
+   `roslaunch controller controller.launch` : To launch MPC controller <br />
+   `roslaunch plotter mpc_plot.launch` : To launch MPC plot to visualize trajectory generated <br />
+   `roslaunch plotter observer_plot.launch` : To launch estimator performance <br />  
    
 * To run on the real vehicle: <br /> 
-   `roslaunch observer state_estimator.launch` <br />
-   `roslaunch controller controller.launch` <br />
-   `roslaunch plotter mpc_plot.launch` <br />    
-
+   `roslaunch manual_control rosserial.launch` : To launch rosserial communication for arduino <br /> 
+   `roslaunch fisheyecam_pose_estimation fisheye_tracker.launch` : To launch fisheye camera localization <br />
+   `roslaunch rplidar_ros rplidar.launch` : To launch RPLIDAR for scan  <br />
+   `roslaunch rplidar_ros pose_estimation.launch` : To launch rough pose estimation using LIDAR <br /> 
+   `roslaunch observer state_estimator.launch` : To launch Takagi-Sugeno estimator <br /> 
+   `roslaunch controller controller.launch` : To launch MPC controller <br />
+   `roslaunch plotter mpc_plot.launch` : To launch MPC plot to visualize trajectory generated <br />
+   `roslaunch plotter observer_plot.launch` : To launch estimator performance <br /> 
 #### ROS implementation
 Nodes:
 
