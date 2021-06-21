@@ -22,34 +22,33 @@ where the longitudinal force and lateral forces are, <br /> <br />
 
 #### ROS implementation
 Nodes:
+
+* switching_lqr_observer: Implementation of Takagi-Sugeno Kalman estimator <br /> 
+  * *Published Topics*: 
+      * /est_state_info -> Publishes estimated states
+      * /ol_state_info  -> Publishes open-loop prediction using the model
+      * /meas_state_info -> Publishes fused measurement from different sensors.  
+  * *Subscribed Topics*: 
+      * control/accel -> Dutycycle (D) control input from controller. 
+      * control/steering -> Steering angle (![equation](https://latex.codecogs.com/gif.latex?\delta)) control input from controller. 
+      * /slam_out_pose -> Roughly estmated pose from LIDAR and scan matching algorithm.
+      * /wheel_rpm_feedback -> Subscribes to Motor encoder feedback
+      * /twist -> Subscribes to angular velocity from IMU
+      * /pose -> Subscribes to orientation from IMU
+      * /fused_cam_pose -> Subscribes to pose obtained from fisheye cam if used.
+<br />
 * control: MPC controller implementation <br /> 
   * *Published Topics*: 
       * control/LPV_prediction -> Publishes model predicted states using LPV model
       * control/MPC_prediction  -> Publishes optimizor generated states
-      * control/accel -> MPC control output 1. Motor dutycycle 
-      * control/steering -> MPC control output 2. Steering angle
-  <br />
+      * control/accel -> MPC control output 1. Motor dutycycle (D) 
+      * control/steering -> MPC control output 2. Steering angle (![equation](https://latex.codecogs.com/gif.latex?\delta))
   * *Subscribed Topics*: 
       * /est_state_info -> Subscribed to estimated state from the node *switching_lqr_observer*
 
 
-*Topics Subscriber*: 
-  * control/LPV_prediction -> Model prediction
-  * control/MPC_prediction  -> Optimizor prediction
-  * control/accel -> Motor dutycycle 
-  * control/steering -> Steering angle
 
 
-<br />
-* switching_lqr_observer: <br /> 
-  *Topics*: 
-  * control/LPV_prediction
-  * control/MPC_prediction
-  * control/accel
-  * control/steering
-
-
-Topics:
-
+Detail interconnection of nodes, topics is shown in the below image. 
 
 ![Alt text](https://i.ibb.co/FhZ9kkw/rosgraph-real.png)
