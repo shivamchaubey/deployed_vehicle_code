@@ -2,10 +2,8 @@
 
 ## - ![#f03c15](https://via.placeholder.com/15/f03c15/000000?text=+) ` Repository documentation in process!!!`
 
-**Takagi-SugenoSLAM** is a python-ROS based package for real-time 6 states, <br />
-![equation](https://latex.codecogs.com/gif.latex?[v_x,&space;v_y,&space;\omega,&space;X,&space;Y,&space;\theta]^T) 
-<br />
-estimation of the robot navigating in a 2D map. <br />
+**Takagi-SugenoSLAM** is a python-ROS based package for real-time 6 states 
+![equation](https://latex.codecogs.com/gif.latex?[v_x,&space;v_y,&space;\omega,&space;X,&space;Y,&space;\theta]^T) estimation of the robot navigating in a 2D map. <br />
 <br />
 First, the Gauss-Newton scan matching approach roughly estimate the state ![equation](https://latex.codecogs.com/gif.latex?[X,&space;Y,&space;\theta]^T) from the LIDAR endpoints using [HectorSLAM](http://wiki.ros.org/hector_slam) and then model-based Takagi-Sugeno Kalman filter is applied to correct and estimate the full state of the vehicle. <br />
 LIDAR, and IMU sensors are used.<br />
