@@ -65,7 +65,7 @@ Nodes:
 * `control`: MPC controller implementation <br /> 
   * *Published Topics*: 
       * `control/LPV_prediction` -> Publishes model predicted states using LPV model
-      * `control/MPC_prediction`  -> Publishes optimizor generated states
+      * `control/MPC_prediction`  -> Publishes optimizer generated states
       * `control/accel` -> MPC control output 1. Motor dutycycle (D) 
       * `control/steering` -> MPC control output 2. Steering angle (![equation](https://latex.codecogs.com/gif.latex?\delta))
   * *Subscribed Topics*: 
