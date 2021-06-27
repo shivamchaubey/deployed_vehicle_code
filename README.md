@@ -1,17 +1,15 @@
 #### Takagi-Sugeno SLAM with MPC controller
 
-## - ![#f03c15](https://via.placeholder.com/15/f03c15/000000?text=+) ` Repository documentation in process!!!`
+## - ![#f03c15](https://via.placeholder.com/15/f03c15/000000?text=+) ` Repository documentation in progress!!!`
 
-**Takagi-SugenoSLAM** is a python-ROS based package for real-time 6 states, <br />
-![equation](https://latex.codecogs.com/gif.latex?[v_x,&space;v_y,&space;\omega,&space;X,&space;Y,&space;\theta]^T) 
-<br />
-estimation of the robot navigating in a 2D map. <br />
+**Takagi-SugenoSLAM** is a python-ROS based package for real-time 6 states 
+![equation](https://latex.codecogs.com/gif.latex?[v_x,&space;v_y,&space;\omega,&space;X,&space;Y,&space;\theta]^T) estimation of the robot navigating in a 2D map. <br />
 <br />
 First, the Gauss-Newton scan matching approach roughly estimate the state ![equation](https://latex.codecogs.com/gif.latex?[X,&space;Y,&space;\theta]^T) from the LIDAR endpoints using [HectorSLAM](http://wiki.ros.org/hector_slam) and then model-based Takagi-Sugeno Kalman filter is applied to correct and estimate the full state of the vehicle. <br />
 LIDAR, and IMU sensors are used.<br />
 <br />
 
-**MPC controller** is also added to the ROS package for full body control of the vehicle following limits and constraints. The pipeline for SLAM, estimation and controller can be seen in the figure below 
+**MPC controller** is also added to the ROS package for full-body control of the vehicle following limits and constraints. The pipeline for SLAM, estimation, and controller can be seen in the figure below 
 ![Alt text](https://i.ibb.co/zsq8ZD6/scheme.png)
 
 <!---
@@ -23,44 +21,57 @@ where the longitudinal force and lateral forces are, <br /> <br />
 #### Requirements
 The code is developed in `Ubunutu 16.04` with `ROS Kinetic Kame`.
 Following libraries needed to be installed:
-* OSQP
-* scipy
+* `OSQP` : For MPC optimization
+* `scipy`: For sparse matrix formulation
 
+#### To build
+`cd deployed_vehicle_code` <br />
+`catkin build`
 #### To launch
 Launch files are independent of each other at this stage of development. A single launch file can be created to launch all the nodes together. 
 * To run on the simulation: <br />
+   `roslaunch simulator simulator.launch` : To launch simulation <br />
+   `roslaunch observer state_estimator.launch sim:='1'` : To launch Takagi-Sugeno estimator <br />
+   `roslaunch controller controller.launch` : To launch MPC controller <br />
+   `roslaunch plotter mpc_plot.launch` : To launch MPC plot to visualize trajectory generated <br />
+   `roslaunch plotter observer_plot.launch` : To launch estimator performance <br />  
    
 * To run on the real vehicle: <br /> 
-
-
-
+   `roslaunch manual_control rosserial.launch` : To launch rosserial communication for arduino <br /> 
+   `roslaunch fisheyecam_pose_estimation fisheye_tracker.launch` : To launch fisheye camera localization <br />
+   `roslaunch rplidar_ros rplidar.launch` : To launch RPLIDAR for scan  <br />
+   `roslaunch rplidar_ros pose_estimation.launch` : To launch rough pose estimation using LIDAR <br /> 
+   `roslaunch observer state_estimator.launch` : To launch Takagi-Sugeno estimator <br /> 
+   `roslaunch controller controller.launch` : To launch MPC controller <br />
+   `roslaunch plotter mpc_plot.launch` : To launch MPC plot to visualize trajectory generated <br />
+   `roslaunch plotter observer_plot.launch` : To launch estimator performance <br /> 
 #### ROS implementation
 Nodes:
 
-* switching_lqr_observer: Implementation of Takagi-Sugeno Kalman estimator <br /> 
+* `switching_lqr_observer`: Implementation of Takagi-Sugeno Kalman estimator <br /> 
   * *Published Topics*: 
-      * /est_state_info -> Publishes estimated states
-      * /ol_state_info  -> Publishes open-loop prediction using the model
-      * /meas_state_info -> Publishes fused measurement from different sensors.  
+      * `/est_state_info` -> Publishes estimated states
+      * `/ol_state_info`  -> Publishes open-loop prediction using the model
+      * `/meas_state_info` -> Publishes fused measurement from different sensors.  
   * *Subscribed Topics*: 
-      * control/accel -> Dutycycle (D) control input from controller. 
-      * control/steering -> Steering angle (![equation](https://latex.codecogs.com/gif.latex?\delta)) control input from controller. 
-      * /slam_out_pose -> Roughly estmated pose from LIDAR and scan matching algorithm.
-      * /wheel_rpm_feedback -> Subscribes to Motor encoder feedback
-      * /twist -> Subscribes to angular velocity from IMU
-      * /pose -> Subscribes to orientation from IMU
-      * /fused_cam_pose -> Subscribes to pose obtained from fisheye cam if used.
+      * `control/accel` -> Dutycycle (D) control input from controller. 
+      * `control/steering` -> Steering angle (![equation](https://latex.codecogs.com/gif.latex?\delta)) control input from controller. 
+      * `/slam_out_pose` -> Roughly estmated pose from LIDAR and scan matching algorithm.
+      * `/wheel_rpm_feedback` -> Subscribes to Motor encoder feedback
+      * `/twist` -> Subscribes to angular velocity from IMU
+      * `/pose` -> Subscribes to orientation from IMU
+      * `/fused_cam_pose` -> Subscribes to pose obtained from fisheye cam if used.
 
-* control: MPC controller implementation <br /> 
+* `control`: MPC controller implementation <br /> 
   * *Published Topics*: 
-      * control/LPV_prediction -> Publishes model predicted states using LPV model
-      * control/MPC_prediction  -> Publishes optimizor generated states
-      * control/accel -> MPC control output 1. Motor dutycycle (D) 
-      * control/steering -> MPC control output 2. Steering angle (![equation](https://latex.codecogs.com/gif.latex?\delta))
+      * `control/LPV_prediction` -> Publishes model predicted states using LPV model
+      * `control/MPC_prediction`  -> Publishes optimizer generated states
+      * `control/accel` -> MPC control output 1. Motor dutycycle (D) 
+      * `control/steering` -> MPC control output 2. Steering angle (![equation](https://latex.codecogs.com/gif.latex?\delta))
   * *Subscribed Topics*: 
-      * /est_state_info -> Subscribed to estimated state from the node *switching_lqr_observer*
+      * `/est_state_info` -> Subscribed to estimated state from the node *switching_lqr_observer*
 
 
-Detail interconnection of nodes, topics is shown in the below image. 
+Detailed interconnection of nodes, topics are shown in the below image. 
 
 ![Alt text](https://i.ibb.co/FhZ9kkw/rosgraph-real.png)
