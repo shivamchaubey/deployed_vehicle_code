@@ -79,11 +79,13 @@
 
         <!-- sensor freq update -->
         <!-- Generally 1 per second or 1 Hz not more than 10Hz in case of advanced gps made for UAV/AGV?? -->         
-        <param name="gps_freq_update" type="double" value="100.0" />
+        <param name="gps_freq_update"  type="double" value="100.0" />
         <param name="fcam_freq_update" type="double" value="40" />
-        <param name="imu_freq_update" type="double" value="100.0" />
-        <param name="enc_freq_update" type="double" value="100.0" />
+        <param name="imu_freq_update"  type="double" value="100.0" />
+        <param name="enc_freq_update"  type="double" value="100.0" />
+        <param name="gazebo_sim"       type="bool"   value="1" />
         
+
         <!-- delay in the simulator -->
         <!-- why delay in simulator is needed?? -->
         <param name="lowLevelDyn" type="bool" value="false" />

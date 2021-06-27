@@ -1,21 +1,21 @@
 #!/usr/bin/env python
-"""
-    File name: barc_simulator_dyn.py
-    Author: Shuqi Xu
-    Email: shuqixu@kth.se
-    Python Version: 2.7.12
-"""
-# ---------------------------------------------------------------------------
-# Licensing Information: You are free to use or extend these projects for
-# education or reserach purposes provided that (1) you retain this notice
-# and (2) you provide clear attribution to UC Berkeley, including a link
-# to http://barc-project.com
-#
-# Attibution Information: The barc project ROS code-base was developed
-# at UC Berkeley in the Model Predictive Control (MPC) lab by Jon Gonzales
-# (jon.gonzales@berkeley.edu). The cloud services integation with ROS was developed
-# by Kiet Lam  (kiet.lam@berkeley.edu). The web-server app Dator was
-# based on an open source project by Bruce Wootton
+
+##########################################################
+##           IRI 1:10 Autonomous Car                    ##
+##           ```````````````````````                    ##
+##      Supervisor: Puig Cayuela Vicenc                 ##
+##      Author:     Shivam Chaubey                      ##
+##      Email:      shivam.chaubey1006@gmail.com        ##
+##      Date:       18/04/2021                          ##
+##########################################################
+
+'''  
+The vehicle simulator is based on the obtained model of the vehicle, the
+sensor is simulated by inducing noises in the vehicle states. There are 6
+states of the vehicle and only 5 measurements can be recorded with sensors.   
+The simulator can be further improved if URDF file can be created for Gazebo simulator. 
+
+'''
 #----------------------------------------------------------------------------
 
 
@@ -28,7 +28,6 @@ from sensor_msgs.msg import Imu
 from gazebo_msgs.srv import SetModelState
 from gazebo_msgs.msg import ModelState
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
-# from l4vehicle_msgs.msg import VehicleState
 from math import atan, tan, cos, sin, pi, atan2
 from numpy.random import randn,rand
 from random import randrange, uniform
@@ -38,145 +37,96 @@ import pdb
 
 
 def main():
+    
+    ## node name
     rospy.init_node("simulator")
+
+    ## update rate of vehicle simulator
+    rate       = rospy.get_param("simulator/publish_frequency")
+    simulator_dt    = 1.0/rate
+    lowLevelDyn     = rospy.get_param("simulator/lowLevelDyn")
+    
+    ## update rate of sensor simulator
     fcam_freq_update = rospy.get_param("simulator/fcam_freq_update")
     imu_freq_update = rospy.get_param("simulator/imu_freq_update")
     enc_freq_update = rospy.get_param("simulator/enc_freq_update")
 
-    rate       = rospy.get_param("simulator/publish_frequency")
-    simulator_dt    = 1.0/rate
-    lowLevelDyn     = rospy.get_param("simulator/lowLevelDyn")
-    # pub_rate   = rospy.get_param("simulator/pub_rate")
-
-    print "[SIMULATOR] Is Low Level Dynamics active?: ", lowLevelDyn
-
-
-    """ Object collecting GPS measurement data
-    and using vehicle mode for simulation
-    Attributes:
-        Model params:
-            1.L_f 2.L_r 3.m(car mass) 3.I_z(car inertial) 4.c_f(equivalent drag coefficient)
-        States:
-            1.x 2.y 3.vx 4.vy 5.ax 6.ay 7.psiDot
-        States history:
-            1.x_his 2.y_his 3.vx_his 4.vy_his 5.ax_his 6.ay_his 7.psiDot_his
-        Simulator sampling time:
-            1. dt
-        Time stamp:
-            1. time_his
-    Methods:
-        f(u):
-            System model used to update the states
-        pacejka(ang):
-            Pacejka lateral tire modeling
-    """
-
-    time0 = rospy.get_rostime().to_sec()
-
-    vehicle_sim = Vehicle_Simulator()
-    
-
-    sensor_sim = Sensor_Simulator(vehicle_sim, fcam_freq_update, imu_freq_update, enc_freq_update, simulator_dt)
-    
-    # subscribe to the ecu for updating the control inputs.
-    ecu = vehicle_control_input(time0)
-
-    link_msg = ModelState()
-    # publish the link message for gazebo simulation
-
-    flag  = FlagClass()
-    # bool message type
-
-    hist_sens_noise = []
-
-    link_msg.model_name = "seat_car"
-    link_msg.reference_frame = "world"
-
-    link_msg.pose.position.z = 0.031
-    link_msg.twist.linear.x = 0.0
-    link_msg.twist.linear.y = 0
-    link_msg.twist.linear.z = 0
-
-    link_msg.twist.angular.x = 0.0
-    link_msg.twist.angular.y = 0
-    link_msg.twist.angular.z = 0
-
-
-    #  what are these variables??
+    ## vehicle state initialization 
     vehicle_sim_offset_x    = rospy.get_param("simulator/init_x")
     vehicle_sim_offset_y    = rospy.get_param("simulator/init_y")
     vehicle_sim_offset_yaw  = rospy.get_param("simulator/init_yaw")
+
+    gazebo_sim  = rospy.get_param("simulator/gazebo_sim")
+
+    ''' Vehicle deadzone. The vehicle doesn't move at certain duty cycle.
+    In our case it's -0.05 to 0.05.'''
     duty_th                 = rospy.get_param("duty_th")
+
+    time0 = rospy.get_rostime().to_sec()
+
+    ## vehicle simulator class initialized
+    vehicle_sim = Vehicle_Simulator()
+    
+    ## vehicle sensors class initialized
+    sensor_sim = Sensor_Simulator(vehicle_sim, fcam_freq_update, imu_freq_update, enc_freq_update, simulator_dt)
+    
+    ## subscribe to the ecu class for updating the control inputs.
+    ecu = vehicle_control_input(time0)
+
+    ## Publishing actual vehicle states
     pub_vehicle_simulatorStates = rospy.Publisher('vehicle_simulatorStates', simulatorStates, queue_size=1)
-    # pub_simulatorStatesIDIADA = rospy.Publisher('vehicle_state', VehicleState, queue_size=1)
-    # pub_linkStates = rospy.Publisher('/gazebo/set_model_state', ModelState, queue_size=1)
-    # pub_sysOut = rospy.Publisher('sensorStates', simulatorStates, queue_size=1)
 
+    ## for publishing vehicle states for gazebo simulation
+    if gazebo_sim == True:
+    
+        ## publish the link message for gazebo simulation
+        link_msg = ModelState()
 
+        ## For gazebo simulation states
+        link_msg.model_name = "seat_car"
+        link_msg.reference_frame = "world"
 
-    # simStatesIDADA = VehicleState()
+        link_msg.pose.position.z = 0.031
+        link_msg.twist.linear.x = 0.0
+        link_msg.twist.linear.y = 0
+        link_msg.twist.linear.z = 0
+
+        link_msg.twist.angular.x = 0.0
+        link_msg.twist.angular.y = 0
+        link_msg.twist.angular.z = 0
+
+        ## publisher
+        pub_linkStates = rospy.Publisher('/gazebo/set_model_state', ModelState, queue_size=1)
+
+    ## message type for vehicle states
     simStates = simulatorStates()
 
-    print('[SIMULATOR] The simulator is running!')
-    print('\n')
-
-    # servo_inp ? what are the input to servo ? only theta or pwm signals ?? 
-    servo_inp = 0.0
-
-    # what is the use of these variables Tf?? 
-    T  = simulator_dt
-    # What is tf and how it is set to 0.07??
-    Tf = 0.07
     counter = 0
 
     prev_time = rospy.get_rostime().to_sec() - time0
 
     while not (rospy.is_shutdown()):
         curr_time = rospy.get_rostime().to_sec() - time0
-        #callback_time = rospy.get_time()
 
-        if flag.status:
-            pass
-        # Simulator delayc
-        counter += 1
-
-        # what are these varibales ?? go to EcuClass() 
-        # a_his.append(ecu.u[0])
-        # df_his.append(ecu.u[1])
-
-
-        # if lowLevelDyn == True:
-        #   servo_inp = (1 - T / Tf) * servo_inp + ( T / Tf )*df_his.pop(0)
-        #   u = [a_his.pop(0), servo_inp]
-        # else:
-        #   u = [a_his.pop(0), df_his.pop(0)] # EA: remove the first element of the array and return it to you.
-            #print "Applyied the first of this vector: ",df_his ,"\n "
 
         u = [ecu.duty_cycle, ecu.steer]
+
         # dt = curr_time - prev_time 
-        if abs(u[0]) > duty_th:
-            
+
+        if abs(u[0]) > duty_th:            
             vehicle_sim.vehicle_model(u, simulator_dt)
-
-
-
-                
-            # if vehicle_sim.omega <= 0.01:    
-            #     vehicle_sim.omega = 0.0
-            #     vehicle_sim.omega  = 0.0
-
         
         (simStates.vx, simStates.vy, simStates.omega, simStates.x, simStates.y, simStates.yaw) = vehicle_sim.states
         
-        if abs(u[0]) <= duty_th:
-                #     # vehicle_sim.vehicle_model(u, simulator_dt)
-                    # if vehicle_sim.vx <= 0.01 :
-                    vehicle_sim.vx = 0.000001 
-                    vehicle_sim.vy = 0.000001
-                    vehicle_sim.omega = 0.000001 
-                    simStates.vx = 0.000001
-                    simStates.vy = 0.000001
-                    simStates.omega = 0.000001
+        # if abs(u[0]) <= duty_th:
+        #         #     # vehicle_sim.vehicle_model(u, simulator_dt)
+        #             # if vehicle_sim.vx <= 0.01 :
+        #             vehicle_sim.vx = 0.000001 
+        #             vehicle_sim.vy = 0.000001
+        #             vehicle_sim.omega = 0.000001 
+        #             simStates.vx = 0.000001
+        #             simStates.vy = 0.000001
+        #             simStates.omega = 0.000001
 
         # simStates.x      = vehicle_sim.x 
         # simStates.y      = vehicle_sim.y 
@@ -189,20 +139,10 @@ def main():
         print "u", u 
         print "simStates", simStates
 
-        # vehicle_simStatesIDADA.x                         = vehicle_sim.x
-        # vehicle_simStatesIDADA.y                         = vehicle_sim.y
-        # vehicle_simStatesIDADA.longitudinal_velocity     = vehicle_sim.vx
-        # vehicle_simStatesIDADA.lateral_velocity          = vehicle_sim.vy
-        # vehicle_simStatesIDADA.heading                   = vehicle_sim.yaw
-        # vehicle_simStatesIDADA.angular_velocity          = vehicle_sim.psiDot
-
         #if counter >= pub_rate/simulator_dt:
             # Publish input
 
         pub_vehicle_simulatorStates.publish(simStates)
-        # pub_simulatorStatesIDIADA.publish(simStatesIDADA)
-        # aux = SimulateSensors(sim, pub_sysOut)
-        # hist_sens_noise.append(aux)
         
         counter = 0
 
@@ -210,37 +150,25 @@ def main():
         sensor_sim.imu_update(vehicle_sim)
         sensor_sim.enc_update(vehicle_sim)
         sensor_sim.lidar_update(vehicle_sim)
-        # gps.update(sim)
-
-        # sim.saveHistory()
-
+        
         sensor_sim.fcam_pub()
         sensor_sim.imu_pub()
         sensor_sim.enc_pub()
         sensor_sim.lidar_pub()
 
+        if pub_linkStates.get_num_connections() > 0 and gazebo_sim == True:
+            link_msg.pose.position.x = vehicle_sim.x + vehicle_sim_offset_x
+            link_msg.pose.position.y = -(vehicle_sim.y + vehicle_sim_offset_y)
+            link_msg.pose.orientation = Quaternion(*quaternion_from_euler(0, 0, -vehicle_sim.yaw))
+            pub_linkStates.publish(link_msg)
 
+            rospy.wait_for_service('/gazebo/set_model_state')
+            try:
+              set_state = rospy.ServiceProxy('/gazebo/set_model_state', SetModelState)
+              resp = set_state( link_msg )
 
-        # if pub_linkStates.get_num_connections() > 0:
-        #     link_msg.pose.position.x = vehicle_sim.x + vehicle_sim_offset_x
-        #     link_msg.pose.position.y = -(vehicle_sim.y + vehicle_sim_offset_y)
-        #     link_msg.pose.orientation = Quaternion(*quaternion_from_euler(0, 0, -vehicle_sim.yaw))
-        #     pub_linkStates.publish(link_msg)
-
-        #     rospy.wait_for_service('/gazebo/set_model_state')
-            #try:
-            #   set_state = rospy.ServiceProxy('/gazebo/set_model_state', SetModelState)
-            #   resp = set_state( link_msg )
-
-            #except rospy.ServiceException, e:
-            #   print "Service call failed: %s" % e
-
-
-        # # ESTO SIN COMENTAR ES COMO ESTABA ANTES...
-        # counter += 1
-        # if counter == 5:
-        #   enc.enc_pub()
-        #   counter = 0
+            except rospy.ServiceException, e:
+              print "Service call failed: %s" % e
 
 
         #time_since_last_callback = rospy.get_time() - callback_time
@@ -249,20 +177,8 @@ def main():
 
         prev_time = curr_time
         vehicle_sim.rate.sleep()
+        counter += 1 
 
-    # str         = 'test2'    
-    # day         = 'TestPreFinal'    
-    # num_test    = 'Noise'    
-    # newpath     = '/home/auto/results_simu_test/'+day+'/'+num_test+'/'
-    # print "Hi!"
-    # print len(hist_sens_noise)
-    # print newpath+'NoiseSens'
-    # if not os.path.exists(newpath+'/'):
-    #     os.makedirs(newpath+'/')  
-    # np.save(newpath+'NoiseSens', hist_sens_noise)
-    # np.save(newpath+'NoiseProces', vehicle_sim.noise_hist) 
-    # np.save(newpath+'NoiseU', ecu.hist_noise)
-    # quit()
 
 def wrap(angle):
     eps = 0.00
@@ -271,12 +187,6 @@ def wrap(angle):
     elif angle > np.pi - eps :
         w_angle = angle - 2 * np.pi + eps 
     
-    # elif angle > 2*np.pi - eps :
-    #     w_angle = angle%(2.0*pi)
-    
-    # elif angle < -2*np.pi + eps :
-    #     w_angle =  -(angle%(2.0*pi))
-
     else:
         w_angle = angle
 
@@ -287,7 +197,6 @@ def wrap(angle):
 
 def vehicle_model(vx,vy,omega,theta,delta,D):
     
-
     m = 2.424;
     rho = 1.225;
     lr = 0.1203;
@@ -331,23 +240,30 @@ def vehicle_model(vx,vy,omega,theta,delta,D):
 
 
 class Vehicle_Simulator(object):
-    """ Object collecting GPS measurement data
+    """ Object for vehicle simulator, the derived model used from parameter identification is used. 
     Attributes:
         Model params:
-            1.L_f 2.L_r 3.m(car mass) 3.I_z(car inertial) 4.c_f(equivalent drag coefficient)
+            1.m : mass of the vehicle, change the mass in case battery is being changed
+            2.rho : Air density
+            3.lr : Distance from front wheel to center of mass.
+            4.lf : Distance from rear wheel to center of mass. 
+            5.Cm0 : Co-efficient of driving motor related to force
+            6.Cm1 : Co-efficient of driving motor related to velocity
+            7.C0 : Rolling parameter coefficient 
+            8.C1 : Resistive Frictional Co-efficient
+            9.Cd_A : Aerodynamic Drag coefficient with frontal cross section area.
+            10.Caf : Front wheel stiffness.
+            11.Car : Rear wheel stiffness.
+            12.Iz : Moment of inertia in z-axis. 
         States:
-            1.x 2.y 3.vx 4.vy 5.ax 6.ay 7.psiDot
-        States history:
-            1.x_his 2.y_his 3.vx_his 4.vy_his 5.ax_his 6.ay_his 7.psiDot_his
+            1.v_x : Longitudinal velocity 
+            2.v_y : Lateral velocity 
+            3.omega : angular rate
+            4.X : Global position of the vehicle in X - axis.
+            5.Y : Global position of the vehicle in Y - axis.
+            6.theta (yaw) : Global orientation of the vehicle. 
         Simulator sampling time:
             1. dt
-        Time stamp:
-            1. time_his
-    Methods:
-        f(u):
-            System model used to update the states
-        pacejka(ang):
-            Pacejka lateral tire modeling
     """
     def __init__(self):
 
@@ -390,8 +306,7 @@ class Vehicle_Simulator(object):
 
         self.rate       = rospy.Rate(rospy.get_param("simulator/publish_frequency"))
         self.dt         = 1.0/rospy.get_param("simulator/publish_frequency")
-        # self.rate         = rospy.Rate(1.0)
-
+        
         self.time_his   = []
 
         # Get process noise limits
@@ -402,7 +317,7 @@ class Vehicle_Simulator(object):
         self.omega_std       = rospy.get_param("simulator/psiDot_std_pr")
         self.yaw_std         = rospy.get_param("simulator/psi_std_pr")
         self.n_bound         = rospy.get_param("simulator/n_bound_pr")
-        self.disturbance_on         = rospy.get_param("simulator/disturbance_on")
+        self.disturbance_on  = rospy.get_param("simulator/disturbance_on")
         self.disturbance     = np.array([0, 0, 0, 0, 0, 0]).T
         self.states          = np.array([self.vx, self.vy, self.omega, self.x, self.y, self.yaw])
 
@@ -420,13 +335,10 @@ class Vehicle_Simulator(object):
         omega   = self.omega
         self.dt = dt
     
-    
         dX = vx*cos(yaw) - vy*sin(yaw)
         dY = vx*sin(yaw) + vy*cos(yaw)
         dyaw = omega
-        
-        
-
+            
         F_flat = 0
         Fry    = 0
         Frx    = (self.Cm0 - self.Cm1*vx)*u[0] - self.C0*vx - self.C1 - (self.Cd_A*self.rho*vx**2)/2;
@@ -477,8 +389,6 @@ class Vehicle_Simulator(object):
         
         domega = (1.0/self.Iz)*(self.lf*F_flat*cos(u[1]) - self.lr*Fry);
 
-
-
         n4 = max(-self.x_std*self.n_bound, min(self.x_std*0.66*(randn()), self.x_std*self.n_bound))
         n4 = 0
         self.x      += self.dt*(dX + n4)
@@ -507,8 +417,6 @@ class Vehicle_Simulator(object):
         n6 = 0
         self.omega     += self.dt*(domega + n6)
         
-
-
         self.states          = np.array([self.vx, self.vy, self.omega, self.x, self.y, self.yaw])
 
         if self.disturbance_on == True:
@@ -526,23 +434,11 @@ class Vehicle_Simulator(object):
         # self.noise_hist.append([n1,n2,n6,n4,n5,n3])
 
 
-
-    def saveHistory(self):
-        self.x_his.append(self.x)
-        self.y_his.append(self.y)
-        self.vx_his.append(self.vx)
-        self.vy_his.append(self.vy)
-        self.ax_his.append(self.ax)
-        self.ay_his.append(self.ay)
-        self.omegae_his.append(self.omega)
-        self.time_his.append(rospy.get_rostime().to_sec())
-
-
 class vehicle_control_input(object):
     """ Object collecting CMD command data
     Attributes:
         Input command:
-            1.a 2.df
+            1.duty_cycle: duty cycle 2.steer : steering angle
         Time stamp
             1.t0  2.curr_time
     """
@@ -583,12 +479,31 @@ class vehicle_control_input(object):
 
 
 class Sensor_Simulator():
+    """ Object for vehicle sensor simulation, the sensors are simulated using the obtained states from the model.
+    Attributes:
+        sensor initialize:
+            1. vehicle_sim : States from the vehicle simulator
+            2. fcam_freq_update : update frequency of the fisheye camera
+            3. imu_freq_update : update frequency of the IMU 
+            4. enc_freq_update : update frequency of the motor encoder
+            5. simulator_dt : update frequency of the vehicle states from the simulator
 
+        Output:
+            1.v_x + noise : Longitudinal velocity 
+            2.omega + noise : angular rate
+            3.X + noise : Global position of the vehicle in X - axis.
+            4.Y + noise : Global position of the vehicle in Y - axis.
+            5.theta (yaw) + noise : Global orientation of the vehicle. 
+
+        Simulator sampling time:
+            1. dt
+    """
 
     def __init__(self, vehicle_sim, fcam_freq_update, imu_freq_update, enc_freq_update, simulator_dt):
 
         """
-        Only messages published which are required for the observer.
+        Only messages published which are required for the observer. 
+        5 states can only be measured, lateral velocity (v_y) can not be measured from any sensor.
         """
 
         ### Fisheye camera publisher ###
@@ -652,6 +567,11 @@ class Sensor_Simulator():
 
     #### SIMULATE FISHEYE CAMERA ####
     def fcam_update(self,sim):
+        '''
+        fisheye camera sensor simulation: 
+        Input:  Takes input states X, Y, theta from vehicle simulator class.  
+        Output: Provides only X, Y, theta + noises
+        '''
         n = max(-self.x_std*self.n_bound, min(self.x_std*randn(), self.x_std*self.n_bound))
         # n = 0
         self.x = sim.x + n
@@ -665,9 +585,10 @@ class Sensor_Simulator():
         # self.yaw = sim.yaw + n
         self.yaw = wrap(sim.yaw) + n
 
-
-
     def fcam_pub(self):
+            '''
+            For publishing at desired frequency
+            '''
         # if self.counter_fcam >= self.thUpdate_fcam:
             self.counter_fcam = 0
             self.msg_fcam.position.x = self.x
@@ -682,6 +603,12 @@ class Sensor_Simulator():
 
     #### SIMULATE LIDAR ####
     def lidar_update(self,sim):
+        '''
+        LIDAR sensor simulation: 
+        Input:  Takes input states X, Y, theta from vehicle simulator class.  
+        Output: Provides only X, Y, theta + noises
+        '''
+
         n = max(-self.x_std*self.n_bound, min(self.x_std*randn(), self.x_std*self.n_bound))
         # n = 0
         self.x = sim.x + n
@@ -696,6 +623,11 @@ class Sensor_Simulator():
         self.yaw = wrap(sim.yaw) + n
 
     def lidar_pub(self):
+
+            '''
+            For publishing at desired frequency
+            '''
+
         # if self.counter_fcam >= self.thUpdate_fcam:
             self.counter_lidar = 0
             ## -ve direction is assigned because the real measurement has opposite direction of the vehicle coordinate.
@@ -713,6 +645,12 @@ class Sensor_Simulator():
     #### SIMULATE IMU ###
     def imu_update(self,sim):
 
+        '''
+        IMU sensor simulation: 
+        Input:  Takes input states yaw (theta), omega (angular rate) from vehicle simulator class.  
+        Output: Provides only yaw, omega + noises
+        '''
+
         n = max(-self.yaw_std*self.n_bound, min(self.yaw_std*randn(), self.yaw_std*self.n_bound))
         # n = 0
         self.yaw_imu = wrap(sim.yaw + n)
@@ -724,6 +662,11 @@ class Sensor_Simulator():
 
 
     def imu_pub(self):
+        
+            '''
+            For publishing at desired frequency
+            '''
+
         # if self.counter_imu >= self.thUpdate_imu:
         #     self.counter_imu = 0
 
@@ -741,6 +684,12 @@ class Sensor_Simulator():
     #### SIMULATE MOTOR ENCODER ###
     def enc_update(self,sim):
 
+        '''
+        Motor encoder sensor simulation: 
+        Input:  Takes input states v_x (longitudinal velocity).
+        Output: Provides wheel rpm + noises.
+        '''
+
         n = max(-self.vx_std*self.n_bound, min(self.vx_std*randn(), self.vx_std*self.n_bound))
 
         self.wheel_radius = 0.03*1.12178 #radius of wheel
@@ -749,6 +698,11 @@ class Sensor_Simulator():
         
 
     def enc_pub(self):
+        
+            '''
+            For publishing at desired frequency
+            '''
+
         # if self.counter_enc >= self.thUpdate_enc:
             self.counter_enc = 0
 
@@ -759,110 +713,11 @@ class Sensor_Simulator():
             
         #     self.counter_enc = self.counter_enc + 1
 
-
-
-"""
-class GpsClass(object):
-    def __init__(self, gps_freq_update, simulator_dt):
-        self.pub  = rospy.Publisher("hedge_pos", hedge_pos, queue_size=1)
-        self.x = 0.0
-        self.y = 0.0
-        self.x_std   = rospy.get_param("simulator/x_std")
-        self.y_std   = rospy.get_param("simulator/y_std")
-        self.n_bound = rospy.get_param("simulator/n_bound")
-
-        self.msg = hedge_pos()
-        self.counter  = 0
-        self.thUpdate = (1.0 /  gps_freq_update) / simulator_dt
-
-    def update(self,sim):
-        n = max(-self.x_std*self.n_bound, min(self.x_std*randn(), self.x_std*self.n_bound))
-        self.x = sim.x + n
-
-        n = max(-self.y_std*self.n_bound, min(self.y_std*randn(), self.y_std*self.n_bound))
-        self.y = sim.y + n
-
-    def gps_pub(self):
-        if self.counter > self.thUpdate:
-            self.counter = 0
-            self.msg.x_m = self.x
-            self.msg.y_m = self.y
-            self.pub.publish(self.msg)
-            # print "Update GPS"
-        else:
-            # print "Not update GPS"
-            self.counter = self.counter + 1
-
-
-
-
-
-
-
-
-
-
-
-
-class fcamClass(object):
-    def __init__(self, fcam_freq_update, simulator_dt):
-        self.pub  = rospy.Publisher("fused_cam_pose", Pose, queue_size=1)
-        self.x = 0.0
-        self.y = 0.0
-        self.yaw = 0.0
-        self.x_std   = rospy.get_param("simulator/x_std")
-        self.y_std   = rospy.get_param("simulator/y_std")
-        self.n_bound = rospy.get_param("simulator/n_bound")
-
-        self.msg = Pose()
-        self.counter  = 0
-        self.thUpdate = (1.0 /  gps_freq_update) / simulator_dt
-
-    def fcam_update(self,sim):
-        n = max(-self.x_std*self.n_bound, min(self.x_std*randn(), self.x_std*self.n_bound))
-        self.x = sim.x + n
-
-        n = max(-self.y_std*self.n_bound, min(self.y_std*randn(), self.y_std*self.n_bound))
-        self.y = sim.y + n
-
-        self.yaw = sim.yaw + uniform(0, 0.2)
-
-    def fcam_pub(self):
-        if self.counter > self.thUpdate:
-            self.counter = 0
-            self.msg.position.x = self.x
-            self.msg.position.y = self.y
-            self.msg.orientation.z = self.yaw
-            self.pub.publish(self.msg)
-            
-        else:
-            
-            self.counter = self.counter + 1
-
-
-
-
-class EcuClass(object):
-    def __init__(self):
-        self.sub = rospy.Subscriber("ecu", ECU, self.ecu_callback, queue_size=1)
-        self.u = [0.0, 0.0]
-        self.du_0    = rospy.get_param("simulator/du_0")
-        self.du_1    = rospy.get_param("simulator/du_1")
-        self.u_bound = rospy.get_param("simulator/u_bound")
-        self.hist_noise = []
-
-    def ecu_callback(self,data):
-
-        n1 = max(-self.du_0*self.u_bound, min(self.du_0*(2*rand()-1), self.du_0*self.u_bound))
-        n2 = max(-self.du_1*self.u_bound, min(self.du_1*(2*rand()-1), self.du_1*self.u_bound))
-        self.hist_noise.append([n1,n2])
-        self.u = [data.motor + n1, data.servo + n2]
-
-
-"""
-
-
 class FlagClass(object):
+
+    '''
+    This message can be used for switching some desired states, or for fault diagnosis.
+    '''
 
     def __init__(self):
         self.flag_sub = rospy.Subscriber("flag", Bool, self.flag_callback, queue_size=1)
