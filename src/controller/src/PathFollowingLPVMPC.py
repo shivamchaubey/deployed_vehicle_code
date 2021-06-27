@@ -17,6 +17,9 @@ from math import cos, sin, atan, pi
 import osqp
 
 
+from eefig_learning.srv import LPVMat
+
+
 np.set_printoptions(formatter={'float': lambda x: "{0:0.3f}".format(x)})
 
 class PathFollowingLPV_MPC:
@@ -25,6 +28,22 @@ class PathFollowingLPV_MPC:
         solve: given x0 computes the control action
     """
     def __init__(self, N, vx_ref, dt, map):
+
+
+
+        # # EEFIG Learning
+        self.eefig_offline = rospy.get_param("/control/eefig_offline")
+
+        if self.eefig_offline == True:
+         
+            print("Waiting for EEFIG Learning Service '/get_LPV_matrices' ...")
+            rospy.wait_for_service('/get_LPV_matrices')
+            try:
+                self.eefig_get_lpv = rospy.ServiceProxy('/get_LPV_matrices', LPVMat)
+                print('connected.')
+
+            except rospy.ServiceException as e:
+                print("Service call failed: %s"%e)
 
 
         # Vehicle parameters:
@@ -965,8 +984,36 @@ class PathFollowingLPV_MPC:
                             [ 0 ]])
 
 
+            if self.eefig_offline == True:
+                
+                xk = np.hstack([states[0:3].T[0], [dutycycle, delta]]) # vx, vy, w, accel, delta 
+
+                resp = self.eefig_get_lpv(xk)
+                A = np.reshape(resp.A, [3,3])
+                B = np.reshape(resp.B, [3,2])
+
+                ## changing the order for control input
+                # print ("B before",B)
+                B = np.flip(B,axis = 1)
+                # print ("B after",B)
+
+                ## How discretization takes place?? We need here in continous domain. 
+                ## B matrix moght have to change according to the control input??  #[delta, a]
+                Ai[0:3, 0:3] = (A - np.eye(3)) / dt
+                Bi[0:3, 0:2] = B / dt
+
+                # Ai[0:3, 0:3] = A 
+                # Bi[0:3, 0:2] = B 
+
             Ai = np.eye(len(Ai)) + dt * Ai
             Bi = dt * Bi
+
+            # Ai[0:3, 0:3] = (A - np.eye(3)) / dt
+            # Bi[0:3, 0:2] = B / dt
+
+            # Ai[0:3, 0:3] = A 
+            # Bi[0:3, 0:2] = B 
+
             Ci = dt * Ci
 
             states_new = np.dot(Ai, states) + np.dot(Bi, np.transpose(np.reshape(u[i,:],(1,2))))
@@ -1270,21 +1317,21 @@ class PathFollowingLPV_MPC:
             #                 [1.0     ,   1.0 ,   0. ,  0., 0., 0.]]) # [ey]
 
 
-            # Ai = np.array([[A11    ,  A12 ,   A13 ,  0., 0., 0.],  # [vx]
-            #                 [0    ,  A22 ,   A23  ,  0., 0., 0.],  # [vy]
-            #                 [0    ,   A32 ,    A33  ,  0., 0., 0.],  # [wz]
-            #                 [A41   ,  A42 ,   1. ,   0., 0, 0. ],  # [epsi]
-            #                 [A51    ,  A52 ,   0. ,  0., 0., 0.],  # [s]
-            #                 [A61    ,  A62 ,   0. ,  0., 0., 0. ]]) # [ey]
+            Ai = np.array([[1.0    ,  1.0 ,   1.0 ,  0., 0., 0.],  # [vx]
+                            [0    ,  1.0 ,   1.0  ,  0., 0., 0.],  # [vy]
+                            [0    ,   1.0 ,    1.0  ,  0., 0., 0.],  # [wz]
+                            [1.0   ,  1.0 ,   1. ,   0., 0, 0. ],  # [epsi]
+                            [1.0    ,  1.0 ,   0. ,  0., 0., 0.],  # [s]
+                            [1.0    ,  1.0 ,   0. ,  0., 0., 0. ]]) # [ey]
 
 
             # working with -A1*A2*cur model
-            Ai = np.array([ [1.0    ,  1.0 ,   0.  ,  0., 0., 0.],  # [vx]
-                            [1.0    ,  1.0 ,   0.0   ,  0., 0., 0.],  # [vy]
-                            [1.0    ,   0.0  ,   0.0   ,  0., 0., 0.],  # [wz]
-                            [1.0    ,  1.0 ,   1.0 ,  0., 0., 0.],  # [epsi]
-                            [1.0    ,  1.0 ,   0.  ,  0., 0., 0.],  # [s]
-                            [1.0    ,  1.0 ,   0.  ,  0., 0., 0.]]) # [ey]
+            # Ai = np.array([ [1.0    ,  1.0 ,   0.  ,  0., 0., 0.],  # [vx]
+            #                 [1.0    ,  1.0 ,   0.0   ,  0., 0., 0.],  # [vy]
+            #                 [1.0    ,   0.0  ,   0.0   ,  0., 0., 0.],  # [wz]
+            #                 [1.0    ,  1.0 ,   1.0 ,  0., 0., 0.],  # [epsi]
+            #                 [1.0    ,  1.0 ,   0.  ,  0., 0., 0.],  # [s]
+            #                 [1.0    ,  1.0 ,   0.  ,  0., 0., 0.]]) # [ey]
 
             Bi  = np.array([[ 1.0, 1.0 ], #[delta, a]
                             [ 1.0,  0  ],
