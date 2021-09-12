@@ -128,9 +128,9 @@ def main():
         # simStates.yaw    = vehicle_sim.yaw
         # simStates.omega  = vehicle_sim.omega
 
-        print "\n <<<< STATS >>>>"
-        print "u", u 
-        print "simStates", simStates
+        print("\n <<<< STATS >>>>")
+        print("u", u) 
+        print("simStates", simStates)
 
         #if counter >= pub_rate/simulator_dt:
             # Publish input
@@ -376,11 +376,11 @@ class Vehicle_Simulator(object):
 
         dvx = (1/self.m)*(Frx - F_flat*sin(u[1]) + self.m*vy*omega);
 
-        print "\n <<< LATERAL FORCES >>>"
-        print "input",u 
-        print "F_flat", F_flat, "Fry", Fry
+        print("\n <<< LATERAL FORCES >>>")
+        print("input",u) 
+        print("F_flat", F_flat, "Fry", Fry)
         dvy = (1/self.m)*(F_flat*cos(u[1]) + Fry - self.m*vx*omega);
-        print "F_flat", F_flat, "Fry", Fry, "F_flat*cos(u[1])", F_flat*cos(u[1]), "self.m*vx*omega", self.m*vx*omega  
+        print("F_flat", F_flat, "Fry", Fry, "F_flat*cos(u[1])", F_flat*cos(u[1]), "self.m*vx*omega", self.m*vx*omega)  
         
         domega = (1.0/self.Iz)*(self.lf*F_flat*cos(u[1]) - self.lr*Fry);
 

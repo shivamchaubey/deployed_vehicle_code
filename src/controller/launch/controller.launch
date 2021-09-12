@@ -57,16 +57,15 @@
     <!-- CONTROL -->
     
     <node pkg="controller"      type="planner_controller.py"    name="control" output="screen">
-
-        <param name="Horizon"           type="int"      value="20" />
-        <param name="Hz"                type="double"   value="65" />
-        <param name="vel_ref"           type="double"   value="0.8"/>
-        <param name="lap_required"   type="int"     value="2"/>
-        <param name="integral_action"   type="bool"     value="false"/>
-        <param name="soft_constraints"  type="bool"     value="false"/>
-         <param name="trial_name"  type="string"     value="complex_model_time"/>
-         <param name="save_output"          type="bool"      value="1" />
-         <param name="non_uniform_sampling"          type="bool"      value="0" />
+        <param name="Horizon"                   type="int"      value="20" />
+        <param name="Hz"                        type="double"   value="65" />
+        <param name="vel_ref"                   type="double"   value="0.8"/>
+        <param name="lap_required"              type="int"      value="2"  />
+        <param name="integral_action"           type="bool"     value="false"  />
+        <param name="soft_constraints"          type="bool"     value="false"  />
+        <param name="trial_name"                type="string"   value="complex_model_time" />
+        <param name="save_output"               type="bool"     value="1"  />
+        <param name="non_uniform_sampling"      type="bool"     value="0"  />
     </node>
 
     <!--node pkg="planner" type="mpc_planner.py" name="trajectory_planner" output="screen"> 

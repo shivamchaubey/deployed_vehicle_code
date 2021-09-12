@@ -22,7 +22,7 @@ import scipy.io as sio
 ################## LQR GAIN PATH ####################
 gain_path = rospy.get_param("switching_lqr_observer/lqr_gain_path")
 gain_path = ('/').join(sys.path[0].split('/')[:-1]) + gain_path
-print "\n LQR gain path ={} \n".format(gain_path)
+print("\n LQR gain path ={} \n".format(gain_path))
 
 
 
@@ -34,7 +34,7 @@ class lidar_pose():
         Arguments:
             t0: starting measurement time
         """
-        print "waiting for lidar message"
+        print("waiting for lidar message")
         rospy.wait_for_message('/slam_out_pose', PoseStamped)
         rospy.Subscriber("/slam_out_pose", PoseStamped, self.pose_callback, queue_size=1)
         sim_on  = rospy.get_param("switching_lqr_observer/sim_on")
@@ -201,7 +201,7 @@ class IMU():
 
     def __init__(self,t0, N):
 
-        print "Waiting for IMU message"
+        print("Waiting for IMU message")
         rospy.wait_for_message('pose', Pose)
 
 
@@ -283,7 +283,7 @@ class IMU():
         # self.t0     = time.time()
         self.t0     = t0
 
-        print  "yaw_offset", self.yaw_offset
+        print("yaw_offset", self.yaw_offset)
 
 
         # Time for yawDot integration
@@ -521,7 +521,7 @@ class fiseye_cam():
 
     def __init__(self,t0,N = 10):
 
-        print "waiting for camera message"
+        print("waiting for camera message")
         rospy.wait_for_message('fused_cam_pose', Pose)
 
         # rospy.Subscriber('pure_cam_pose', Pose, self.pure_cam_pose_callback, queue_size=1)
@@ -1701,7 +1701,7 @@ def L_Computation(vx,vy,w,theta,delta,LQR_gain,sched_var,seq):
     elif vy > sched_vy[1] or vy < sched_vy[0]:
         print( '[ESTIMATOR/L_Gain_Comp]: Vy is out of the polytope ...' )
     elif delta > sched_delta[1] or delta < sched_delta[0]:
-        print( '[ESTIMATOR/L_Gain_Comp]: Steering is out of the polytope ... = ',delta)
+        print(( '[ESTIMATOR/L_Gain_Comp]: Steering is out of the polytope ... = ',delta))
 
 
     mu = np.zeros((seq.shape[0],1))
@@ -1936,14 +1936,14 @@ def main():
         if lidar_pose_on and cam_pose_on:
 
             time.sleep(1)
-            print  "yaw_offset", fcam.yaw
+            print("yaw_offset", fcam.yaw)
             imu.yaw_offset = imu.yaw - fcam.yaw
             time.sleep(1)
 
         else:
             if lidar_pose_on == True:
                 time.sleep(1)
-                print  "yaw_offset ", lidar.yaw
+                print("yaw_offset ", lidar.yaw)
                 imu.yaw_offset = imu.yaw -  lidar.yaw
                 time.sleep(1)
 
@@ -1951,7 +1951,7 @@ def main():
 
             if cam_pose_on == True:
                 time.sleep(1)
-                print  "yaw_offset", fcam.yaw
+                print("yaw_offset", fcam.yaw)
                 imu.yaw_offset = imu.yaw - fcam.yaw
                 time.sleep(1)
 
@@ -2160,7 +2160,7 @@ def main():
                 
             else:
                 
-                print "est theta", yaw_trans, yaw_trans*180.0/pi 
+                print("est theta", yaw_trans, yaw_trans*180.0/pi) 
 
                 display("ERROR Normalize the theta")
 
@@ -2217,9 +2217,9 @@ def main():
             ol_state[:-3] = 0.000001
 
 
-        print "\n <<<<<<<<< PRE WRAP >>>>>>>>>>>>>"
-        print "est_state",est_state
-        print "ol_state", ol_state
+        print("\n <<<<<<<<< PRE WRAP >>>>>>>>>>>>>")
+        print("est_state",est_state)
+        print("ol_state", ol_state)
 
 
         # est_state[5] = wrap(est_state[5])
@@ -2227,12 +2227,12 @@ def main():
         # est_state[5] = yaw_correction(est_state[5])
         # ol_state[5] = yaw_correction(ol_state[5])
         
-        print "\n <<<<<<<<< STATS >>>>>>>>>>>>>"
-        print "measured states", y_meas
-        print "est_state",est_state
-        print "ol_state", ol_state
-        print "input u", u
-        print "dt", dt
+        print("\n <<<<<<<<< STATS >>>>>>>>>>>>>")
+        print("measured states", y_meas)
+        print("est_state",est_state)
+        print("ol_state", ol_state)
+        print("input u", u)
+        print("dt", dt)
 
         # AC_sig = lidar.X
         # CC_sig = lidar.Y

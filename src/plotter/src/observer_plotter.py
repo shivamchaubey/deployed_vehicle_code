@@ -196,7 +196,7 @@ def getCarPosition(x, y, psi, w, l):
 '''All the three subscription is made from the estimator as it produces all this information'''
 class EstimatorData(object):
     def __init__(self):
-        print "subscribed to vehicle estimated states"
+        print("subscribed to vehicle estimated states")
         rospy.Subscriber("est_state_info", sensorReading, self.estimator_callback, queue_size=1)
         self.CurrentState = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]).T
     
@@ -206,7 +206,7 @@ class EstimatorData(object):
 class Vehicle_sim(object):
     def __init__(self):
         
-        print "subscribed to simulated vehicle"
+        print("subscribed to simulated vehicle")
         rospy.Subscriber('vehicle_simulatorStates', simulatorStates, self.meas_state_callback, queue_size=1)
         self.CurrentState = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]).T
     
@@ -216,7 +216,7 @@ class Vehicle_sim(object):
 class Vehicle_measurement(object):
     def __init__(self):
         
-        print "subscribed to vehicle measurement"
+        print("subscribed to vehicle measurement")
         rospy.Subscriber('meas_state_info', sensorReading, self.meas_state_callback, queue_size=1)
         self.CurrentState = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]).T
     
@@ -225,7 +225,7 @@ class Vehicle_measurement(object):
         
 class Vehicle_ol(object):
     def __init__(self):
-        print "subscribed to vehicle Vehicle model states"
+        print("subscribed to vehicle Vehicle model states")
         rospy.Subscriber('ol_state_info', sensorReading, self.vehicle_ol_state_callback, queue_size=1)
         self.CurrentState = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]).T
     
@@ -495,39 +495,39 @@ def main():
             ### Keep size of window to 100 points 
 
             # axs_dy[0,0].set_ylim(min(line_vx_ol_his) + , max(line_vx_ol_his) + ) # FOR SETTING THE DYNAMIC AXES
-            line_vx_ol.set_data( range(counter, counter + window_size ) ,line_vx_ol_his[ -window_size : ])
-            line_vx_est.set_data( range(counter, counter + window_size ) ,line_vx_est_his[ -window_size : ])
-            line_vx_meas.set_data( range(counter, counter + window_size ) ,line_vx_meas_his[ -window_size : ])
+            line_vx_ol.set_data( list(range(counter, counter + window_size)) ,line_vx_ol_his[ -window_size : ])
+            line_vx_est.set_data( list(range(counter, counter + window_size)) ,line_vx_est_his[ -window_size : ])
+            line_vx_meas.set_data( list(range(counter, counter + window_size)) ,line_vx_meas_his[ -window_size : ])
             axs_dy[0,0].set_xlim(counter, counter + window_size ) # FOR SETTING THE DYNAMIC AXES
             
             
-            line_vy_ol.set_data( range(counter, counter + window_size ) ,line_vy_ol_his[ -window_size : ])
-            line_vy_est.set_data( range(counter, counter + window_size ) ,line_vy_est_his[ -window_size : ])
-            line_vy_meas.set_data( range(counter, counter + window_size ) ,line_vy_meas_his[ -window_size : ])
+            line_vy_ol.set_data( list(range(counter, counter + window_size)) ,line_vy_ol_his[ -window_size : ])
+            line_vy_est.set_data( list(range(counter, counter + window_size)) ,line_vy_est_his[ -window_size : ])
+            line_vy_meas.set_data( list(range(counter, counter + window_size)) ,line_vy_meas_his[ -window_size : ])
             axs_dy[0,1].set_xlim(counter, counter + window_size ) # FOR SETTING THE DYNAMIC AXES
             
 
-            line_omega_ol.set_data( range(counter, counter + window_size ) ,line_omega_ol_his[ -window_size : ])
-            line_omega_est.set_data( range(counter, counter + window_size ) ,line_omega_est_his[ -window_size : ])
-            line_omega_meas.set_data( range(counter, counter + window_size ) ,line_omega_meas_his[ -window_size : ])
+            line_omega_ol.set_data( list(range(counter, counter + window_size)) ,line_omega_ol_his[ -window_size : ])
+            line_omega_est.set_data( list(range(counter, counter + window_size)) ,line_omega_est_his[ -window_size : ])
+            line_omega_meas.set_data( list(range(counter, counter + window_size)) ,line_omega_meas_his[ -window_size : ])
             axs_dy[1,0].set_xlim(counter, counter + window_size ) # FOR SETTING THE DYNAMIC AXES
             
             
-            line_X_ol.set_data( range(counter, counter + window_size ) ,line_X_ol_his[ -window_size : ])
-            line_X_est.set_data( range(counter, counter + window_size ) ,line_X_est_his[ -window_size : ])
-            line_X_meas.set_data( range(counter, counter + window_size ) ,line_X_meas_his[ -window_size : ])
+            line_X_ol.set_data( list(range(counter, counter + window_size)) ,line_X_ol_his[ -window_size : ])
+            line_X_est.set_data( list(range(counter, counter + window_size)) ,line_X_est_his[ -window_size : ])
+            line_X_meas.set_data( list(range(counter, counter + window_size)) ,line_X_meas_his[ -window_size : ])
             axs_dy[1,1].set_xlim(counter, counter + window_size ) # FOR SETTING THE DYNAMIC AXES
             
 
-            line_Y_ol.set_data( range(counter, counter + window_size ) ,line_Y_ol_his[ -window_size : ])
-            line_Y_est.set_data( range(counter, counter + window_size ) ,line_Y_est_his[ -window_size : ])
-            line_Y_meas.set_data( range(counter, counter + window_size ) ,line_Y_meas_his[ -window_size : ])
+            line_Y_ol.set_data( list(range(counter, counter + window_size)) ,line_Y_ol_his[ -window_size : ])
+            line_Y_est.set_data( list(range(counter, counter + window_size)) ,line_Y_est_his[ -window_size : ])
+            line_Y_meas.set_data( list(range(counter, counter + window_size)) ,line_Y_meas_his[ -window_size : ])
             axs_dy[2,0].set_xlim(counter, counter + window_size ) # FOR SETTING THE DYNAMIC AXES
             
 
-            line_yaw_ol.set_data( range(counter, counter + window_size ) ,line_yaw_ol_his[ -window_size : ])
-            line_yaw_est.set_data( range(counter, counter + window_size ) ,line_yaw_est_his[ -window_size : ])
-            line_yaw_meas.set_data( range(counter, counter + window_size ) ,line_yaw_meas_his[ -window_size : ])
+            line_yaw_ol.set_data( list(range(counter, counter + window_size)) ,line_yaw_ol_his[ -window_size : ])
+            line_yaw_est.set_data( list(range(counter, counter + window_size)) ,line_yaw_est_his[ -window_size : ])
+            line_yaw_meas.set_data( list(range(counter, counter + window_size)) ,line_yaw_meas_his[ -window_size : ])
             axs_dy[2,1].set_xlim(counter, counter + window_size ) # FOR SETTING THE DYNAMIC AXES
             
 
@@ -546,8 +546,8 @@ def main():
 
         if control_visualization == True and counter >= 100:
 
-            line_dutycycle.set_data(range(counter, counter + window_size ) ,line_dutycycle_his[ -window_size : ])
-            line_steer.set_data(range(counter, counter + window_size ) ,line_steer_his[ -window_size : ])
+            line_dutycycle.set_data(list(range(counter, counter + window_size)) ,line_dutycycle_his[ -window_size : ])
+            line_steer.set_data(list(range(counter, counter + window_size)) ,line_steer_his[ -window_size : ])
             plt_cont.xlim(counter, counter + window_size )
             
             fig_cont.canvas.draw()
@@ -634,7 +634,7 @@ def main():
     # clip = ImageSequenceClip(list(np.array(image_veh_his)), fps=20)
     # clip.write_gif('test.gif', fps=20)
 
-    print "Saved"
+    print("Saved")
     
 if __name__ == '__main__':
     try:

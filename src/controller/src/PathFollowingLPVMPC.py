@@ -184,7 +184,7 @@ class PathFollowingLPV_MPC:
         self.Qeps  = sparse.diags(self.Qew)
         
 
-        PQx = sparse.block_diag([sparse.kron(sparse.eye(N), self.Q), self.QN], format='csc')
+        PQx = sparse.block_diag([sparse.kron(sparse.eye(N), self.Q), self.QN], format='csr')
         PQu = sparse.kron(sparse.eye(N), self.R)
         idu = (2 * np.eye(N) - np.eye(N, k=1) - np.eye(N, k=-1))
         PQdu = sparse.kron(idu, self.dR)
@@ -200,19 +200,19 @@ class PathFollowingLPV_MPC:
         
         '''Objective function formulation'''
         if self.soft_constraints_on and self.slew_rate_on:
-            self.P = sparse.block_diag([PQx, PQu + PQdu, PQeps], format='csc')
+            self.P = sparse.block_diag([PQx, PQu + PQdu, PQeps], format='csr')
             self.q = np.hstack([qQx, qQu + qQdu, qQeps])
 
         elif self.slew_rate_on:
-            self.P = sparse.block_diag([PQx, PQu + PQdu], format='csc')
+            self.P = sparse.block_diag([PQx, PQu + PQdu], format='csr')
             self.q = np.hstack([qQx, qQu + qQdu])
 
         elif self.soft_constraints_on:
-            self.P = sparse.block_diag([PQx, PQu, PQeps], format='csc')
+            self.P = sparse.block_diag([PQx, PQu, PQeps], format='csr')
             self.q = np.hstack([qQx, qQu, qQeps])
 
         else:
-            self.P = sparse.block_diag([PQx, PQu], format='csc')
+            self.P = sparse.block_diag([PQx, PQu], format='csr')
             self.q = np.hstack([qQx, qQu])
             
         
@@ -275,7 +275,6 @@ class PathFollowingLPV_MPC:
             self.l = np.hstack([self.leq, self.lineq_x, self.lineq_u])
             self.u = np.hstack([self.ueq, self.uineq_x, self.uineq_u])
 
-
         ##### vector of non zero element is needed to update the sparse matrix #####
         At = self.A.transpose(copy=True) 
         At.sort_indices()
@@ -315,7 +314,7 @@ class PathFollowingLPV_MPC:
             qQx  = np.hstack([np.kron(np.ones(N), -self.Q.dot(xr)), -self.QN.dot(xr)])
 
             ############### Update vector q  ##############        
-            print "qQx.shape", qQx.shape
+            print("qQx.shape", qQx.shape)
             self.q[:qQx.shape[0]] = qQx
             
 
@@ -334,8 +333,11 @@ class PathFollowingLPV_MPC:
         if self.soft_constraints_on:
             self.Aeq = sparse.hstack([self.Aeq, sparse.csc_matrix((self.Aeq.shape[0], (N + 1) * nx))])
 
-        ############### Update equality constraints ##############        
-        self.A[:self.Aeq.shape[0], :self.Aeq.shape[1]] = self.Aeq
+        ############### Update equality constraints ##############
+        print("SHAPE0!: ", self.Aeq.shape)
+        print("SHAPE1!: ", self.A.shape)
+
+        self.A[:self.Aeq.shape[0], :self.Aeq.shape[1]].A = self.Aeq
         self.l[:nx] = -x0
         self.u[:nx] = -x0
 
@@ -430,7 +432,7 @@ class PathFollowingLPV_MPC:
     #     self.Qeps  = sparse.diags(self.Qew)
         
 
-    #     PQx = sparse.block_diag([sparse.kron(sparse.eye(N), self.Q), self.QN], format='csc')
+    #     PQx = sparse.block_diag([sparse.kron(sparse.eye(N), self.Q), self.QN], format='csr')
     #     PQu = sparse.kron(sparse.eye(N), self.R)
     #     idu = (2 * np.eye(N) - np.eye(N, k=1) - np.eye(N, k=-1))
     #     PQdu = sparse.kron(idu, self.dR)
@@ -446,19 +448,19 @@ class PathFollowingLPV_MPC:
         
     #     '''Objective function formulation'''
     #     if self.soft_constraints_on and self.slew_rate_on:
-    #         self.P = sparse.block_diag([PQx, PQu + PQdu, PQeps], format='csc')
+    #         self.P = sparse.block_diag([PQx, PQu + PQdu, PQeps], format='csr')
     #         self.q = np.hstack([qQx, qQu + qQdu, qQeps])
 
     #     elif self.slew_rate_on:
-    #         self.P = sparse.block_diag([PQx, PQu + PQdu], format='csc')
+    #         self.P = sparse.block_diag([PQx, PQu + PQdu], format='csr')
     #         self.q = np.hstack([qQx, qQu + qQdu])
 
     #     elif self.soft_constraints_on:
-    #         self.P = sparse.block_diag([PQx, PQu, PQeps], format='csc')
+    #         self.P = sparse.block_diag([PQx, PQu, PQeps], format='csr')
     #         self.q = np.hstack([qQx, qQu, qQeps])
 
     #     else:
-    #         self.P = sparse.block_diag([PQx, PQu], format='csc')
+    #         self.P = sparse.block_diag([PQx, PQu], format='csr')
     #         self.q = np.hstack([qQx, qQu])
             
         
@@ -1066,7 +1068,7 @@ class PathFollowingLPV_MPC:
 
             # omega   = ref[2][i]
             # vy      = ref[1][i]
-            print 'i',i, len(ref[0])
+            print('i',i, len(ref[0]))
             vx      = ref[0][i]
             cur     = ref[6][i]
             # ey      = ref[5][i]
