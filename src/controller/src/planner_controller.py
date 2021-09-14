@@ -44,7 +44,6 @@ from scipy import signal
 # from tqdm import tqdm
 from planner.msg import My_Planning
 
-
 np.set_printoptions(formatter={'float': lambda x: "{0:0.3f}".format(x)})
 
 
@@ -64,6 +63,7 @@ class EstimatorData(object):
         Unpack the messages from the estimator
         """
         self.CurrentState = np.array([msg.vx, msg.vy, msg.yaw_rate, msg.X, msg.Y, msg.yaw]).T
+
 
 ########## Full state estimation from observer #############
 class planner_ref(object):
@@ -106,6 +106,7 @@ def wrap(angle):
 
     return w_angle
 
+
 ######## state and input vector generation for MPC initial setup #########
 def predicted_vectors_generation(Hp, x0, accel_rate, delta, dt):
 
@@ -142,7 +143,6 @@ def predicted_vectors_generation(Hp, x0, accel_rate, delta, dt):
     return xx, uu
 
 
-
 class predicted_states_msg():
         
     def __init__(self):
@@ -154,8 +154,8 @@ class predicted_states_msg():
         self.MPC_prediction_states = Path()
         self.pose_stamp = PoseStamped()
 
-    def LPV_msg_update(self, map, data):
 
+    def LPV_msg_update(self, map, data):
 
         self.LPV_prediction_states.header.stamp = rospy.Time.now()
         self.LPV_prediction_states.header.frame_id = "/map" #"/lpv_predictions"
@@ -183,7 +183,7 @@ class predicted_states_msg():
             self.LPV_prediction_states.poses.append(self.pose_stamp) 
 
         self.LPV_prediction_state_pub.publish(self.LPV_prediction_states)
-    # def MPC_update(self):
+
 
 def interpolate_references(planner_dt, planner_N, controller_dt, x_ref_p, y_ref_p, yaw_ref_p, vx_ref_p, vy_ref_p, omega_ref_p, epsi_ref_p,\
  ey_ref_p, s_ref_p, curv_ref_p, steer_ref_p, duty_ref_p):
@@ -660,7 +660,7 @@ def main():
             ey_ref      = ey_ref_interp[offline_counter,planner_index:(planner_index+N)]  
             s_ref       = s_ref_interp[offline_counter,planner_index:(planner_index+N)]  
             curv_ref    = curv_ref_interp[offline_counter,planner_index:(planner_index+N)]  
-            steer_ref    = steer_ref_interp[offline_counter,planner_index:(planner_index+N)]  
+            steer_ref   = steer_ref_interp[offline_counter,planner_index:(planner_index+N)]  
             duty_ref    = duty_ref_interp[offline_counter,planner_index:(planner_index+N)]  
 
             print("vx_ref.shape", vx_ref.shape)
@@ -772,10 +772,6 @@ def main():
             Controller.uminus1 = Controller.uPred[0,:]
 
         else:
-
-            # print "Controller.uminus1", Controller.uminus1
-
-            # print "LPV_States_Prediction", LPV_States_Prediction
             
             if first_it == 4:
                 print("MPC setup")
@@ -791,7 +787,6 @@ def main():
 
                 else:
 
-                    
                     LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction_setup()
                     
                     Controller.MPC_setup(A_L, B_L, Controller.uPred, LocalState[0:6], Vx_ref) 

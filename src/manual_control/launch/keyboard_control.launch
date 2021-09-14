@@ -5,12 +5,12 @@
   </node>
 
 
-	<arg name="record_data" default="false"/>
-    <arg name="bags_directory" value="/root/my_pkg/workspace/src/manual_control/data/data_record"/>
+	<arg name="record_data" default="true"/>
+    <arg name="bags_directory" value="/home/felix/Desktop/ws_IRI/src/deployed_vehicle_code/src/manual_control/data/data_record"/>
 
 
     <!-- Record bag -->
     <node name="bag_record" pkg="rosbag" type="record"
-        args="record -o $(arg bags_directory)"
+        args="record -a -o $(arg bags_directory)"
         if="$(eval record_data)"/>
 </launch>

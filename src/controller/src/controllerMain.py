@@ -138,9 +138,6 @@ class predicted_states_msg():
             self.LPV_prediction_states.poses.append(self.pose_stamp) 
 
         self.LPV_prediction_state_pub.publish(self.LPV_prediction_states)
-    # def MPC_update(self):
-
-
 
 
 def main():

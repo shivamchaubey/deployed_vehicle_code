@@ -334,9 +334,6 @@ class PathFollowingLPV_MPC:
             self.Aeq = sparse.hstack([self.Aeq, sparse.csc_matrix((self.Aeq.shape[0], (N + 1) * nx))])
 
         ############### Update equality constraints ##############
-        print("SHAPE0!: ", self.Aeq.shape)
-        print("SHAPE1!: ", self.A.shape)
-
         self.A[:self.Aeq.shape[0], :self.Aeq.shape[1]].A = self.Aeq
         self.l[:nx] = -x0
         self.u[:nx] = -x0
