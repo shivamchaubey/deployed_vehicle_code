@@ -822,9 +822,12 @@ def main():
                     Controller.MPC_solve()
                     contr_his_opti_time.append(time.time() - tcpu)
 
+                #############################
+                #   HERE HERE HERE HERE     #
+                #############################
 
                 else:
-                    LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction(LocalState[0:6], Controller.uPred, vel_ref, curv_ref)
+                    LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction_eefig(LocalState[0:6], Controller.uPred, vel_ref, curv_ref)
 
                     # LPV_States_Prediction, A_L, B_L, C_L = Controller.LPVPrediction(LocalState[0:6], Controller.uPred, vel_ref, curv_ref,  )
                 

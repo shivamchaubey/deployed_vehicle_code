@@ -13,7 +13,7 @@ ssty.arduino
 .catkin_tools/
 .catkin_workspace
 
-
+__pycache__/
 error.txt
 log.txt
 nano.save
