@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>eefig_learning</name>
+  <version>0.0.0</version>
+  <description>The visualization package</description>
+  
+  <maintainer email="martivalverde.98@gmail.com">Felix Martí Valverde</maintainer>
+
+  <license>TODO</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  
+  <depend>roscpp</depend>  
+  <depend>std_msgs</depend>
+
+  <build_depend>message_generation</build_depend>
+  <exec_depend>message_runtime</exec_depend>
+
+</package>

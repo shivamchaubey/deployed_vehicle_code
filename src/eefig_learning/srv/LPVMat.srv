@@ -1,0 +1,4 @@
+float32[] xk
+---
+float32[] A
+float32[] B

@@ -1,0 +1,15 @@
+<launch>
+
+    <node pkg="eefig_learning"      type="LPV_MPC_EEFIG_node.py"    name="lpv_mpc_eefig" output="screen">
+
+        <!-- Address Configuration File relative to the 'saves' file -->
+        <param name="configuration_file"        type="string"   value="rc_car_model1" />
+        <param name="online_learning"           type="bool"     value="false" />
+
+        <!-- Topics for EEFIG Learning -->
+        <!-- NOTE: Spaces to split the topics --> 
+        <param name="xk_topics"                 type="string"   value= "/est_state_info/vx /est_state_info/vy /est_state_info/yaw_rate /control/accel/data /control/steering/data"/>
+
+    </node>
+
+</launch>
